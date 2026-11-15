@@ -17,6 +17,8 @@ var attacks: AttacksPanel
 var feed: EventFeed
 var alert: AlertBanner
 var spawn: SpawnOverlay
+var topbar: ClientTopbar
+var _state_seen := ""
 var _seen_nukes := {}
 var _pending_toasts: Array = []
 var _phase := -1
@@ -61,6 +63,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(feed)
 	alert = AlertBanner.new(ctx)
 	root.add_child(alert)
+	topbar = ClientTopbar.new(self)
+	root.add_child(topbar)
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
 		if ctx.compact:
@@ -115,10 +119,11 @@ func layout() -> void:
 	ctx.compact = vp.y < 560.0 or vp.x < 900.0
 	# (the single-row bar: ten slots, plus the Arsenal's SHOP slot and a slot per unlocked kind)
 	ctx.wide = vp.x >= 1420.0 + bar.extra_width() + 62.0 * bar.port_slots.size()
-	# the top-left corner belongs to the top-bar buttons (still drawn by the old HUD)
-	if g.hud != null and g.hud.topbar != null:
-		var tr: Rect2 = g.hud.topbar.get_global_rect()
-		ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
+	# the top-left corner belongs to the top-bar buttons (and the speed chip under them)
+	topbar.layout()
+	var tr := topbar.topbar_rect()
+	ctx.airship_bar = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 2.0)
+	ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
 	top.apply_layout()
 	spawn.apply_layout()
 	bar.apply_layout()
@@ -306,6 +311,10 @@ func process(dt: float) -> void:
 	var in_match: bool = (g.state == "play" or g.state == "pick" or g.state == "over") and g.nations.size() > g.PLAYER
 	var play: bool = g.state == "play" and in_match
 	ctx.state_mode = ctx.mode()
+	if g.state != _state_seen:
+		_state_seen = g.state
+		topbar.refresh()
+		layout()
 	var ph: int = ctx.state.phase if in_match else -1
 	if ph != _phase:
 		var before := _phase

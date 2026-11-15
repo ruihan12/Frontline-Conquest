@@ -242,6 +242,10 @@ func _topbar_pressed(key: String) -> void:
 	refresh_topbar()
 
 func refresh_topbar() -> void:
+	if replaced:
+		topbar.visible = false
+		if m.client != null: m.client.topbar.refresh()
+		return
 	var in_match: bool = m.state == "play" or m.state == "pick"
 	for k in ["leaderboard", "home", "menu"]:
 		tb_buttons[k].visible = in_match
