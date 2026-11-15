@@ -1,0 +1,75 @@
+# The client's Session: upstream's Session surface (src/client/Session.luau as the UI uses it) over
+# main.gd. Solo only: an intent is applied to the local simulation at once.
+class_name RWSession
+extends RefCounted
+
+const MP_TIME_LIMIT_S := 2400.0
+
+var g  # main.gd
+var lobby := {}
+## UICtx.MODE_*
+var mode: int:
+	get:
+		return UICtx.MODE_TITLE if g.state == "menu" else UICtx.MODE_SOLO
+
+
+func _init(main) -> void:
+	g = main
+
+
+func send_intent(intent: Dictionary) -> void:
+	var me: int = g.PLAYER
+	match String(intent.get("type", "")):
+		"attack":
+			g.intent_attack(me, int(intent.get("tile", -1)), float(intent.get("ratio", 0.25)))
+		"boat":
+			g.launch_boat(me, int(intent.get("tile", -1)), float(intent.get("ratio", 0.25)))
+		"build", "nuke":
+			var k: int = RWGameState.BUILD_ID.get(String(intent.get("kind", "")), -1)
+			if k >= 0:
+				for _i in maxi(1, int(intent.get("amount", 1))):
+					if not g.try_build(k, int(intent.get("tile", -1))):
+						break
+		"reinforce":
+			g.try_build(13, -1)
+		"retreat":
+			var a = intent.get("attack")
+			if a != null:
+				g.retreat(a.get("raw", a))
+		_:
+			if g.has_method("client_intent"):
+				g.client_intent(intent)
+
+
+func has_unlock(key: String) -> bool:
+	var it = ArsenalData.item(key)
+	if it == null:
+		return true
+	return bool(g.unlocked(it.local_id))
+
+
+func set_paused(on: bool) -> void:
+	if g.has_method("set_sim_paused"):
+		g.set_sim_paused(on)
+
+
+func local_display_name() -> String:
+	return "Commander"
+
+
+func load_settings(section: String):
+	var cf := ConfigFile.new()
+	if cf.load("user://rw_client.cfg") != OK or not cf.has_section(section):
+		return {}
+	var out := {}
+	for k in cf.get_section_keys(section):
+		out[k] = cf.get_value(section, k)
+	return out
+
+
+func save_settings(section: String, values: Dictionary) -> void:
+	var cf := ConfigFile.new()
+	cf.load("user://rw_client.cfg")
+	for k in values:
+		cf.set_value(section, k, values[k])
+	cf.save("user://rw_client.cfg")

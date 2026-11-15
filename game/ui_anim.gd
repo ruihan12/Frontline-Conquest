@@ -89,6 +89,7 @@ func _btn_anim(b: Button, mode: String, lift: bool) -> void:
 func _set_share(i: int) -> void:
 	share_i = clampi(i, 0, SHARES.size() - 1)
 	if hud: hud.on_share_changed()
+	if client: client.on_share_changed()
 	for k in share_btns.size():
 		_pill(share_btns[k], false)
 		share_btns[k].add_theme_color_override("font_color", Color(0.1, 0.08, 0.05) if k == share_i else Color(0.82, 0.86, 0.95))

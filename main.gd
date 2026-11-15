@@ -228,6 +228,7 @@ func _process_inner(dt: float) -> void:
 	_update_tooltip()
 	_animate_ui(rdt)
 	if hud: hud.process(rdt)
+	if client: client.process(rdt)
 	if note_box: _tick_notes(rdt)
 	_tick_ally_card()
 	ov_t += rdt

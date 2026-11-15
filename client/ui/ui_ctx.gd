@@ -23,21 +23,6 @@ const RATIO_STOPS: Array[float] = [0.10, 0.25, 0.35, 0.50, 0.75]
 const DEFAULT_RATIO := 0.25
 const TICK_RATE := 10.0  # Defs.TICK_RATE
 
-# Defs: phases, owner kinds, terrain
-const PHASE_LOBBY := 0
-const PHASE_SPAWN := 1
-const PHASE_PLAYING := 2
-const PHASE_OVER := 3
-const KIND_TRIBE := 0
-const KIND_NATION := 1
-const KIND_HUMAN := 2
-const T_OCEAN := 0
-const T_LAKE := 1
-const T_PLAINS := 2
-const T_HIGHLAND := 3
-const T_MOUNTAIN := 4
-const T_TUNDRA := 5
-const T_ICECAP := 6
 
 const SFX := {
 	"hover": "ui_hover", "click": "ui_click", "open": "ui_open", "close": "ui_back", "deny": "ui_error",
@@ -76,8 +61,8 @@ var state = null  # client/game_state.gd (RWGameState)
 var state_mode := MODE_TITLE
 ## The UI root Control (full screen) once UIRoot built it.
 var root: Control = null
-var rules = null  # UIRules
-## Persisted settings ([ui] section of user://settings.cfg).
+var rules: UIRules = null
+## Persisted settings ([ui] section of user://rw_client.cfg).
 var settings := {}
 # Layout metrics (logical px)
 var vp := Vector2(1600, 900)
@@ -121,6 +106,7 @@ var sound_serial := 0
 
 
 func _init() -> void:
+	rules = UIRules.new(self)
 	_load_settings()
 	ratio = DEFAULT_RATIO
 
@@ -208,7 +194,7 @@ func needs_spawn() -> bool:
 	if o == null or not o.alive or not in_match() or state == null:
 		return false
 	var ph: int = state.phase
-	return (not o.spawned) and (ph == PHASE_SPAWN or ph == PHASE_PLAYING)
+	return (not o.spawned) and (ph == Defs.PHASE_SPAWN or ph == Defs.PHASE_PLAYING)
 
 
 func alive_player() -> bool:
@@ -649,9 +635,9 @@ func at_war(id: int) -> bool:
 
 
 func kind_title(kind: int) -> String:
-	if kind == KIND_TRIBE:
+	if kind == Defs.KIND_TRIBE:
 		return "Tribe"
-	elif kind == KIND_HUMAN:
+	elif kind == Defs.KIND_HUMAN:
 		return "Commander"
 	return "Nation"
 
@@ -667,13 +653,13 @@ func terrain_title(tile: int) -> String:
 	if s.has_fallout(tile):
 		return "Fallout"
 	match terrain_at(tile):
-		T_OCEAN: return "Ocean"
-		T_LAKE: return "Lake"
-		T_PLAINS: return "Plains"
-		T_HIGHLAND: return "Highland"
-		T_MOUNTAIN: return "Mountains"
-		T_TUNDRA: return "Tundra"
-		T_ICECAP: return "Ice cap"
+		Defs.T_OCEAN: return "Ocean"
+		Defs.T_LAKE: return "Lake"
+		Defs.T_PLAINS: return "Plains"
+		Defs.T_HIGHLAND: return "Highland"
+		Defs.T_MOUNTAIN: return "Mountains"
+		Defs.T_TUNDRA: return "Tundra"
+		Defs.T_ICECAP: return "Ice cap"
 	return ""
 
 

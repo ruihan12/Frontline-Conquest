@@ -8,6 +8,7 @@ const TS := 2.0  # pixels per tile
 const RK := preload("res://ui_upstream/rw_kit.gd")
 const RW_HUD := preload("res://ui_upstream/rw_hud.gd")
 var hud  # ui_upstream/rw_hud.gd: the upstream in-match HUD
+var client: ClientHud  # client/ui/client_hud.gd: the remade client (parts ported line by line)
 const WATER := -1
 const ICE := -2
 const NEUTRAL := 0

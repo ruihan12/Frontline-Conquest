@@ -194,6 +194,11 @@ func _build_ui() -> void:
 	hud = RW_HUD.new(); hud.name = "RwHudCtl"; add_child(hud)
 	hud.build(self)
 	ui.move_child(hud.root, legacy.get_index())
+	# the remade client's parts sit above the old HUD; the old command bar is no longer shown
+	client = ClientHud.new(); client.name = "ClientHudCtl"; add_child(client)
+	client.setup(self, ui, hud.root.get_index() + 1)
+	hud.bar.get_parent().visible = false
+	hud.groups.erase(hud.bar.get_parent())
 	hud_nodes = hud.groups.duplicate()
 	note_box = Control.new(); note_box.position = Vector2(16, 96); note_box.size = Vector2(380, 480)
 	note_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
