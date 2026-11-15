@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 29608 of 52913 upstream lines accounted for (54 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Not yet ported: the placement ghost, map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
+Progress: 30217 of 52913 upstream lines accounted for (59 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. Not yet ported: map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -29,10 +29,10 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/ArsenalButton.luau | 304 | client/ui/arsenal_button.gd | done, live (title screen, opens the Arsenal window) |
 | src/client/UI/ArsenalDemo.luau | 1462 | client/ui/arsenal_demo.gd | todo |
 | src/client/UI/AttacksPanel.luau | 462 | client/ui/attacks_panel.gd | done, live |
-| src/client/UI/Banner.luau | 188 | client/ui/banner.gd | todo |
+| src/client/UI/Banner.luau | 188 | client/ui/banner.gd | done, live (THE WAR BEGINS) |
 | src/client/UI/BorderTracker.luau | 327 | client/borders.gd | replaced: its surface answered by the game (no tracked border set) |
 | src/client/UI/BuildButton.luau | 486 | client/ui/build_button.gd | done, live |
-| src/client/UI/BusyChip.luau | 118 | client/ui/busy_chip.gd | todo |
+| src/client/UI/BusyChip.luau | 118 | client/ui/busy_chip.gd | done, live (shown while a match is built, with progress) |
 | src/client/UI/ChestView.luau | 117 | - | not applicable: crate store (Robux) |
 | src/client/UI/Coach.luau | 477 | client/ui/coach.gd | todo |
 | src/client/UI/CommandBar.luau | 965 | client/ui/command_bar.gd | done, live (+ port-only ICBM slot) |
@@ -49,14 +49,14 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/GlassPanel.luau | 216 | client/ui/glass_panel.gd | ported |
 | src/client/UI/GlobeNotice.luau | 251 | - | not applicable: Roblox EditableImage permission notice |
 | src/client/UI/HelpOverlay.luau | 712 | client/ui/help_overlay.gd | done, live (key list and credits are this port's) |
-| src/client/UI/HoldRing.luau | 71 | client/ui/hold_ring.gd | todo |
+| src/client/UI/HoldRing.luau | 71 | client/ui/hold_ring.gd | done (touch long-press ring; driven by MapInput, not ported yet) |
 | src/client/UI/Leaderboard.luau | 663 | client/ui/leaderboard.gd | done, live (head shots / cosmetic flags left out) |
 | src/client/UI/Locker.luau | 964 | - | not applicable: cosmetics locker (accounts) |
 | src/client/UI/MapPicker.luau | 340 | client/ui/map_picker.gd | done, live (tabs are the port's three map tables; REROLL chip on Random) |
 | src/client/UI/NextMatch.luau | 161 | - | not applicable: multiplayer lobby |
 | src/client/UI/PartyPanel.luau | 471 | - | not applicable: Roblox parties |
 | src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | done, live (Settings row opens the port's own Settings window) |
-| src/client/UI/PlaceConfirm.luau | 221 | client/ui/place_confirm.gd | todo |
+| src/client/UI/PlaceConfirm.luau | 221 | client/ui/place_confirm.gd | done, wired (touch placement; dormant with a mouse) |
 | src/client/UI/Prices.luau | 117 | - | not applicable: Robux prices |
 | src/client/UI/RadialMenu.luau | 756 | client/ui/radial_menu.gd | done, live (segments drawn as vectors, not masks) |
 | src/client/UI/RatioSlider.luau | 254 | client/ui/ratio_slider.gd | done, live |
@@ -76,10 +76,10 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/TouchRouter.luau | 120 | - | not applicable: multi-touch routing on Roblox |
 | src/client/UI/TrayFit.luau | 63 | client/ui/tray_fit.gd | done |
 | src/client/UI/Tutorial.luau | 652 | client/ui/tutorial.gd | todo |
-| src/client/UI/UIAdvisor.luau | 917 | client/ui/ui_advisor.gd | todo |
+| src/client/UI/UIAdvisor.luau | 917 | client/ui/ui_advisor.gd | part: war_begins (in client_hud.gd) |
 | src/client/UI/UICtx.luau | 1490 | client/ui/ui_ctx.gd | done (Roblox-only drawing / module helpers left out) |
-| src/client/UI/UIInteract.luau | 1745 | client/ui/ui_interact.gd | part: hover card, action ring, left clicks (on_click, target card flow, warship select and move, pick); placement ghost and keys to do |
-| src/client/UI/UIKern.luau | 11 | client/ui/ui_kern.gd | todo |
+| src/client/UI/UIInteract.luau | 1745 | client/ui/ui_interact.gd | part: hover card, action ring, left clicks, warships, placement (_place, nuke lock, touch ghost); select_action, keys and touch input to do |
+| src/client/UI/UIKern.luau | 11 | - | not needed: Godot applies the font's kerning itself |
 | src/client/UI/UILayoutProbe.luau | 215 | - | not applicable: Roblox safe-area / top-bar probing |
 | src/client/UI/UIMaps.luau | 102 | client/ui/ui_maps.gd | done, live |
 | src/client/UI/UIRoot.luau | 2636 | client/ui/ui_root.gd | todo |

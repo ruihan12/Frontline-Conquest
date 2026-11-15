@@ -53,6 +53,7 @@ func _add_shake(amount: float) -> void:
 
 func _load_progress(v: float) -> void:
 	if load_bar: load_bar.value = v * 100.0
+	if client != null and _loading: client.set_loading(true, v)
 
 func _start_game_ui() -> void:
 	if _loading: return
@@ -68,6 +69,10 @@ func _start_game_ui() -> void:
 		load_bar.add_theme_stylebox_override("background", _flat(Color(1, 1, 1, 0.10), 9, Color(0, 0, 0, 0), 0))
 		load_bar.add_theme_stylebox_override("fill", _flat(ORANGE_Y, 9, Color(0, 0, 0, 0), 0))
 		load_ov.add_child(load_bar)
+	if client != null:
+		# the ported busy chip shows the progress: the overlay only blocks clicks
+		(load_ov as ColorRect).color = Color(0, 0, 0, 0)
+		for ch in load_ov.get_children(): ch.visible = false
 	load_ov.visible = true; load_ov.move_to_front(); _load_progress(0.05)
 	await get_tree().process_frame
 	await get_tree().process_frame
@@ -81,6 +86,7 @@ func _start_game_ui() -> void:
 	_skip_gen = false
 	load_ov.visible = false
 	_loading = false
+	if client != null: client.set_loading(false)
 
 func _start_game() -> void:
 	_ema_init = false

@@ -721,7 +721,10 @@ func _uishot() -> void:
 				for _f in 20: await get_tree().process_frame
 				_shot("2g_unit_card.png")
 				client.interact.deselect_unit()
-			for _f in 10: await get_tree().process_frame
+			client.war_begins()
+			for _f in 4: await get_tree().process_frame
+			_shot("2h_banner.png")
+			for _f in 150: await get_tree().process_frame
 	hud.open_menu()
 	for _f in 30: await get_tree().process_frame
 	_shot("3_menu.png")

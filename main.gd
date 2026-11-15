@@ -1361,7 +1361,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				lpress = true; dragging = false; drag_from = e.position
 			else:
 				if lpress and not dragging and e.button_index == MOUSE_BUTTON_LEFT:
-					if state == "play" and build_sel >= 0: try_build(build_sel, _mouse_tile())
+					if state == "play" and build_sel >= 0 and (client == null or client.interact.aim_kind == ""): try_build(build_sel, _mouse_tile())
 					elif (state == "pick" or state == "play") and client != null: client.on_click()
 					elif state == "pick":
 						_place_start(_mouse_tile())

@@ -26,6 +26,9 @@ var radial: RadialMenu
 var float_layer: Control
 var title: TitleScreen
 var target_card: TargetCard
+var place_confirm: PlaceConfirm
+var hold_ring: HoldRing
+var busy: BusyChip
 var unit_card: UnitCard
 var map_picker: MapPicker
 var _hover_seen := -2
@@ -160,6 +163,18 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	unit_card.bar = bar
 	root.add_child(unit_card)
 	root.move_child(unit_card, bar.get_index() + 1)
+	place_confirm = PlaceConfirm.new(ctx)
+	place_confirm.bar = bar
+	root.add_child(place_confirm)
+	root.move_child(place_confirm, bar.get_index() + 1)
+	place_confirm.blockers = func() -> Array: return [top.panel.get_global_rect()] if top.visible else []
+	place_confirm.confirmed.connect(func() -> void: interact.confirm_ghost())
+	place_confirm.cancelled.connect(func() -> void: interact.cancel_aim())
+	interact.place_confirm = place_confirm
+	hold_ring = HoldRing.new(ctx)
+	root.add_child(hold_ring)
+	busy = BusyChip.new(ctx)
+	root.add_child(busy)
 	interact.target_card = target_card
 	interact.unit_card = unit_card
 	target_card.fire.connect(interact.fire_from_card)
@@ -447,7 +462,15 @@ func clear_feed() -> void:
 func _hover(dt: float, in_match: bool) -> void:
 	var modal: bool = pause.is_open or over.is_open or help.is_open or (g.arsenal_dlg != null and g.arsenal_dlg.visible) or (g.settings_dlg != null and g.settings_dlg.visible)
 	interact.enabled = in_match and not modal and (g.state == "pick" or g.state == "play")
-	interact.aim_kind = _placing_kind() if g.state == "play" else ""
+	var aim := _placing_kind() if g.state == "play" else ""
+	if aim != interact.aim_kind:
+		# (the game changed its build selection: a new aim starts unlocked, with no ghost)
+		interact.aim_kind = aim
+		interact._confirm_tile = -1
+		interact._clear_ghost()
+		if aim != "" and target_card.is_open:
+			target_card.hide_card()
+	interact._follow_ghost()
 	var tile := -1
 	if interact.enabled and root.get_viewport().gui_get_hovered_control() == null:
 		tile = ctx.tile_at(root.get_viewport().get_mouse_position())
@@ -463,6 +486,49 @@ func _hover(dt: float, in_match: bool) -> void:
 			target_card.hide_card()
 		if unit_card.is_open:
 			interact.deselect_unit()
+
+
+## Spawn -> play: a short "the war begins" moment and a glide to the capital
+## (UIAdvisor.war_begins; the rest of UIAdvisor is not ported yet).
+func war_begins() -> void:
+	var me := ctx.me()
+	if me != 0:
+		ctx.world_call("focus_owner", [me])
+	# The camera lands the capital in the middle of the HUD-free band; use the roomier side of it,
+	# and a title-only banner on very short screens.
+	var band := ctx.clear_rect()
+	if bar.visible:
+		band.end.y = minf(band.end.y, bar.top_edge())
+	if top.visible:
+		var cut := maxf(0.0, top.bottom_edge() - band.position.y)
+		band.position.y += cut
+		band.size.y = maxf(1.0, band.size.y - cut)
+	var cap_y := band.get_center().y
+	var gap := 30.0 if ctx.compact else 60.0
+	var above := cap_y - gap - band.position.y
+	var below := band.end.y - (cap_y + gap)
+	var h := 70.0 if ctx.compact else 96.0
+	var small := maxf(above, below) < h
+	if small:
+		h = 38.0
+	var top_y := cap_y - gap - h if above >= below else cap_y + gap
+	top_y = maxf(top_y, band.position.y - 12.0)
+	var nations := 0
+	for o in ctx.state.owners():
+		if int(o.kind) == Defs.KIND_NATION and o.alive:
+			nations += 1
+	var banner := Banner.make(ctx, "THE WAR BEGINS", "Expand, build and outlast %d nations" % nations, UITheme.AMBER, 1.6, top_y, h, small)
+	banner.min_top = band.position.y - 12.0
+	banner.max_bottom = band.end.y
+	float_layer.add_child(banner)
+
+
+## The game is building a match: the busy chip with how far along it is.
+func set_loading(on: bool, frac: float = 0.0) -> void:
+	if on:
+		busy.show_text("Deploying a new world…  %d%%" % int(clampf(frac, 0.0, 1.0) * 100.0))
+	else:
+		busy.hide_chip()
 
 
 ## main.gd: a left click on the map while picking a start or playing (UIInteract.on_click).
@@ -535,6 +601,8 @@ func process(dt: float) -> void:
 			board.close_for_match()
 			ctx.play_start_tick = -1.0
 			ctx.alive_from_tick = NAN
+		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:
+			war_begins()
 		if ph == Defs.PHASE_PLAYING:
 			ctx.play_start_tick = float(ctx.state.tick)
 			top.on_bind()

@@ -642,6 +642,12 @@ func _placement_exact(kind: String, tile: int) -> Dictionary:
 		if req != "":
 			out.reason = req
 			return out
+		if k >= 0 and s.g.NUKE_R.has(k):
+			@warning_ignore("integer_division")
+			var tp := Vector2(tile % int(map.W) + 0.5, tile / int(map.W) + 0.5)
+			if s.g.silo_for(mine, k, tp).is_empty() and not s.g.nearest_silo(mine, tp).is_empty():
+				out.reason = "Out of range (%s): build a closer silo or turn ICBM on" % s.g.nuke_range_label(k)
+				return out
 		out.ok = true
 		return out
 	if kind == "warship":

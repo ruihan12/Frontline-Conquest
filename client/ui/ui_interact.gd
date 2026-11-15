@@ -2,8 +2,10 @@
 # map. Ported: the hover part (on_hover, _update_tooltip, hover_spec, _aim_spec, _crowding and the
 # per-frame refresh), the action ring (on_context, on_radial, donate_to, retreat, _float,
 # show_inspect) and left clicks (on_click, the target card's select-then-fire flow, warship
-# selection and move orders, pick). The placement ghost and the keys are still handled by main.gd
-# and come over with MapInput.
+# selection and move orders, pick) and placement (_place with the two-click nuke lock, the touch
+# ghost and its confirm buttons). Choosing what to place (select_action) and the keys are still
+# the game's: aim_kind follows the game's build selection, and the build itself goes through the
+# game's try_build, so the port's range system and ICBM mode keep working.
 class_name UIInteract
 extends RefCounted
 
@@ -22,6 +24,13 @@ const UNIT_PICK_MOUSE := 12.0
 
 var ctx: UICtx
 var target_card: TargetCard = null
+var place_confirm: PlaceConfirm = null
+var _confirm_msec := 0.0
+var _ghost_tile := -1
+var _ghost_raw := -1
+var _ghost_hit := -1
+var _ghost_anchor := Vector2(-1, -1)
+var _ghost_res := {}
 var unit_card: UnitCard = null
 var last_pick := -1
 var _last_click_tile := -1
@@ -291,8 +300,7 @@ func on_click(tile: int) -> void:
 	tile = pick(tile, pos)
 	last_pick = tile
 	if aim_kind != "":
-		# (the placement ghost is still the game's: build where the pointer is)
-		ctx.session.g.try_build(ctx.session.g.build_sel, tile)
+		_place(tile, pos)
 		return
 	var act: Dictionary = ctx.rules.primary(tile)
 	var kind := str(act.type)
@@ -472,6 +480,224 @@ func primary_at_hover() -> void:
 	if hover_tile >= 0:
 		_last_click_tile = -1
 		on_click(hover_tile)
+
+
+# ---------------------------------------------------------------------------------------------
+# Placement
+# ---------------------------------------------------------------------------------------------
+## Leaves placement. (The game owns the selection: this clears its build slot.)
+func cancel_aim(play_sound: bool = true) -> void:
+	if aim_kind == "":
+		return
+	var was_mirv := aim_kind == "mirv"
+	aim_kind = ""
+	_confirm_tile = -1
+	_clear_ghost()
+	ctx.session.g.build_sel = -1
+	if bar != null:
+		bar.set_placing("")
+	ctx.set_aim("", -1, 0)
+	ctx.world_call("set_range_mode", ["auto"])
+	if was_mirv:
+		ctx.world_call("set_selected_owner", [0])
+	if play_sound:
+		ctx.sfx("close", -6.0)
+	on_hover(hover_tile)
+
+
+## (port) The Airfield and Railgun slots build on your own land and fire at anything else.
+func _aim_for(tile: int) -> String:
+	var g = ctx.session.g
+	if (aim_kind == "airfield" or aim_kind == "railgun") and g._is_strike_click(int(g.build_sel), tile, int(g.PLAYER)):
+		return "airstrike" if aim_kind == "airfield" else "slug"
+	return aim_kind
+
+
+static func _shift_down() -> bool:
+	return Input.is_key_pressed(KEY_SHIFT)
+
+
+func _tile_distance(a: int, b: int) -> float:
+	var w: int = ctx.state.map.W
+	return Vector2(a % w - b % w, a / w - b / w).length()
+
+
+## A click while placing: build / upgrade here, or lock and then launch a nuke.
+func _place(tile: int, pos: Vector2) -> void:
+	var kind := _aim_for(tile)
+	var av: Dictionary = ctx.rules.availability(kind)
+	if not av.ok:
+		ctx.sfx("deny")
+		_float(str(av.reason), "info", UITheme.RED, pos)
+		cancel_aim(false)
+		return
+	if ctx.touch and place_confirm != null:
+		_move_ghost(tile, pos)
+		return
+	var pl: Dictionary = ctx.rules.placement(kind, tile)
+	if not pl.ok:
+		ctx.sfx("deny", -4.0)
+		_float(str(pl.reason), "info", UITheme.RED, pos)
+		return
+	if pl.get("tile") != null:
+		tile = int(pl.tile)  # the snapped site / the structure an upgrade applies to
+	if UIRules.is_nuke(kind):
+		var now := UICtx.msec()
+		var confirmed: bool = _confirm_tile >= 0 and now - _confirm_msec < 6000.0 and _tile_distance(_confirm_tile, tile) <= 6.0
+		if UIRules.is_strike(kind):
+			confirmed = true
+			_confirm_tile = tile
+		if not confirmed:
+			_confirm_tile = tile
+			_confirm_msec = now
+			ctx.sfx("click")
+			var what: String = UIRules.TITLES[kind]
+			on_hover(tile)
+			var n_sam := int(ctx.world_call("aim_sams", [tile]))
+			var verb := "Tap" if ctx.touch else "Click"
+			if n_sam > 0 and kind != "mirv":
+				_float("Target inside %d enemy SAM%s: the %s may be shot down. %s again to launch" % [n_sam, "" if n_sam == 1 else "s", what, verb], "sam", UITheme.RED, pos)
+			else:
+				_float("Target locked. %s again to launch the %s" % [verb, what], "target", UITheme.RED, pos)
+			return
+		var at := _confirm_tile
+		if _send(kind, at, true):
+			_float(str(UIRules.TITLES[kind]) + " launched", kind, UITheme.RED, pos)
+			cancel_aim(false)
+		else:
+			# (port) the game refused the launch and said why in the event feed: keep aiming
+			ctx.sfx("deny", -4.0)
+			_confirm_tile = -1
+		return
+	_send_build(kind, tile, pl, pos)
+	if not _shift_down():
+		cancel_aim(false)
+
+
+## (port) The order itself is the game's try_build (range system, ICBM mode, its own reasons);
+## true when it went through. The game clears its build slot on some successes: put it back, so
+## leaving placement stays this file's decision (Shift keeps building).
+func _send(kind: String, tile: int, _nuke: bool) -> bool:
+	var g = ctx.session.g
+	var k: int = g.build_sel
+	if k < 0:
+		k = int(RWGameState.BUILD_ID.get(kind, -1))
+	if k < 0:
+		return false
+	var ok: bool = g.try_build(k, tile)
+	if aim_kind != "":
+		g.build_sel = k
+	return ok
+
+
+func _send_build(kind: String, tile: int, pl: Dictionary, pos: Vector2) -> void:
+	var av: Dictionary = ctx.rules.availability(kind)
+	if not _send(kind, tile, false):
+		return
+	if kind == "city" and ctx.coach != null:
+		ctx.coach.complete("city")
+	var title: String = UIRules.TITLES[kind]
+	if pl.get("upgrade", false):
+		_float("%s upgraded to Lv %d  ·  %s gold" % [title, int(pl.get("level", 2)), UITheme.fmt_cost(av.cost)], kind, UITheme.GOLD, pos)
+	else:
+		_float("%s  ·  %s gold" % [title, UITheme.fmt_cost(av.cost)], kind, UITheme.GOLD, pos)
+
+
+func _show_aim(t: int, pl: Dictionary, locked: bool = false) -> void:
+	var nuke := UIRules.is_nuke(aim_kind)
+	var ok: bool = locked or pl.get("ok", false) == true
+	var at: int = int(pl.get("tile", t)) if (ok and pl.get("tile") != null) else t
+	var radius: float = ctx.rules.nuke_radius(aim_kind) if nuke else 0.0
+	if aim_kind == "mirv":
+		radius = 0.0
+		ctx.world_call("set_selected_owner", [ctx.state.tile_owner(at) if ok else 0])
+	ctx.set_aim("nuke" if nuke else "build", at, radius, ok, aim_kind, int(pl.get("level", 1)))
+
+
+## Touch: put the ghost at `tile` and show the confirm buttons beside it.
+func _move_ghost(tile: int, pos: Vector2, quiet: bool = false) -> void:
+	var kind := aim_kind
+	var pl: Dictionary = ctx.rules.placement(kind, tile)
+	_ghost_anchor = pos
+	_ghost_raw = tile
+	_ghost_hit = ctx.tile_at(pos)
+	_ghost_res = pl
+	var ok: bool = pl.get("ok", false) == true
+	var moved_to: int = int(pl.tile) if (ok and pl.get("tile") != null) else tile
+	var changed := moved_to != _ghost_tile
+	_ghost_tile = moved_to
+	_show_aim(_ghost_tile, pl)
+	place_confirm.show_for(_ghost_tile, _ghost_caption(kind, pl), UIRules.is_nuke(kind), ok)
+	if not quiet or changed:
+		ctx.sfx("click" if ok else "deny", -8.0)
+
+
+func _ghost_caption(kind: String, pl: Dictionary) -> String:
+	var title: String = UIRules.TITLES[kind]
+	if not pl.get("ok", false):
+		var r := str(pl.get("reason", ""))
+		return r if r != "" else "Can't place here"
+	var cost := UITheme.fmt_cost(ctx.rules.availability(kind).cost)
+	if pl.get("upgrade", false):
+		return "Upgrade %s → Lv %d · %s" % [UIRules.SHORT[kind], int(pl.get("level", 2)), cost]
+	if kind == "warship":
+		return "Warship patrols here · " + cost
+	if UIRules.is_nuke(kind):
+		var n_sam := int(ctx.world_call("aim_sams", [_ghost_tile]))
+		if n_sam > 0 and kind != "mirv":
+			return "%d SAM%s cover this target" % [n_sam, "" if n_sam == 1 else "s"]
+		return "Launch %s · %s" % [UIRules.SHORT[kind], cost]
+	return "%s · %s" % [title, cost]
+
+
+## The confirm button beside the ghost.
+func confirm_ghost() -> void:
+	if aim_kind == "" or _ghost_tile < 0:
+		return
+	var kind := aim_kind
+	var pos := ctx.tile_screen_pos(_ghost_tile)
+	var at := pos if pos.x >= 0.0 else ctx.mouse_pos()
+	var av: Dictionary = ctx.rules.availability(kind)
+	if not av.ok:
+		ctx.sfx("deny")
+		_float(str(av.reason), "info", UITheme.RED, at)
+		return
+	var pl: Dictionary = ctx.rules.placement(kind, _ghost_raw if not UIRules.is_nuke(kind) else _ghost_tile)
+	if not pl.ok:
+		ctx.sfx("deny", -4.0)
+		_float(str(pl.reason), "info", UITheme.RED, at)
+		_move_ghost(_ghost_raw, _ghost_anchor)
+		return
+	if UIRules.is_nuke(kind):
+		if _send(kind, _ghost_tile, true):
+			_float(str(UIRules.TITLES[kind]) + " launched", kind, UITheme.RED, at)
+	else:
+		_send_build(kind, int(pl.tile) if pl.get("tile") != null else _ghost_tile, pl, at)
+	cancel_aim(false)
+
+
+func _clear_ghost() -> void:
+	_ghost_tile = -1
+	_ghost_raw = -1
+	_ghost_anchor = Vector2(-1, -1)
+	_ghost_res = {}
+	if place_confirm != null:
+		place_confirm.hide_confirm()
+
+
+## The map moved under a placed ghost (drag, zoom): keep the ghost under the same screen point.
+func _follow_ghost() -> void:
+	if _ghost_tile < 0 or aim_kind == "" or _ghost_anchor.x < 0.0:
+		return
+	var t := ctx.tile_at(_ghost_anchor)
+	if t < 0 or t == _ghost_hit:
+		return
+	_move_ghost(pick(t, _ghost_anchor), _ghost_anchor, true)
+
+
+## Aims that take two clicks: nukes on desktop (touch confirms with the floating button instead).
+func _locks_target(kind: String) -> bool:
+	return UIRules.is_nuke(kind) and not ctx.touch
 
 
 # ---------------------------------------------------------------------------------------------
