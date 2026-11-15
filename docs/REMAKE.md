@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 9754 of 52913 upstream lines accounted for (13 of 86 files). Live in the game: command bar, status pill, leaderboard, attacks panel, hint cards. Still drawn by the old HUD (ui_upstream/rw_hud.gd): top-bar buttons, speed chip, spawn banner, event feed, alert banner, game menu, game over.
+Progress: 10370 of 52913 upstream lines accounted for (14 of 86 files). Live in the game: command bar, status pill, leaderboard, attacks panel, event feed, hint cards. Still drawn by the old HUD (ui_upstream/rw_hud.gd): top-bar buttons, speed chip, spawn banner, alert banner, game menu, game over.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -39,7 +39,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/CountLabel.luau | 68 | client/ui/count_label.gd | done |
 | src/client/UI/CrateButton.luau | 381 | client/ui/crate_button.gd | todo |
 | src/client/UI/CrateOpening.luau | 1520 | client/ui/crate_opening.gd | todo |
-| src/client/UI/EventFeed.luau | 616 | client/ui/event_feed.gd | todo |
+| src/client/UI/EventFeed.luau | 616 | client/ui/event_feed.gd | done, live (toasts, alliance cards) |
 | src/client/UI/FillBar.luau | 208 | client/ui/fill_bar.gd | done |
 | src/client/UI/FlagShop.luau | 867 | client/ui/flag_shop.gd | todo |
 | src/client/UI/FloatText.luau | 90 | client/ui/float_text.gd | todo |

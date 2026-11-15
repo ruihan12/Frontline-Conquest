@@ -689,7 +689,8 @@ func notify(text: String, kind := "info") -> void:
 	notes.push_front({"text": text, "col": col, "kind": kind, "t": 0.0})
 	if notes.size() > 5: notes.resize(5)
 	if note_box: note_box.queue_redraw()
-	if hud: hud.toast(text, kind)
+	if client: client.toast(text, kind)
+	elif hud: hud.toast(text, kind)
 
 func _nname(id: int) -> String:
 	if id == PLAYER: return "You"

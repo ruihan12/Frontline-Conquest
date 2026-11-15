@@ -1227,6 +1227,7 @@ func _disc(col: Color, icon: String) -> Control:
 	return d
 
 func clear_feed() -> void:
+	if m.client != null: m.client.clear_feed()
 	_pending.clear()
 	for c in feed.get_children():
 		if c.has_meta("rec"): c.queue_free()

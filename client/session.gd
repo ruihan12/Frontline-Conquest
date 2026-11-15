@@ -36,9 +36,21 @@ func send_intent(intent: Dictionary) -> void:
 			var a = intent.get("attack")
 			if a != null:
 				g.retreat(a.get("raw", a))
+		"ally_reply":
+			var who := int(intent.get("target", 0))
+			if not g.ally_reply(me, who, bool(intent.get("accept", false))) and bool(intent.get("accept", false)):
+				g.notify("That alliance request has expired", "info")
+		"ally_extend":
+			var other := int(intent.get("target", 0))
+			if g.allied(me, other):
+				var r: String = g.extend_alliance(me, other)
+				if r == "asked":
+					g.ally_extensions.append([g.sim_atk.tick + (1 if g.kind_of(other) == SimRules.KIND_TRIBE else g.rng.randi_range(20, 45)), me, other])
+					g.notify("Asked %s to renew the alliance" % g._nname(other), "info")
+				elif r == "":
+					g.notify("The alliance can't be renewed now", "info")
 		_:
-			if g.has_method("client_intent"):
-				g.client_intent(intent)
+			pass
 
 
 func has_unlock(key: String) -> bool:

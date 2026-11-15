@@ -209,6 +209,7 @@ func _requests_tick() -> void:
 				_close_request(from, to)
 				if from == PLAYER: notify("%s did not answer your alliance request" % _nname(to), "info")
 				if to == PLAYER and ally_card != null and ally_card_mode == "propose" and ally_card_who == from and ally_card.visible: _fade_out(ally_card)
+				if to == PLAYER and client != null: client.close_ally_request(from)
 
 func is_embargoed(_a: int, _b: int) -> bool:
 	return false
@@ -265,6 +266,9 @@ func _build_ally_card() -> void:
 	ally_card.visible = false
 
 func _show_ally_card(mode: String, who: int) -> void:
+	if client != null:  # the remade client's EventFeed draws the card
+		client.show_ally_card(mode, who)
+		return
 	ally_card_mode = mode; ally_card_who = who
 	RK.set_swatch(ally_card_sq as Panel, nations[who].color)
 	ally_card_lbl.text = nations[who].name

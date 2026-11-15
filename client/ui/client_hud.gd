@@ -14,6 +14,8 @@ var tooltip: Tooltip
 var top: TopStatus
 var board: Leaderboard
 var attacks: AttacksPanel
+var feed: EventFeed
+var _pending_toasts: Array = []
 var _phase := -1
 var _in_layout := false
 var _stats_t := 0.0
@@ -49,6 +51,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	attacks = AttacksPanel.new(ctx)
 	root.add_child(attacks)
 	attacks.visible = false
+	feed = EventFeed.new(ctx)
+	root.add_child(feed)
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
 		if ctx.compact:
@@ -135,6 +139,11 @@ func layout() -> void:
 	attacks.apply_layout(attacks_top, (bar.top_edge() if bar.visible else vp.y - ctx.insets.w) - 8.0)
 	if attacks.visible:
 		attacks.refresh()
+	var bar_top := bar.top_edge() if bar.visible else vp.y - ctx.insets.w
+	# (UIRoot: the feed sits above the bar; beside it when the bar leaves the left edge free)
+	if bar.visible and bar.panel.position.x > 16.0 + 340.0 + 12.0:
+		bar_top = vp.y - ctx.insets.w - 4.0
+	feed.apply_layout(bar_top - 12.0)
 	ctx.layout_changed.emit()
 	_in_layout = false
 
@@ -192,6 +201,59 @@ func _placing_kind() -> String:
 	return ""
 
 
+# ---------------------------------------------------------------------------------------------
+# Event feed: the game's notify() and alliance prompts
+# ---------------------------------------------------------------------------------------------
+const _KIND_CAT := {"good": Defs.MSG_GOOD, "bad": Defs.MSG_BAD, "info": Defs.MSG_INFO, "alert": Defs.MSG_ALERT, "ally": Defs.MSG_ALLIANCE}
+## The event's own glyph by what the line is about (boat for naval news, crown for captures, ...).
+const _TOAST_ICONS := [["warship", "boat"], ["transport", "boat"], ["boat", "boat"], ["captured", "crown"], ["alliance", "alliance"], ["allied", "alliance"],
+	["betray", "betray"], ["traitor", "betray"], ["nuke", "atom"], ["bomb", "atom"], ["mirv", "atom"], ["gold", "gold"], ["troops", "troops"],
+	["eliminated", "skull"], ["destroyed", "skull"], ["attack", "attack"], ["unlocked", "check"]]
+
+
+## main.notify(text, kind): kind is "good" / "bad" / "info". It can fire inside a time-budgeted sim
+## pass, so the toast is built on the next frame; only the newest few are kept while no frames run.
+func toast(text: String, kind: String = "info") -> void:
+	_pending_toasts.append([text, kind])
+	if _pending_toasts.size() > 6:
+		_pending_toasts.pop_front()
+
+
+func _toast_now(text: String, kind: String) -> void:
+	var t := text.to_lower()
+	var k := kind
+	if kind == "bad" and (t.contains("nuke") or t.contains("bomb") or t.contains("incoming") or t.contains("attack")):
+		k = "alert"
+	elif t.contains("alliance") or t.contains("allied") or t.contains("ally"):
+		k = "ally"
+	var icon := ""
+	for pair in _TOAST_ICONS:
+		if t.contains(pair[0]):
+			icon = pair[1]
+			break
+	if UITheme.icon_texture(icon) == null:
+		icon = ""
+	feed.toast(_KIND_CAT.get(k, Defs.MSG_INFO), text, icon)
+
+
+## The game's alliance prompt: "propose" (a request from `who`) or "expire" (the renewal window).
+func show_ally_card(mode: String, who: int) -> void:
+	if mode == "expire":
+		var expires := float(int(g.allies.get(g._akey(g.PLAYER, who), ctx.state.tick)))
+		feed.alliance_renewal(who, expires, bool(g.asked_to_extend(who, g.PLAYER)))
+	else:
+		feed.alliance_request(who)
+
+
+func close_ally_request(who: int) -> void:
+	feed.close_request(who)
+
+
+func clear_feed() -> void:
+	_pending_toasts.clear()
+	feed.clear()
+
+
 ## Bottom edge of the status pill (the old HUD's alert banner sits under it).
 func status_bottom() -> float:
 	return top.bottom_edge() if top.visible else 0.0
@@ -210,8 +272,9 @@ func process(dt: float) -> void:
 		top.visible = ph == Defs.PHASE_PLAYING or ph == Defs.PHASE_OVER
 		board.visible = ph == Defs.PHASE_PLAYING
 		attacks.visible = ph == Defs.PHASE_PLAYING
-		if ph == Defs.PHASE_SPAWN or (ph == Defs.PHASE_PLAYING and before != Defs.PHASE_SPAWN):
-			# a new match
+		if ph == Defs.PHASE_SPAWN or (ph == Defs.PHASE_PLAYING and before != Defs.PHASE_SPAWN) or ph == -1:
+			# a new match (or back at the title)
+			clear_feed()
 			board.close_for_match()
 			ctx.play_start_tick = -1.0
 			ctx.alive_from_tick = NAN
@@ -234,6 +297,13 @@ func process(dt: float) -> void:
 			layout()
 	if top.visible:
 		top.update(dt)
+	feed.visible = in_match
+	if not _pending_toasts.is_empty():
+		var q := _pending_toasts
+		_pending_toasts = []
+		for e in q:
+			_toast_now(e[0], e[1])
+	feed.update(dt)
 	if not play:
 		return
 	# (the server sends stats every 5 ticks: the bar's numbers refresh four times a second)
