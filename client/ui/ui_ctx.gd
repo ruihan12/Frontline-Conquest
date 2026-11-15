@@ -62,6 +62,8 @@ var state_mode := MODE_TITLE
 ## The UI root Control (full screen) once UIRoot built it.
 var root: Control = null
 var rules: UIRules = null
+## BorderTracker's surface (client/borders.gd): what the local owner borders and reaches.
+var borders = null
 ## Persisted settings ([ui] section of user://rw_client.cfg).
 var settings := {}
 # Layout metrics (logical px)

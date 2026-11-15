@@ -69,3 +69,20 @@ func screen_pos_of_tile(tile: int) -> Vector2:
 
 func set_input_enabled(on: bool) -> void:
 	input_enabled = on
+
+
+## Hostile SAMs whose cover holds `tile` (the aim card's "SAM cover" row).
+func aim_sams(tile: int) -> int:
+	if tile < 0:
+		return 0
+	var n := 0
+	var w: int = g.W
+	@warning_ignore("integer_division")
+	var p := Vector2(tile % w, tile / w)
+	for st in g.structs:
+		if int(st.k) == 4 and int(st.o) != g.PLAYER and not g.allied(g.PLAYER, int(st.o)) and float(st.get("bt", 0.0)) <= 0.0:
+			@warning_ignore("integer_division")
+			var sp := Vector2(int(st.tile) % w, int(st.tile) / w)
+			if sp.distance_to(p) <= float(g.sim_rules.sam_range(int(st.get("level", 1)))):
+				n += 1
+	return n

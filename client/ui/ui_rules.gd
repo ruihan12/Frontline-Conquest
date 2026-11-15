@@ -5,7 +5,7 @@
 #
 # Rules(): the port's SimRules (sim/rules.gd). Costs come from the game's own pricing
 # (main.build_cost), which keeps the port's additions (the ICBM fee) in the numbers shown.
-# Placement, primary() and the radial items (UIRules.luau 765-1383) come with UIInteract.
+# The radial items and donate_plan (UIRules.luau 1165-1383) come with the RadialMenu.
 class_name UIRules
 extends RefCounted
 
@@ -530,5 +530,313 @@ func snap_radius() -> float:
 	return rules().place_search_r()
 
 
+## Friendly copy for Rules.placement reasons.
+const PLACE_REASONS := {
+	"not_own": "Build on your own land",
+	"no_room": "No room here: structures need space",
+	"no_coast": "Ports must be on your coast",
+	"no_port": "Warships need a finished port on this water",
+	"gold": "Not enough gold",
+	"invalid": "Can't build here",
+}
+
+
+## Where a build tap at `tile` really lands: {ok, tile, reason, warn, upgrade, sid, level}.
+## (The game's own check answers: main.build_req, which snaps and upgrades when the order is given.)
+func resolve_placement(kind: String, tile: int) -> Dictionary:
+	var out := {"ok": false, "tile": tile, "reason": "", "warn": "", "upgrade": false, "sid": 0, "level": 1}
+	var s = ctx.state
+	if s == null or tile < 0:
+		out.reason = "Point at the map"
+		return out
+	if is_nuke(kind):
+		var pl := _placement_exact(kind, tile)
+		out.ok = pl.ok
+		out.reason = pl.reason
+		out.warn = pl.warn
+		return out
+	var k: int = RWGameState.BUILD_ID.get(kind, -1)
+	var req: String = s.g.build_req(k, tile) if k >= 0 else "Can't build here"
+	if kind == "warship":
+		out.ok = req == ""
+		out.reason = req
+		return out
+	out.ok = req == ""
+	out.reason = req
+	# an own structure of the same upgradable kind under the tap: the order upgrades it
+	if out.ok and kind in UPGRADABLE:
+		var st = ctx.structure_at(tile, 1)
+		if st != null and st.owner == ctx.me() and st.kind == Defs.struct_kind_from_name(kind):
+			out.upgrade = true
+			out.sid = st.sid
+			out.level = int(st.level) + 1
+			out.tile = st.tile
+	return out
+
+
+## {ok, reason, warn, tile, upgrade, level} for placing `kind` at `tile` (availability is checked
+## separately).
+func placement(kind: String, tile: int) -> Dictionary:
+	if is_nuke(kind):
+		return _placement_exact(kind, tile)
+	return resolve_placement(kind, tile)
+
+
+## True when a finished structure of `skind` of the local player's that can fire now is within the
+## reach of munition `nkind` from `tile` (no reach limit: any such structure).
+func in_reach(skind: int, nkind: int, tile: int) -> bool:
+	var s = ctx.state
+	if s == null:
+		return false
+	var mine := ctx.me()
+	var reach: float = rules().launch_range(nkind)
+	var cd: int = SimRules.RELOAD_TICKS[skind]
+	var w: int = s.map.W
+	for st in s.structures():
+		if st.owner == mine and st.kind == skind and st.active_tick <= s.tick:
+			var busy := 0
+			for t in st.shots:
+				if t + cd > s.tick:
+					busy += 1
+			if busy < int(st.level):
+				@warning_ignore("integer_division")
+				var d := Vector2(st.tile % w - tile % w, st.tile / w - tile / w)
+				if reach <= 0 or d.length_squared() <= reach * reach:
+					return true
+	return false
+
+
+func _placement_exact(kind: String, tile: int) -> Dictionary:
+	var out := {"ok": false, "reason": "", "warn": ""}
+	var s = ctx.state
+	if s == null or tile < 0:
+		out.reason = "Point at the map"
+		return out
+	var map = s.map
+	var own: int = s.tile_owner(tile)
+	var mine := ctx.me()
+	if is_nuke(kind):
+		if own == mine and own != 0:
+			out.reason = "That is your own land"
+			return out
+		if not map.is_land(tile) and kind != "mirv":
+			out.warn = "Open water: little to hit"
+		if own != 0 and s.are_allies(mine, own):
+			out.warn = "Breaks your alliance with " + s.owner_name(own)
+		if kind == "mirv" and own == 0:
+			out.reason = "Target a nation"
+			return out
+		if is_strike(kind):
+			# a strike never hits an ally, and an air strike needs a ready airfield within reach
+			out.warn = ""
+			if own != 0 and s.are_allies(mine, own):
+				out.reason = "That is your ally's land"
+				return out
+			if kind == "airstrike" and not in_reach(Defs.S_AIRFIELD, Defs.N_AIRSTRIKE, tile):
+				out.reason = "Out of your Airfields' reach"
+				return out
+			if own == 0:
+				out.warn = "Nobody's land: nothing to hit"
+		# (this port's range system: the game says whether a silo reaches the spot)
+		var k: int = RWGameState.BUILD_ID.get(kind, -1)
+		var req: String = s.g.build_req(k, tile) if k >= 0 else ""
+		if req != "":
+			out.reason = req
+			return out
+		out.ok = true
+		return out
+	if kind == "warship":
+		if map.is_water(tile) or own == mine:
+			out.ok = true
+		else:
+			out.reason = "Target water near your ports"
+		return out
+	if own != mine:
+		out.reason = "Build on your own land"
+		return out
+	if kind == "port" and not map.is_coastal(tile):
+		out.reason = "Ports must be on the coast"
+		return out
+	out.ok = true
+	return out
+
+
+# ---------------------------------------------------------------------------------------------
+# Primary click
+# ---------------------------------------------------------------------------------------------
+## Where a boat aimed at `tile` lands: the nearest coastal tile of the same owner (unclaimed land
+## for owner 0) that one of our coasts reaches by sea, so clicking anywhere on a territory across the
+## water works, not only its shore pixel. Searches rings out to BOAT_SNAP_FULL full-size tiles; -1
+## when none.
+const BOAT_SNAP_FULL := 120.0
+
+
+func boat_landing(tile: int) -> int:
+	var s = ctx.state
+	if s == null or tile < 0:
+		return -1
+	var map = s.map
+	var borders = ctx.borders
+	if map.is_coastal(tile) and borders.can_reach_by_sea(tile):
+		return tile
+	var own: int = s.tile_owner(tile)
+	var w: int = map.W
+	var h: int = map.H
+	var rmax := int(ceil(BOAT_SNAP_FULL / maxf(map.k_lin, 0.01)))
+	var cx := tile % w
+	@warning_ignore("integer_division")
+	var cy := tile / w
+	var best := -1
+	var best_d := INF
+	for r in range(1, rmax + 1):
+		# the ring at Chebyshev distance r
+		for dy in range(-r, r + 1):
+			var y := cy + dy
+			if y < 0 or y >= h:
+				continue
+			var edge := dy == -r or dy == r
+			var dx := -r
+			while dx <= r:
+				var x := cx + dx
+				if x >= 0 and x < w:
+					var t := y * w + x
+					if map.is_coastal(t) and s.tile_owner(t) == own and borders.can_reach_by_sea(t):
+						var d := float(dx * dx + dy * dy)
+						if d < best_d:
+							best = t
+							best_d = d
+				dx += 1 if edge else 2 * r
+		# a hit on ring r: nothing farther than r * sqrt(2) can be closer
+		if best >= 0 and r * r >= best_d / 2:
+			break
+	return best
+
+
+## {type: spawn|expand|attack|boat|inspect|none, ok, reason, target, troops, verb, icon}
+func primary(tile: int) -> Dictionary:
+	var now := UICtx.msec()
+	var t: int = ctx.state.tick if ctx.state != null else -1
+	if tile == _pc_tile and now - _pc_msec < 400 and t == _pc_tick and absf(ctx.ratio - _pc_ratio) < 1e-6:
+		return _pc.duplicate()
+	var res := _primary(tile)
+	_pc_tile = tile
+	_pc_msec = now
+	_pc_tick = t
+	_pc_ratio = ctx.ratio
+	_pc = res
+	return res.duplicate()
+
+
+## Drops the primary() cache (tests / after the world changed under the same tick).
 func invalidate() -> void:
 	_pc_tile = -1
+
+
+func _primary(tile: int) -> Dictionary:
+	var out := {"type": "none", "ok": false, "reason": "", "target": 0, "troops": 0.0, "verb": "", "icon": "info"}
+	var s = ctx.state
+	if s == null or tile < 0 or tile >= s.map.W * s.map.H:
+		return out
+	var map = s.map
+	var mine := ctx.me()
+	var own: int = s.tile_owner(tile)
+	out.target = own
+	if mine == 0 or not ctx.in_match():
+		out.type = "inspect"
+		out.ok = own != 0
+		return out
+	var o = ctx.my()
+	if s.phase == Defs.PHASE_SPAWN or ctx.needs_spawn():
+		if o != null and o.spawned and own == mine:
+			out.type = "inspect"
+			out.ok = true
+			return out
+		if map.is_contestable(tile) and own == 0 and not s.has_fallout(tile):
+			out.type = "spawn"
+			out.ok = true
+			out.verb = "Start here"
+			out.icon = "target"
+		else:
+			out.reason = "Pick unclaimed land" if map.is_land(tile) else "Pick land, not water"
+		return out
+	if s.phase != Defs.PHASE_PLAYING or o == null or not o.alive:
+		out.type = "inspect"
+		out.ok = own != 0
+		return out
+	if own == mine or (own != 0 and s.are_allies(mine, own)):
+		out.type = "inspect"
+		out.ok = true
+		return out
+	if not map.is_contestable(tile):
+		out.reason = "Antarctica cannot be claimed" if ctx.terrain_at(tile) == Defs.T_ICECAP else ""
+		return out
+	# Fallout stays until the land is conquered again; taking it is slow and costly.
+	var fallout: bool = own == 0 and s.has_fallout(tile)
+	var share := ctx.order_ratio()
+	var troops: float = float(o.troops) * share
+	out.troops = troops
+	if troops < 1.0:
+		# (the floor under a new player's army: UICtx.troop_floor)
+		out["floor"] = share < ctx.ratio
+		out.reason = "Keep some troops at home for now" if out["floor"] else "No troops available"
+		return out
+	var land := false
+	if s.borders_tile(mine, tile):
+		land = true
+	elif own == 0:
+		var touch: int = ctx.borders.region_touches_me(tile)
+		land = touch == 1 or (touch == -1 and ctx.borders.borders_owner(0))
+	else:
+		land = ctx.borders.borders_owner(own)
+	if land:
+		out.type = "expand" if own == 0 else "attack"
+		out.ok = true
+		out.verb = ("Expand into fallout" if fallout else "Expand") if own == 0 else "Attack"
+		out.icon = "attack"
+		return out
+	var landing := boat_landing(tile)
+	if landing >= 0:
+		out["boat_tile"] = landing
+		var max_boats: int = SimRules.MAX_BOATS_PLAYER
+		if transports() >= max_boats:
+			out.type = "boat"
+			out.reason = "All %d transports at sea" % max_boats
+			out.icon = "boat"
+			return out
+		out.type = "boat"
+		out.ok = true
+		out.verb = "Boat invasion"
+		out.icon = "boat"
+		return out
+	out.reason = "Out of reach: expand toward it" if own == 0 else "No border or sea route"
+	return out
+
+
+func primary_intent(tile: int, action: Dictionary) -> Dictionary:
+	var ty := str(action.get("type", ""))
+	if ty == "spawn":
+		return {"type": "spawn", "tile": tile}
+	elif ty == "expand" or ty == "attack":
+		return {"type": "attack", "tile": tile, "ratio": ctx.order_ratio()}
+	elif ty == "boat":
+		return {"type": "boat", "tile": int(action.get("boat_tile", tile)), "ratio": ctx.order_ratio()}
+	return {}
+
+
+## Short sentence for the floating confirmation ("Attacking Brazil with 24.5K").
+func confirm_text(action: Dictionary) -> String:
+	var s = ctx.state
+	var troops := UITheme.fmt_troops(float(action.get("troops", 0.0)))
+	var target := int(action.get("target", 0))
+	var ty := str(action.get("type", ""))
+	if ty == "spawn":
+		return "Starting position set"
+	elif ty == "expand":
+		return "Expanding with " + troops
+	elif ty == "attack":
+		return "Attacking %s with %s" % [s.owner_name(target), troops]
+	elif ty == "boat":
+		if target == 0:
+			return "Boat launched with " + troops
+		return "Invading %s by sea with %s" % [s.owner_name(target), troops]
+	return ""

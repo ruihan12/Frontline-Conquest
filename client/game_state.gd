@@ -45,6 +45,24 @@ class RWMapInfo:
 		W = main.W
 		H = main.H
 
+	var k_lin: float:
+		get:
+			return float(g.sim_rules.k_lin) if g.sim_rules != null else 1.0
+
+	func is_water(tile: int) -> bool:
+		return tile >= 0 and tile < W * H and g.owner_map[tile] == g.WATER
+
+	## Land of any kind (the ice cap included).
+	func is_land(tile: int) -> bool:
+		return tile >= 0 and tile < W * H and g.owner_map[tile] != g.WATER
+
+	## Land that can be owned.
+	func is_contestable(tile: int) -> bool:
+		return tile >= 0 and tile < W * H and g.owner_map[tile] >= 0
+
+	func is_coastal(tile: int) -> bool:
+		return is_contestable(tile) and g._coastal(tile)
+
 	## Defs.T_* of a tile.
 	func terrain_at(tile: int) -> int:
 		if tile < 0 or tile >= W * H:
@@ -177,6 +195,10 @@ func _fill(o: Dictionary, id: int) -> void:
 	o["team"] = 0
 	o["spawned"] = (g.state != "pick" or g.start_tile >= 0) if id == local_owner else true
 	o["flag"] = n.get("flag", "")
+	o["traitor_until"] = int(g.traitor.get(id, 0))
+	# (the owner's capital, or the middle of its land: the spawn hint counts neighbours by it)
+	var land := maxf(1.0, float(n.get("land", 0)))
+	o["label_tile"] = int(n.get("sy", 0.0) / land) * int(g.W) + int(n.get("sx", 0.0) / land) if int(n.get("land", 0)) > 0 else -1
 
 
 ## Every owner (index order = id order, ids from 1).
@@ -226,6 +248,19 @@ func team_name(_t: int) -> String:
 
 func has_fallout(tile: int) -> bool:
 	return tile >= 0 and tile < g.fallout.size() and g.fallout[tile] != 0
+
+
+## A tile next to `tile` (or the tile itself) belongs to `id`.
+func borders_tile(id: int, tile: int) -> bool:
+	return tile >= 0 and tile < g.owner_map.size() and bool(g._adj_any(tile, id))
+
+
+## The alliance between `a` and `b`: {expires_at, ticks_left, me_asked, other_asked}, or null.
+func alliance_info(a: int, b: int):
+	if not g.allied(a, b):
+		return null
+	var exp_t := int(g.allies.get(g._akey(a, b), -1))
+	return {"expires_at": exp_t, "ticks_left": maxi(0, exp_t - tick), "me_asked": bool(g.asked_to_extend(a, b)), "other_asked": bool(g.asked_to_extend(b, a))}
 
 
 ## `a` and `b` share a land border (BorderTracker.borders_owner). Kept for a second per pair.

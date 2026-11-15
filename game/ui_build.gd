@@ -1080,6 +1080,8 @@ func _pct(v: float) -> String:
 	return "%.1f%%" % v
 
 func _update_tooltip() -> void:
+	if client != null:  # the remade client's hover card (client/ui/ui_interact.gd)
+		tipc.visible = false; return
 	if autoshot and _r29 >= 4 and _r29 != 5:
 		tipc.visible = false; return
 	if (state == "play" or state == "pick") and _update_build_tip(): return

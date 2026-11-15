@@ -20,6 +20,8 @@ var spawn: SpawnOverlay
 var topbar: ClientTopbar
 var pause: PauseMenu
 var over: GameOver
+var interact: UIInteract
+var _hover_seen := -2
 var _state_seen := ""
 var _seen_nukes := {}
 var _pending_toasts: Array = []
@@ -38,6 +40,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	ctx.session = RWSession.new(main)
 	ctx.audio = RWAudio.new(main)
 	ctx.world = RWWorld.new(main)
+	ctx.borders = RWBorders.new(ctx.state)
 	ctx.reload_settings()
 	root = Control.new()
 	root.name = "ClientHud"
@@ -116,6 +119,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	tooltip = Tooltip.new(ctx)
 	root.add_child(tooltip)
 	ctx.tooltip = tooltip
+	interact = UIInteract.new(ctx)
+	interact.tooltip = tooltip
 	root.resized.connect(layout)
 	layout()
 
@@ -371,6 +376,20 @@ func clear_feed() -> void:
 	feed.clear()
 
 
+## The pointer over the map: the hover card (UIInteract.on_hover). main.gd still owns the clicks.
+func _hover(dt: float, in_match: bool) -> void:
+	var modal: bool = pause.is_open or over.is_open or g.help_panel.visible or (g.arsenal_dlg != null and g.arsenal_dlg.visible) or (g.settings_dlg != null and g.settings_dlg.visible)
+	interact.enabled = in_match and not modal and (g.state == "pick" or g.state == "play")
+	interact.aim_kind = _placing_kind() if g.state == "play" else ""
+	var tile := -1
+	if interact.enabled and root.get_viewport().gui_get_hovered_control() == null:
+		tile = ctx.tile_at(root.get_viewport().get_mouse_position())
+	if tile != _hover_seen or not interact.enabled:
+		_hover_seen = tile
+		interact.on_hover(tile)
+	interact.process_frame(dt)
+
+
 ## Bottom edge of the status pill (the old HUD's alert banner sits under it).
 func status_bottom() -> float:
 	return top.bottom_edge() if top.visible else 0.0
@@ -428,6 +447,7 @@ func process(dt: float) -> void:
 	if top.visible:
 		top.update(dt)
 	feed.visible = in_match
+	_hover(dt, in_match)
 	if not _pending_toasts.is_empty():
 		var q := _pending_toasts
 		_pending_toasts = []
