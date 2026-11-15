@@ -1,0 +1,61 @@
+# The small ported map modules: WakeRoute, TrailBudget, ViewRules, FrameClock.
+#   godot --headless --path . --script tests/test_map_modules.gd
+extends SceneTree
+
+var fails := 0
+
+
+func _check(ok: bool, what: String) -> void:
+	if not ok:
+		fails += 1
+	print(("  ok   " if ok else "  FAIL ") + what)
+
+
+func _initialize() -> void:
+	var w := 100
+	# an L-shaped path: 30 tiles east, then 30 south
+	var path := PackedInt32Array()
+	for x in range(10, 41): path.append(10 * w + x)
+	for y in range(11, 41): path.append(y * w + 40)
+	var rs := WakeRoute.runs(path, w)
+	_check(rs.size() == 2 and rs[0][1] == 30, "an L is two runs meeting at its corner (%s)" % str(rs))
+	var route := WakeRoute.build(path, w, 1.0)
+	_check(route.n > 4, "the corner is rounded into pieces (%d points)" % route.n)
+	_check(is_equal_approx(route.xs[0], 10.5) and is_equal_approx(route.ys[route.n - 1], 40.5), "the route keeps the path's ends")
+	var mono := true
+	for i in range(1, route.n):
+		if route.ss[i] < route.ss[i - 1] - 1e-4: mono = false
+	_check(mono, "distance along the route never runs backwards")
+	var mid := WakeRoute.at(route, 30.0)
+	_check(mid[0] < 40.5 and mid[1] > 10.5, "at the corner the ship is inside the turn (%.2f, %.2f)" % [mid[0], mid[1]])
+	var start := WakeRoute.at(route, 0.0)
+	var fin := WakeRoute.at(route, 999.0)
+	_check(is_equal_approx(start[0], 10.5) and is_equal_approx(fin[1], 40.5), "before and after the route it sits on the ends")
+	# with land inside the corner the curve is tried smaller, until it hugs the path
+	var blocked := WakeRoute.build(path, w, 1.0, func(t: int) -> bool: return path.has(t))
+	var bmid := WakeRoute.at(blocked, 30.0)
+	_check(bmid[0] > mid[0] and bmid[1] < mid[1], "land inside the corner makes a tighter curve (%.2f, %.2f)" % [bmid[0], bmid[1]])
+	var none := WakeRoute.build(path, w, 1.0, func(_t: int) -> bool: return false)
+	_check(none.n == 3, "with no water at all the corner stays sharp (%d points)" % none.n)
+	var st := WakeRoute.build(PackedInt32Array([5 * w + 5, 5 * w + 6, 5 * w + 7]), w, 1.0)
+	_check(st.n == 2, "a straight path is one leg")
+
+	_check(TrailBudget.allowance(1) == [160, true], "one munition keeps its whole trail")
+	_check(TrailBudget.allowance(100) == [8, false], "a hundred share the budget and lose MIRV rings")
+	_check(TrailBudget.allowance(2000)[0] == 0, "past the budget there are no trail dots")
+
+	var rules := SimRules.new()
+	ViewRules.use(rules)
+	_check(ViewRules.sam_range(1) > 0.0 and ViewRules.sam_range(3) >= ViewRules.sam_range(1), "SAM range grows with level")
+	_check(ViewRules.nuke_radii(Defs.N_HYDROGEN).y > ViewRules.nuke_radii(Defs.N_ATOM).y, "a hydrogen bomb is bigger than an atom bomb")
+	_check(ViewRules.intercept_p(Defs.N_MIRV) == 0.0, "a MIRV cannot be intercepted")
+	_check(ViewRules.range_d2(50 * w + 10, 50 * w + 99, w, 100) < 13.0 * 13.0, "range wraps around the map's edge")
+	_check(ViewRules.build_ticks(Defs.S_CITY) > 0, "build times are read from the rules")
+	ViewRules.use(null)
+
+	FrameClock.film = {"t": 12.5, "dt": 0.04}
+	_check(FrameClock.now() == 12.5 and FrameClock.dt(0.5) == 0.04, "a film steps the clock itself")
+	FrameClock.film = {}
+	_check(FrameClock.dt(0.5) == 0.5 and FrameClock.now() > 0.0, "otherwise it is the real clock")
+	print("MAP_MODULES_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
+	quit(0 if fails == 0 else 1)

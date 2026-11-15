@@ -202,6 +202,7 @@ func _build_ui() -> void:
 	hud.topbar.visible = false
 	menu_panel = client.title
 	play_dialog = client.map_picker
+	arsenal_dlg = client.arsenal
 	hud_nodes = hud.groups.duplicate()
 	note_box = Control.new(); note_box.position = Vector2(16, 96); note_box.size = Vector2(380, 480)
 	note_box.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -1,20 +1,13 @@
 extends "res://game/end_screen.gd"
 # Shop and arsenal (stars menu)
 
+# The Arsenal window is client/ui/arsenal.gd (the port of UI/Arsenal.luau); `arsenal_dlg` is that
+# window, so the game's own checks of it (Esc, modal) keep working.
 func _open_shop() -> void:
-	_refresh_arsenal()
-	# the end-of-match overlay sits above the shop and swallowed its clicks (softlock): hide it while the shop is open
-	if hud != null and hud.over != null and hud.over.visible:
-		_shop_hid_over = true; hud.over.visible = false
-	arsenal_dlg.move_to_front()
-	_pop_in(arsenal_dlg)
+	if client != null: client.open_arsenal()
 
 func _close_shop() -> void:
-	if arsenal_dlg == null or not arsenal_dlg.visible: return
-	_fade_out(arsenal_dlg)
-	if _shop_hid_over and hud != null and hud.over != null and state == "over":
-		hud.over.visible = true
-	_shop_hid_over = false
+	if client != null: client.arsenal.close()
 
 func unlock_arsenal_item(id: String) -> bool:
 	for it in ARSENAL:
@@ -28,127 +21,10 @@ func unlock_arsenal_item(id: String) -> bool:
 	return false
 
 func _build_arsenal() -> void:
-	arsenal_dlg = Control.new(); arsenal_dlg.set_anchors_preset(Control.PRESET_FULL_RECT); arsenal_dlg.visible = false
-	ui.add_child(arsenal_dlg)
-	var sh := ColorRect.new(); sh.color = Color(0.01, 0.02, 0.05, 0.65); sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	arsenal_dlg.add_child(sh)
-	var p := _P(arsenal_dlg, Rect2(150, 32, 1300, 836), Color(0.07, 0.085, 0.15, 0.98), 5)
-	_draw_ctl(p, Rect2(28, 22, 34, 38), func(cc: Control):
-		cc.draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(34, 0), Vector2(34, 20), Vector2(17, 38), Vector2(0, 20)]), ORANGE_Y)
-		_star(cc, Vector2(17, 16), 9, Color(0.15, 0.1, 0.03)))
-	_head(p, "SHOP & ARSENAL", Vector2(76, 16), 28, TEXT)
-	_T(p, "Earn Stars in matches and spend them here to unlock weapons & perks for your build bar.", Vector2(76, 52), 14, MUTED)
-	# Integrated Stars earning breakdown + Next Unlock progress bar right in the Shop header
-	var star_info := _P(p, Rect2(28, 78, 996, 36), Color(0.11, 0.135, 0.22, 0.95), 4, Color(1, 0.82, 0.36, 0.28), 1, false)
-	_draw_ctl(star_info, Rect2(10, 8, 20, 20), func(cc: Control): _star(cc, Vector2(10, 10), 8, GOLD_C))
-	arsenal_sub_earn = _T(star_info, "", Vector2(36, 9), 12, Color(0.9, 0.92, 0.98), f_bold, 656)
-	arsenal_next_bar = _draw_ctl(star_info, Rect2(700, 8, 284, 20), func(cc: Control):
-		var nl := next_locked()
-		cc.draw_style_box(_flat(Color(0.06, 0.08, 0.14), 4), Rect2(0, 0, 284, 20))
-		if nl.is_empty():
-			cc.draw_style_box(_flat(Color(0.25, 0.55, 0.35), 4), Rect2(0, 0, 284, 20))
-		else:
-			var prog := clampf(float(save.stars) / maxf(1.0, float(nl.cost)), 0.0, 1.0)
-			cc.draw_style_box(_flat(Color(0.55, 0.44, 0.16), 4), Rect2(0, 0, maxf(6.0, 284.0 * prog), 20)))
-	arsenal_next_lbl = _T(star_info, "", Vector2(708, 9), 12, GOLD_C, f_bold, 268, HORIZONTAL_ALIGNMENT_CENTER)
-	var bal := _P(p, Rect2(1038, 22, 182, 50), Color(0.25, 0.2, 0.08, 0.55), 5, Color(1, 0.8, 0.3, 0.6), 1, false)
-	_draw_ctl(bal, Rect2(14, 13, 24, 24), func(cc: Control): _star(cc, Vector2(12, 12), 10, GOLD_C))
-	arsenal_bal = _T(bal, "", Vector2(44, 6), 20, GOLD_C, f_bold, 128)
-	_T(bal, "STAR BALANCE", Vector2(44, 30), 10, MUTED, f_bold, 128)
-	var x := _card_btn(p, Rect2(1232, 22, 44, 44)); x.text = "✕"
-	x.pressed.connect(_close_shop)
-	sh.gui_input.connect(func(ev: InputEvent): if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT: _close_shop())
-	for k in ARSENAL.size():
-		var it = ARSENAL[k]
-		var cx := 28 + (k % 4) * 314
-		var cy := 124 + (k / 4) * 350
-		var c := _P(p, Rect2(cx, cy, 302, 338), CELL_BG, 5, Color(1, 1, 1, 0.08), 1, false)
-		var kk: int = k
-		_draw_ctl(c, Rect2(1, 1, 300, 146), func(cc: Control): _draw_card_art(cc, kk))
-		_head(c, it.name.to_upper(), Vector2(16, 154), 17, TEXT)
-		var d := _T(c, it.desc, Vector2(16, 182), 14, Color(0.8, 0.84, 0.94)); d.size = Vector2(270, 40); d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		for b in 2:
-			_T(c, "•  " + it.b[b].to_upper(), Vector2(16, 226 + b * 20), 12, GOLD_C, f_bold)
-		var bar := _draw_ctl(c, Rect2(16, 276, 270, 20), func(cc: Control):
-			var v := clampf(float(save.stars) / maxf(1, it.cost), 0, 1)
-			cc.draw_style_box(_flat(Color(0.2, 0.24, 0.36), 4), Rect2(0, 0, 270, 20))
-			cc.draw_style_box(_flat(Color(0.55, 0.45, 0.2), 4), Rect2(0, 0, maxf(6, 270 * v), 20))
-			_star(cc, Vector2(96, 10), 7, GOLD_C)
-			f_bold.draw_string(cc.get_canvas_item(), Vector2(108, 15), _fmt_int(it.cost), HORIZONTAL_ALIGNMENT_LEFT, -1, 13, TEXT))
-		var btn := _big_btn(c, Rect2(16, 300, 270, 30), "UNLOCK", Color(0.3, 0.75, 0.45), 14)
-		var item_id: String = it.id
-		btn.pressed.connect(func(): unlock_arsenal_item(item_id))
-		var owned_b := _card_btn(c, Rect2(16, 284, 270, 44)); owned_b.text = "UNLOCKED"; owned_b.disabled = true
-		owned_b.add_theme_stylebox_override("disabled", _flat(Color(0.18, 0.15, 0.08), 4, Color(1, 0.75, 0.3, 0.55), 1))
-		owned_b.add_theme_font_override("font", f_head); owned_b.add_theme_font_size_override("font_size", 15)
-		owned_b.add_theme_color_override("font_disabled_color", GOLD_C)
-		arsenal_cards.append({"bar": bar, "btn": btn, "owned": owned_b, "id": it.id, "cost": it.cost})
+	pass
 
 func _refresh_arsenal() -> void:
-	arsenal_bal.text = _fmt_int(save.stars)
-	if stars_lbl: stars_lbl.text = _fmt_int(save.stars)
-	if arsenal_sub_earn:
-		var mult_txt := "2X ACTIVE!" if unlocked("x2") else "1x (2x Stars doubles payout)"
-		arsenal_sub_earn.text = "STARS PER MATCH: +20/Land %  ·  +150/Elim  ·  +1,500 Win  ·  +10/min  ·  " + mult_txt
-	if arsenal_next_lbl:
-		var nl := next_locked()
-		if nl.is_empty():
-			arsenal_next_lbl.text = "ALL 8 SHOP ITEMS UNLOCKED!"
-		else:
-			arsenal_next_lbl.text = "NEXT: %s (%s / %s ★)" % [nl.name.to_upper(), _fmt_int(mini(save.stars, nl.cost)), _fmt_int(nl.cost)]
-	if arsenal_next_bar:
-		arsenal_next_bar.queue_redraw()
-	for c in arsenal_cards:
-		var u := unlocked(c.id)
-		c.bar.visible = not u; c.btn.visible = not u; c.owned.visible = u
-		c.btn.disabled = save.stars < c.cost
-		c.btn.text = "UNLOCK" if save.stars >= c.cost else "NEED %s MORE" % _fmt_int(c.cost - save.stars)
-		c.bar.queue_redraw()
-	for b in build_btns: for ch in b.get_children(): if ch is Control: ch.queue_redraw()
-
-func _draw_card_art(cc: Control, k: int) -> void:
-	var it = ARSENAL[k]
-	var left := Color(0.72, 0.62, 0.95)
-	var right := Color(0.55, 0.78, 0.45)
-	if it.id == "x2": left = Color(0.35, 0.25, 0.1); right = Color(0.45, 0.32, 0.12)
-	cc.draw_rect(Rect2(0, 0, 112, 150), left)
-	cc.draw_rect(Rect2(112, 0, 188, 150), right)
-	cc.draw_line(Vector2(112, 0), Vector2(112, 150), Color(1, 1, 1, 0.5), 3)
-	# left: the tool, drawn with the game's own icon set
-	if it.k >= 0:
-		_icon(Vector2(56, 70), it.k, Color(0.25, 0.2, 0.45), 1.0, cc, 26.0, true)
-	elif it.id == "x2":
-		_star(cc, Vector2(56, 72), 34, GOLD_C)
-	else:
-		for b in 3: cc.draw_rect(Rect2(26, 40 + b * 26, 60, 14), Color(0.25, 0.2, 0.45)); cc.draw_rect(Rect2(26, 40 + b * 26, 60 - b * 18, 14), Color(1, 0.5, 0.7))
-	# right: the effect
-	var c := Vector2(206, 78)
-	match it.id:
-		"mega":
-			cc.draw_circle(c, 56, Color(0.3, 0.6, 0.25, 0.8)); cc.draw_circle(c, 34, Color(0.95, 0.75, 0.35)); cc.draw_circle(c, 16, Color(1, 0.95, 0.8))
-		"scatter":
-			cc.draw_circle(c, 18, Color(0.95, 0.7, 0.3))
-			for m in 5: cc.draw_circle(c + Vector2.from_angle(m * TAU / 5) * 44, 10, Color(0.95, 0.6, 0.25, 0.85))
-		"reinf":
-			for m in 6: cc.draw_circle(Vector2(150 + (m % 3) * 32, 50 + (m / 3) * 40), 10, Color(0.25, 0.3, 0.45))
-			cc.draw_rect(Rect2(256, 66, 8, 26), Color.WHITE); cc.draw_rect(Rect2(247, 75, 26, 8), Color.WHITE)
-		"art":
-			cc.draw_arc(Vector2(120, 140), 120, -PI / 2, 0, 24, Color(1, 1, 1, 0.5), 2)
-			cc.draw_circle(c + Vector2(10, -6), 16, Color(1, 0.55, 0.2)); cc.draw_circle(c + Vector2(10, -6), 8, Color(1, 0.9, 0.6))
-		"air":
-			for m in 3: cc.draw_circle(Vector2(170 + m * 30, 100 - m * 18), 12, Color(0.35, 0.3, 0.2, 0.7))
-			cc.draw_line(Vector2(130, 30), Vector2(290, 60), Color(1, 1, 1, 0.6), 2)
-		"rail":
-			cc.draw_line(Vector2(120, 20), c, Color(0.6, 0.9, 1.0), 5); cc.draw_line(Vector2(120, 20), c, Color.WHITE, 2)
-			cc.draw_circle(c, 12, Color(0.8, 0.95, 1.0))
-		"x2":
-			f_head.draw_string(cc.get_canvas_item(), Vector2(150, 96), "2X", HORIZONTAL_ALIGNMENT_LEFT, -1, 54, GOLD_C)
-		"reload":
-			cc.draw_arc(c, 30, -PI * 0.2, PI * 1.4, 24, Color.WHITE, 5)
-			cc.draw_colored_polygon(PackedVector2Array([c + Vector2(30, -18), c + Vector2(42, 2), c + Vector2(20, 0)]), Color.WHITE)
-	if not unlocked(it.id):
-		cc.draw_rect(Rect2(0, 0, 300, 150), Color(0, 0, 0, 0.35))
-
+	if client != null and client.arsenal != null: client.arsenal.refresh()
 
 func _end_icon(cc: Control, kk: int, col: Color) -> void:
 	var o := Vector2(15, 15)

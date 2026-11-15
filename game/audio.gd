@@ -629,6 +629,14 @@ func _uishot() -> void:
 		for _f in 30: await get_tree().process_frame
 		_shot("0b_title_solo.png")
 		client.title.close_solo_menu(true)
+		client.open_arsenal("scatter")
+		for _f in 20: await get_tree().process_frame
+		_shot("0c_arsenal.png")
+		client.open_arsenal("mega")
+		for _f in 6: await get_tree().process_frame
+		_shot("0d_arsenal_owned.png")
+		client.arsenal.close()
+		for _f in 12: await get_tree().process_frame
 	_start_game()
 	var st := _find_spawn_tile(W * 52 / 100, H * 30 / 100)
 	cam.position = Vector2(st % W, st / W) * TS
@@ -721,7 +729,7 @@ func _uishot() -> void:
 				for _f in 20: await get_tree().process_frame
 				_shot("2g_unit_card.png")
 				client.interact.deselect_unit()
-			client.war_begins()
+			client.advisor.war_begins()
 			for _f in 4: await get_tree().process_frame
 			_shot("2h_banner.png")
 			for _f in 150: await get_tree().process_frame

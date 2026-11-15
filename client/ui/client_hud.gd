@@ -32,6 +32,7 @@ var busy: BusyChip
 var coach: Coach
 var advisor: UIAdvisor
 var tutorial: Tutorial
+var arsenal: Arsenal
 var _tutorial_at := -1.0
 const TUTORIAL_DELAY_S := 0.9
 var _advise_t := 0.0
@@ -75,7 +76,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		g.diff_i = d
 		g._start_game_ui())
 	title.show_help.connect(toggle_help)
-	title.open_arsenal.connect(func() -> void: g._open_shop())
+	title.open_arsenal.connect(func() -> void: open_arsenal(null, "title"))
 
 	top = TopStatus.new(ctx)
 	root.add_child(top)
@@ -103,7 +104,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	over.to_title.connect(func() -> void:
 		over.close()
 		g._to_menu())
-	over.open_arsenal.connect(func(_key, _from) -> void: g._open_shop())
+	over.open_arsenal.connect(func(key, from) -> void: open_arsenal(key, from))
 	help = HelpOverlay.new(ctx)
 	root.add_child(help)
 	help.closed.connect(_update_pause)
@@ -141,7 +142,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(bar)
 	bar.visible = false
 	bar.build_chosen.connect(_on_build_chosen)
-	bar.arsenal_wanted.connect(func(_key, _from) -> void: g._open_shop())
+	bar.arsenal_wanted.connect(func(key, from) -> void: open_arsenal(key, from))
 	bar.slots_changed.connect(layout)
 	ctx.ratio_changed.connect(_on_ratio_changed)
 	tooltip = Tooltip.new(ctx)
@@ -222,6 +223,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	target_card.donate.connect(interact.donate_from_card)
 	target_card.closed.connect(func() -> void: ctx.world_call("set_selected_owner", [0]))
 	unit_card.closed.connect(func() -> void: ctx.world_call("set_selected_unit", [-1]))
+	arsenal = Arsenal.new(ctx, main)
+	root.add_child(arsenal)
 	map_picker = MapPicker.new(ctx, main)
 	root.add_child(map_picker)
 	title.pick_map.connect(func() -> void: map_picker.open(UIMaps.selected(g)))
@@ -265,6 +268,8 @@ func layout() -> void:
 	title.apply_layout()
 	if map_picker != null:
 		map_picker.apply_layout()
+	if arsenal != null:
+		arsenal.apply_layout()
 	top.apply_layout()
 	spawn.apply_layout()
 	if coach != null:
@@ -410,9 +415,9 @@ func _on_build_chosen(kind: String) -> void:
 	interact.select_action(kind)
 
 
-## UIRoot.open_arsenal: the Arsenal window (still the game's).
-func open_arsenal(_key = null, _from = "") -> void:
-	g._open_shop()
+## UIRoot.open_arsenal: the Arsenal window, on `key`'s page when one is given.
+func open_arsenal(key = null, from = "") -> void:
+	arsenal.open(key, str(from))
 
 
 ## UIRoot.screen: "title", "spawn", "play" or "over".

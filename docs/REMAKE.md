@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 33400 of 52913 upstream lines accounted for (63 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. Not yet ported: map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
+Progress: 35180 of 52913 upstream lines accounted for (68 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. The Arsenal window, the tutorial and the coach tips are ported and live. Not yet ported: map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -25,9 +25,9 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/Session.luau | 1775 | client/session.gd | todo |
 | src/client/init.client.luau | 19 | - | not applicable: Roblox script entry |
 | src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | done, live |
-| src/client/UI/Arsenal.luau | 1368 | client/ui/arsenal.gd | todo |
+| src/client/UI/Arsenal.luau | 1368 | client/ui/arsenal.gd | done, live (replaces the old shop window; Stars only, no purchases; this port's prices) |
 | src/client/UI/ArsenalButton.luau | 304 | client/ui/arsenal_button.gd | done, live (title screen, opens the Arsenal window) |
-| src/client/UI/ArsenalDemo.luau | 1462 | client/ui/arsenal_demo.gd | todo |
+| src/client/UI/ArsenalDemo.luau | 1462 | - | not ported: the Arsenal preview shows the item's render instead of the animated demo |
 | src/client/UI/AttacksPanel.luau | 462 | client/ui/attacks_panel.gd | done, live |
 | src/client/UI/Banner.luau | 188 | client/ui/banner.gd | done, live (THE WAR BEGINS) |
 | src/client/UI/BorderTracker.luau | 327 | client/borders.gd | replaced: its surface answered by the game (no tracked border set) |
@@ -89,7 +89,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/Widgets.luau | 3151 | (native Godot Controls) | not needed: upstream emulates Godot Control / Container / Label / Button / Tween on Roblox; animation helpers ported as client/ui/ui_fx.gd |
 | src/client/Map/AtlasReady.luau | 46 | - | not applicable: Roblox asset preloading |
 | src/client/Map/FalloutGlow.luau | 713 | client/map/fallout_glow.gd | todo |
-| src/client/Map/FrameClock.luau | 21 | client/map/frame_clock.gd | todo |
+| src/client/Map/FrameClock.luau | 21 | client/map/frame_clock.gd | done (library) |
 | src/client/Map/FrontLayer.luau | 411 | client/map/front_layer.gd | todo |
 | src/client/Map/FxLayer.luau | 1015 | client/map/fx_layer.gd | todo |
 | src/client/Map/MapCamera.luau | 554 | client/map/map_camera.gd | todo |
@@ -100,10 +100,10 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/Map/RangeLayer.luau | 717 | client/map/range_layer.gd | todo |
 | src/client/Map/RoadLayer.luau | 672 | client/map/road_layer.gd | todo |
 | src/client/Map/StructureLayer.luau | 633 | client/map/structure_layer.gd | todo |
-| src/client/Map/TrailBudget.luau | 34 | client/map/trail_budget.gd | todo |
+| src/client/Map/TrailBudget.luau | 34 | client/map/trail_budget.gd | done (library; the game's own unit drawing does not use it yet) |
 | src/client/Map/UnitLayer.luau | 742 | client/map/unit_layer.gd | todo |
-| src/client/Map/ViewRules.luau | 145 | client/map/view_rules.gd | todo |
-| src/client/Map/WakeRoute.luau | 211 | client/map/wake_route.gd | todo |
+| src/client/Map/ViewRules.luau | 145 | client/map/view_rules.gd | done (library over this port's SimRules) |
+| src/client/Map/WakeRoute.luau | 211 | client/map/wake_route.gd | done (library; the game's own boat curve still draws the wakes) |
 | src/client/Audio/AudioDirector.luau | 1376 | audio_upstream/audio_director.gd | done earlier (one file holds AudioDirector, MusicMood, Playlist) |
 | src/client/Audio/MusicMood.luau | 75 | audio_upstream/audio_director.gd | done earlier (one file holds AudioDirector, MusicMood, Playlist) |
 | src/client/Audio/Playlist.luau | 90 | audio_upstream/audio_director.gd | done earlier (one file holds AudioDirector, MusicMood, Playlist) |
