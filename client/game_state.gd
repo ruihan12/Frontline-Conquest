@@ -405,8 +405,30 @@ func units() -> Array:
 	for b in g.boats:
 		_units.append({"kind": Defs.U_TRANSPORT, "owner": int(b.a), "troops": float(b.get("troops", 0.0)), "raw": b})
 	for w in g.warships:
-		_units.append({"kind": Defs.U_WARSHIP, "owner": int(w.o), "troops": 0.0, "raw": w})
+		_units.append(_warship_info(w))
 	return _units
+
+
+func _warship_info(w: Dictionary) -> Dictionary:
+	var per: float = maxf(1.0, float(SimRules.WARSHIP_VET_TRANSPORTS * SimRules.WARSHIP_VET_TRADES))
+	var pos: Vector2 = w.pos
+	return {
+		"kind": Defs.U_WARSHIP, "owner": int(w.o), "troops": 0.0, "raw": w,
+		"uid": int(w.get("uid", 0)),
+		"hp": float(w.get("hp", 0.0)), "max_hp": float(w.get("max_hp", SimRules.WARSHIP_HP)),
+		"veterancy": int(w.get("vet", 0)),
+		"vet_progress": clampf(float(w.get("vet_p", 0)) / per, 0.0, 1.0),
+		"state": int(w.get("state", 0)),
+		"path": [int(pos.y) * map.W + int(pos.x)],
+	}
+
+
+## The warship with this uid (upstream: state.units[uid]), read live; null when it is gone.
+func unit(uid: int):
+	for w in g.warships:
+		if int(w.get("uid", 0)) == uid:
+			return _warship_info(w)
+	return null
 
 
 ## [{aid, attacker, target, troops, anchor_tile, retreating, raw}]

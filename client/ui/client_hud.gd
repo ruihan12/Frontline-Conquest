@@ -25,6 +25,8 @@ var interact: UIInteract
 var radial: RadialMenu
 var float_layer: Control
 var title: TitleScreen
+var target_card: TargetCard
+var unit_card: UnitCard
 var map_picker: MapPicker
 var _hover_seen := -2
 var _state_seen := ""
@@ -150,6 +152,22 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	interact.bar = bar
 	interact.float_layer = float_layer
 	radial.picked.connect(interact.on_radial)
+	target_card = TargetCard.new(ctx)
+	target_card.bar = bar
+	root.add_child(target_card)
+	root.move_child(target_card, bar.get_index() + 1)
+	unit_card = UnitCard.new(ctx)
+	unit_card.bar = bar
+	root.add_child(unit_card)
+	root.move_child(unit_card, bar.get_index() + 1)
+	interact.target_card = target_card
+	interact.unit_card = unit_card
+	target_card.fire.connect(interact.fire_from_card)
+	target_card.ally.connect(interact.ally_from_card)
+	target_card.betray.connect(interact.betray_from_card)
+	target_card.donate.connect(interact.donate_from_card)
+	target_card.closed.connect(func() -> void: ctx.world_call("set_selected_owner", [0]))
+	unit_card.closed.connect(func() -> void: ctx.world_call("set_selected_unit", [-1]))
 	map_picker = MapPicker.new(ctx, main)
 	root.add_child(map_picker)
 	title.pick_map.connect(func() -> void: map_picker.open(UIMaps.selected(g)))
@@ -440,6 +458,35 @@ func _hover(dt: float, in_match: bool) -> void:
 	radial.update(dt)
 	if radial.is_open and not interact.enabled:
 		radial.close()
+	if not in_match or (g.state != "pick" and g.state != "play"):
+		if target_card.is_open:
+			target_card.hide_card()
+		if unit_card.is_open:
+			interact.deselect_unit()
+
+
+## main.gd: a left click on the map while picking a start or playing (UIInteract.on_click).
+func on_click() -> void:
+	if not interact.enabled:
+		return
+	interact.on_click(ctx.tile_at(root.get_viewport().get_mouse_position()))
+
+
+## main.gd: the Space key.
+func on_primary_key() -> void:
+	if interact.enabled:
+		interact.primary_at_hover()
+
+
+## main.gd: right-click or Esc with something selected. True when a card was closed.
+func cancel_selection() -> bool:
+	if target_card.is_open:
+		target_card.hide_card(true)
+		return true
+	if unit_card.is_open:
+		interact.deselect_unit(true)
+		return true
+	return false
 
 
 ## main.gd: a right-click on the map in play (nothing to cancel first). True when the ring opened.

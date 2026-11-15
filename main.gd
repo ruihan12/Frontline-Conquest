@@ -1361,14 +1361,16 @@ func _unhandled_input(e: InputEvent) -> void:
 				lpress = true; dragging = false; drag_from = e.position
 			else:
 				if lpress and not dragging and e.button_index == MOUSE_BUTTON_LEFT:
-					if state == "pick":
+					if state == "play" and build_sel >= 0: try_build(build_sel, _mouse_tile())
+					elif (state == "pick" or state == "play") and client != null: client.on_click()
+					elif state == "pick":
 						_place_start(_mouse_tile())
 					elif state == "play":
-						if build_sel >= 0: try_build(build_sel, _mouse_tile())
-						elif _warship_click(): pass
+						if _warship_click(): pass
 						else: _attack_at_cursor()
 				elif lpress and not dragging and e.button_index == MOUSE_BUTTON_RIGHT:
 					if build_sel >= 0: build_sel = -1
+					elif client != null and client.cancel_selection(): pass
 					elif sel_ws != null: sel_ws = null
 					elif state == "play":
 						if client != null: client.on_context()
@@ -1385,7 +1387,10 @@ func _unhandled_input(e: InputEvent) -> void:
 		match e.keycode:
 			KEY_Q: _set_share(share_i - 1)
 			KEY_E: _set_share(share_i + 1)
-			KEY_SPACE: if state == "play": _attack_at_cursor()
+			KEY_SPACE:
+				if state == "play":
+					if client != null: client.on_primary_key()
+					else: _attack_at_cursor()
 			KEY_BACKSPACE:
 				for k in range(attacks.size() - 1, -1, -1):
 					if attacks[k].a == PLAYER:
@@ -1403,6 +1408,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				elif client != null and state == "menu" and client.title.solo_menu_open(): client.title.close_solo_menu()
 				elif hud != null and hud.menu_open(): hud.close_menu()
 				elif build_sel >= 0: build_sel = -1
+				elif client != null and client.cancel_selection(): pass
 				elif sel_ws != null: sel_ws = null
 				elif hud != null and (state == "play" or state == "pick"): hud.open_menu()
 				else: _to_menu()

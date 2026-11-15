@@ -1,8 +1,9 @@
 # Port of src/client/UI/UIInteract.luau (scripts/ui/ui_interact.gd): what the pointer does on the
-# map. So far the hover part: on_hover, _update_tooltip, hover_spec, _aim_spec, _crowding and the
-# per-frame refresh, and the action ring: on_context, on_radial, donate_to, retreat, _float,
-# show_inspect. Left clicks, the placement ghost, unit selection and the keys are still handled by
-# main.gd and come over with MapInput.
+# map. Ported: the hover part (on_hover, _update_tooltip, hover_spec, _aim_spec, _crowding and the
+# per-frame refresh), the action ring (on_context, on_radial, donate_to, retreat, _float,
+# show_inspect) and left clicks (on_click, the target card's select-then-fire flow, warship
+# selection and move orders, pick). The placement ghost and the keys are still handled by main.gd
+# and come over with MapInput.
 class_name UIInteract
 extends RefCounted
 
@@ -10,7 +11,21 @@ extends RefCounted
 ## of a spawn spot.
 const CROWD_FULL_TILES := 88.0
 
+## Two clicks on one tile closer together than this are one click.
+const DUP_MS := 180.0
+## How far a tap may miss land and still pick it (screen px).
+const PICK_TOUCH_PX := 22.0
+const PICK_MOUSE_PX := 6.0
+## How close a tap must be to a warship to select it (screen px).
+const UNIT_PICK_TOUCH := 26.0
+const UNIT_PICK_MOUSE := 12.0
+
 var ctx: UICtx
+var target_card: TargetCard = null
+var unit_card: UnitCard = null
+var last_pick := -1
+var _last_click_tile := -1
+var _last_click_msec := -100000.0
 var tooltip: Tooltip = null
 var radial: RadialMenu = null
 var bar: CommandBar = null
@@ -240,6 +255,360 @@ func process_frame(delta: float) -> void:
 		_tip_accum = 0.0
 		if enabled and tooltip.place == Tooltip.PLACE_FOLLOW and tooltip.is_shown():
 			_update_tooltip()
+
+
+# ---------------------------------------------------------------------------------------------
+# Left clicks
+# ---------------------------------------------------------------------------------------------
+## A click (tap) on the map: select or steer a warship, fire the primary order for the tile, or
+## (with "select before attacking" on) open the target card first.
+func on_click(tile: int) -> void:
+	if not enabled or ctx.state == null:
+		return
+	var now := UICtx.msec()
+	if tile == _last_click_tile and now - _last_click_msec < DUP_MS:
+		return
+	_last_click_tile = tile
+	_last_click_msec = now
+	if radial.is_open:
+		radial.close()
+		return
+	var pos := tap_pos(tile)
+	var s = ctx.state
+	if aim_kind == "":
+		var on_land: bool = tile >= 0 and s.map.is_land(tile)
+		var steering: bool = unit_card != null and unit_card.is_open and unit_card.own and not on_land
+		var uid := unit_at(pos, 12.0 if (on_land or steering) else -1.0)
+		if uid != 0 and not (steering and uid == unit_card.uid):
+			select_unit(uid)
+			return
+		if unit_card != null and unit_card.is_open:
+			if unit_card.own and tile >= 0 and s.map.is_water(tile):
+				_move_selected(tile, pos)
+			else:
+				deselect_unit(true)
+			return
+	tile = pick(tile, pos)
+	last_pick = tile
+	if aim_kind != "":
+		# (the placement ghost is still the game's: build where the pointer is)
+		ctx.session.g.try_build(ctx.session.g.build_sel, tile)
+		return
+	var act: Dictionary = ctx.rules.primary(tile)
+	var kind := str(act.type)
+	var selectable: bool = (kind == "attack" or kind == "boat") and act.ok
+	var ally_own := _ally_at(tile) if ctx.touch else 0
+	if target_card != null and target_card.is_open:
+		if selectable and target_card.matches(tile, kind):
+			_fire_selected(pos)
+			return
+		var same_ally: bool = ally_own != 0 and target_card.kind == "ally" and target_card.owner_id == ally_own
+		target_card.hide_card()
+		if ally_own != 0 and not same_ally:
+			_select(tile, "ally", act)
+		elif selectable and confirm_orders():
+			_select(tile, kind, act)
+		return
+	if ally_own != 0:
+		tooltip.hide_tip()
+		_select(tile, "ally", act)
+		return
+	if tooltip.place == Tooltip.PLACE_PINNED and tooltip.is_shown():
+		tooltip.hide_tip()
+		if ctx.touch:
+			return
+	if selectable and confirm_orders():
+		_select(tile, kind, act)
+		return
+	if kind == "inspect":
+		var own: int = s.tile_owner(tile)
+		ctx.world_call("set_selected_owner", [own])
+		if ctx.touch and own != 0:
+			show_inspect(tile)
+		return
+	if kind == "none" or not act.ok:
+		var reason := str(act.reason)
+		if reason != "":
+			ctx.sfx("deny", -4.0)
+			_float(reason, "info", UITheme.TEXT_2, pos)
+		if act.get("floor", false) == true:
+			ctx.floor_held.emit()
+		return
+	var intent: Dictionary = ctx.rules.primary_intent(tile, act)
+	if intent.is_empty():
+		return
+	ctx.send(intent)
+	var coach = ctx.coach
+	if coach != null:
+		if kind == "expand":
+			coach.complete("expand")
+		elif kind == "attack":
+			coach.complete("expand")
+			coach.complete("contact")
+		elif kind == "boat":
+			coach.complete("boat")
+	if kind == "spawn":
+		ctx.sfx("spawn")
+	elif kind == "expand":
+		_float(ctx.rules.confirm_text(act), "attack", UITheme.GREEN, pos)
+	elif kind == "attack":
+		_float(ctx.rules.confirm_text(act), "attack", UITheme.AMBER, pos)
+	elif kind == "boat":
+		_float(ctx.rules.confirm_text(act), "boat", UITheme.CYAN, pos)
+
+
+## "Select before attacking": separate settings for touch and mouse.
+func confirm_orders() -> bool:
+	if ctx.touch:
+		return bool(ctx.setting("confirm_orders", true))
+	return bool(ctx.setting("confirm_orders_desktop", false))
+
+
+func _select(tile: int, kind: String, act: Dictionary) -> void:
+	if target_card == null:
+		return
+	target_card.show_target(tile, kind, act)
+	var own: int = ctx.state.tile_owner(tile)
+	ctx.world_call("set_selected_owner", [own])
+	if own != 0 and kind != "ally":
+		ctx.world_call("set_range_owner", [own])
+		ctx.world_call("set_range_mode", ["attack_aim"])
+	_range_focus = tile
+	ctx.world_call("set_range_focus", [tile])
+	if ctx.coach != null:
+		ctx.coach.offer("select")
+
+
+func _fire_selected(pos: Vector2) -> void:
+	var tc := target_card
+	var t := tc.tile
+	var k := tc.kind
+	tc.hide_card()
+	ctx.world_call("set_selected_owner", [0])
+	var act: Dictionary = ctx.rules.primary(t)
+	if str(act.type) == "none" or not act.ok:
+		ctx.sfx("deny", -4.0)
+		var r := str(act.reason)
+		_float(r if r != "" else "Target out of reach", "info", UITheme.TEXT_2, pos)
+		if act.get("floor", false) == true:
+			ctx.floor_held.emit()
+		return
+	if str(act.type) != k and not (k == "attack" and str(act.type) == "expand"):
+		act.type = k
+	var intent: Dictionary = ctx.rules.primary_intent(t, act)
+	if intent.is_empty():
+		return
+	ctx.send(intent)
+	if ctx.coach != null:
+		ctx.coach.complete("select")
+		ctx.coach.complete("contact")
+		if k == "boat":
+			ctx.coach.complete("boat")
+	_float(ctx.rules.confirm_text(act), "attack" if k == "attack" else "boat", UITheme.AMBER if k == "attack" else UITheme.CYAN, pos)
+
+
+func fire_from_card() -> void:
+	var tc := target_card
+	if tc == null or not tc.is_open:
+		return
+	var p := ctx.tile_screen_pos(tc.tile)
+	_fire_selected(p if p.x >= 0.0 else tc.panel_rect().get_center())
+
+
+## The ally (or teammate) who owns `tile`, else 0.
+func _ally_at(tile: int) -> int:
+	var s = ctx.state
+	if s == null or tile < 0 or s.phase != Defs.PHASE_PLAYING or not ctx.alive_player():
+		return 0
+	var own: int = s.tile_owner(tile)
+	return own if (own != 0 and own != ctx.me() and s.are_allies(ctx.me(), own)) else 0
+
+
+func betray_from_card(attack: bool) -> void:
+	var tc := target_card
+	if tc == null or not tc.is_open or tc.owner_id == 0:
+		return
+	var own := tc.owner_id
+	var t := tc.tile
+	var p := ctx.tile_screen_pos(t)
+	tc.hide_card()
+	ctx.world_call("set_selected_owner", [0])
+	ctx.send({"type": "ally_break", "target": own})
+	ctx.sfx("deny", -2.0)
+	var at := p if p.x >= 0.0 else ctx.mouse_pos()
+	if attack and ctx.troops_for_ratio() >= 1.0:
+		var land: bool = ctx.borders.borders_owner(own)
+		var landing: int = -1 if land else ctx.rules.boat_landing(t)
+		ctx.send({"type": "attack" if land else "boat", "tile": landing if landing >= 0 else t, "ratio": ctx.order_ratio()})
+		_float("You betrayed %s · attacking with %s" % [ctx.state.owner_name(own), UITheme.fmt_troops(ctx.troops_for_ratio())], "betray", UITheme.RED, at)
+	else:
+		_float("You broke your alliance with " + ctx.state.owner_name(own), "betray", UITheme.RED, at)
+
+
+func donate_from_card() -> void:
+	var tc := target_card
+	if tc == null or not tc.is_open or tc.owner_id == 0:
+		return
+	var own := tc.owner_id
+	var p := ctx.tile_screen_pos(tc.tile)
+	if donate_to(own, p if p.x >= 0.0 else ctx.mouse_pos()):
+		tc.hide_card()
+		ctx.world_call("set_selected_owner", [0])
+
+
+func ally_from_card() -> void:
+	var tc := target_card
+	if tc == null or not tc.is_open or tc.owner_id == 0:
+		return
+	var own := tc.owner_id
+	tc.hide_card()
+	ctx.world_call("set_selected_owner", [0])
+	ctx.send({"type": "ally_request", "target": own})
+	_float("Alliance proposed to " + ctx.state.owner_name(own), "alliance", UITheme.VIOLET, ctx.mouse_pos())
+
+
+## The Space key: the primary order for the tile under the pointer.
+func primary_at_hover() -> void:
+	if hover_tile >= 0:
+		_last_click_tile = -1
+		on_click(hover_tile)
+
+
+# ---------------------------------------------------------------------------------------------
+# Warships
+# ---------------------------------------------------------------------------------------------
+## The warship under `pos` (screen px), 0 for none; `radius` <= 0 uses the default pick radius.
+func unit_at(pos: Vector2, radius: float = -1.0) -> int:
+	var s = ctx.state
+	if s == null:
+		return 0
+	var r := radius if radius > 0.0 else (UNIT_PICK_TOUCH if ctx.touch else UNIT_PICK_MOUSE)
+	var best := 0
+	var bd := r * r
+	for u in s.units():
+		if u.kind != Defs.U_WARSHIP or u.get("path", []).is_empty():
+			continue
+		# (the ship's exact position, not its tile's centre)
+		var p: Vector2 = ctx.world_call("screen_pos_of_world", [u.raw.pos])
+		if p.x < 0.0:
+			continue
+		var d := p.distance_squared_to(pos)
+		if d <= bd and (d < bd or best == 0 or int(u.uid) < best):
+			bd = d
+			best = int(u.uid)
+	return best
+
+
+func select_unit(uid: int) -> void:
+	if target_card != null:
+		target_card.hide_card()
+	tooltip.hide_tip()
+	unit_card.show_unit(uid)
+	ctx.world_call("set_selected_unit", [uid])
+
+
+func deselect_unit(user: bool = false) -> void:
+	if unit_card != null and unit_card.is_open:
+		unit_card.hide_card(user)
+	ctx.world_call("set_selected_unit", [-1])
+
+
+func _move_selected(tile: int, pos: Vector2) -> void:
+	var uid := unit_card.uid
+	# (port) the game says why a ship cannot sail somewhere: another sea, not water
+	var err: String = ctx.session.move_warship(uid, tile)
+	if err != "":
+		ctx.sfx("deny", -4.0)
+		_float(err, "info", UITheme.RED, pos)
+		return
+	unit_card.mark_destination(tile)
+	ctx.sfx("click", -4.0)
+	_float("Warship moving", "warship", UITheme.CYAN, pos)
+
+
+## Where on screen a click on `tile` landed: the pointer if it is on that tile, else the tile.
+func tap_pos(tile: int) -> Vector2:
+	var pos := ctx.mouse_pos()
+	if ctx.tile_at(pos) == tile:
+		return pos
+	var c := ctx.tile_screen_pos(tile)
+	return c if c.x >= 0.0 else pos
+
+
+## Forgiving pick: a click that just misses land (a coast, a thin island) takes the nearest land
+## within a few pixels.
+func pick(tile: int, pos: Vector2) -> int:
+	var s = ctx.state
+	if s == null or ctx.world == null:
+		return tile
+	var map = s.map
+	if aim_kind != "" and (UIRules.is_nuke(aim_kind) or aim_kind == "warship"):
+		return tile
+	if ctx.tile_at(pos) != tile:
+		var c := ctx.tile_screen_pos(tile)
+		if c.x >= 0.0:
+			pos = c
+	var own_build := aim_kind != ""
+	var me := ctx.me()
+	var good := func(t: int) -> bool:
+		if t < 0:
+			return false
+		if own_build:
+			return s.tile_owner(t) == me and map.is_land(t)
+		return map.is_contestable(t)
+	if good.call(tile):
+		return tile
+	var r_max := PICK_TOUCH_PX if ctx.touch else PICK_MOUSE_PX
+	var prefer_owner: int = s.tile_owner(tile) if (tile >= 0 and map.is_land(tile)) else -1
+	var best := -1
+	var best_score := INF
+	var rings := [r_max * 0.35, r_max * 0.7, r_max] if ctx.touch else [r_max]
+	for r: float in rings:
+		var n := 8 if r < 10.0 else (12 if r < 18.0 else 16)
+		for i in n:
+			var a := TAU * i / n
+			var t := ctx.tile_at(pos + Vector2(cos(a), sin(a)) * r)
+			if not good.call(t):
+				continue
+			var score := r
+			if prefer_owner >= 0 and s.tile_owner(t) != prefer_owner:
+				score += r_max * 0.5
+			if score < best_score:
+				best_score = score
+				best = t
+	if best >= 0:
+		return best
+	var span := _px_to_tiles(r_max, pos)
+	if tile >= 0 and span > 0:
+		var w: int = map.W
+		var h: int = map.H
+		var cx := tile % w
+		var cy := tile / w
+		var bd := INF
+		for dy in range(-span, span + 1):
+			var y := cy + dy
+			if y < 0 or y >= h:
+				continue
+			for dx in range(-span, span + 1):
+				var x := cx + dx
+				if x < 0 or x >= w:
+					continue
+				var t2 := y * w + x
+				if good.call(t2):
+					var d := float(dx * dx + dy * dy)
+					if d < bd:
+						bd = d
+						best = t2
+	return best if best >= 0 else tile
+
+
+func _px_to_tiles(px: float, pos: Vector2) -> int:
+	var a := ctx.tile_at(pos)
+	var b := ctx.tile_at(pos + Vector2(px, 0))
+	if a < 0 or b < 0:
+		return 1
+	var w: int = ctx.state.map.W
+	return clampi(maxi(absi(a % w - b % w), absi(a / w - b / w)), 1, 6)
 
 
 # ---------------------------------------------------------------------------------------------

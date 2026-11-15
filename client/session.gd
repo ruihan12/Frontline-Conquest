@@ -23,9 +23,23 @@ func _init(main) -> void:
 	g = main
 
 
+## Orders warship `uid` to `tile`; "" when the order was taken, else why not.
+func move_warship(uid: int, tile: int) -> String:
+	for ws in g.warships:
+		if int(ws.get("uid", 0)) == uid:
+			if int(ws.o) != int(g.PLAYER):
+				return "Not your warship"
+			return g.order_warship(ws, tile)
+	return "That warship is gone"
+
+
 func send_intent(intent: Dictionary) -> void:
 	var me: int = g.PLAYER
 	match String(intent.get("type", "")):
+		"spawn":
+			g._place_start(int(intent.get("tile", -1)))
+		"move_warship":
+			move_warship(int(intent.get("uid", 0)), int(intent.get("tile", -1)))
 		"attack":
 			g.intent_attack(me, int(intent.get("tile", -1)), float(intent.get("ratio", 0.25)))
 		"boat":

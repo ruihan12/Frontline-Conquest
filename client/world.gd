@@ -86,3 +86,19 @@ func aim_sams(tile: int) -> int:
 			if sp.distance_to(p) <= float(g.sim_rules.sam_range(int(st.get("level", 1)))):
 				n += 1
 	return n
+
+
+## Screen position of a world position given in tiles (a ship between tile centres).
+func screen_pos_of_world(pos: Vector2) -> Vector2:
+	return g._screen_of(pos * g.TS)
+
+
+## Highlights warship `uid` on the map (-1 clears); only the player's own ships are steered.
+func set_selected_unit(uid: int) -> void:
+	g.sel_ws = null
+	if uid <= 0:
+		return
+	for ws in g.warships:
+		if int(ws.get("uid", 0)) == uid and int(ws.o) == int(g.PLAYER):
+			g.sel_ws = ws
+			return

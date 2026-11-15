@@ -704,6 +704,24 @@ func _uishot() -> void:
 			_shot("2e_radial_build.png")
 			client.radial.close()
 			for _f in 10: await get_tree().process_frame
+			# the target card (select before attacking) and the warship card
+			var ft := -1
+			for ti in W * H:
+				if owner_map[ti] > 0 and owner_map[ti] != PLAYER and _shares_land_border(PLAYER, owner_map[ti]): ft = ti; break
+			if ft >= 0:
+				client.interact.enabled = true
+				client.interact._select(ft, "attack", client.ctx.rules.primary(ft))
+				for _f in 20: await get_tree().process_frame
+				_shot("2f_target_card.png")
+				client.target_card.hide_card()
+			if spawn_warship(PLAYER):
+				for _f in 4: await get_tree().process_frame
+				client.interact.select_unit(int(warships[-1].uid))
+				client.unit_card.mark_destination(int(warships[-1].pos.y) * W + int(warships[-1].pos.x) + 6)
+				for _f in 20: await get_tree().process_frame
+				_shot("2g_unit_card.png")
+				client.interact.deselect_unit()
+			for _f in 10: await get_tree().process_frame
 	hud.open_menu()
 	for _f in 30: await get_tree().process_frame
 	_shot("3_menu.png")
