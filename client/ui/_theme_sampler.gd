@@ -101,6 +101,19 @@ func _ready() -> void:
 	ctx.set_ratio_max(0.5)
 	ctx.set_ratio(0.35)
 
+	var shop := ShopSlot.new(ctx)
+	shop.set_block(72, 60)
+	shop.position = Vector2(1060, 300)
+	shop.size = Vector2(72, 60)
+	add_child(shop)
+	shop.refresh()
+	shop._t = 1.3
+	var bb := BuildButton.new(ctx, "city", "1")
+	bb.position = Vector2(1150, 300)
+	bb.size = Vector2(54, 60)
+	add_child(bb)
+
+
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(0.6).timeout

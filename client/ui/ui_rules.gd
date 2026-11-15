@@ -177,6 +177,12 @@ func nuke_radii(kind: String) -> Vector2:
 	var k := Defs.nuke_kind_from_name(kind)
 	if k < 0:
 		return Vector2.ZERO
+	# (this port's bombs: the game's own blast radius, with the source's inner share of it)
+	var s = ctx.state
+	var bid: int = RWGameState.BUILD_ID.get(kind, -1)
+	if s != null and s.g.NUKE_R.has(bid) and kind != "mirv":
+		var outer := float(s.g.NUKE_R[bid])
+		return Vector2(outer * SimRules.inner_frac(k), outer)
 	return rules().nuke_radii_full_scaled(k)
 
 

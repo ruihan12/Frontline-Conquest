@@ -178,6 +178,10 @@ func hint_spec() -> Dictionary:
 		rows.append(["Owned", str(_owned), UITheme.TEXT])
 	else:
 		rows.append(["Blast radius", ctx.rules.blast_text(kind), UITheme.TEXT])
+		# port-only: this port's range system (how far a silo reaches with this bomb)
+		var bid: int = RWGameState.BUILD_ID.get(kind, -1)
+		if ctx.state != null and bid in [7, 8, 9, 11, 12]:
+			rows.append(["Range", "Any (ICBM)" if ctx.state.g.icbm_mode else ctx.state.g.nuke_range_label(bid), UITheme.TEXT])
 	var item = UIRules.arsenal_item(kind)
 	if _av.get("arsenal") != null and item != null:
 		# locked: what unlocks it

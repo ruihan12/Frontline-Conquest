@@ -10,6 +10,7 @@ var ctx: UICtx
 var root: Control
 var bar: CommandBar
 var icbm: IcbmSlot
+var tooltip: Tooltip
 var _stats_t := 0.0
 var _growth_t := 0.0
 var _was_play := false
@@ -42,6 +43,9 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	bar.arsenal_wanted.connect(func(_key, _from) -> void: g._open_shop())
 	bar.slots_changed.connect(layout)
 	ctx.ratio_changed.connect(_on_ratio_changed)
+	tooltip = Tooltip.new(ctx)
+	root.add_child(tooltip)
+	ctx.tooltip = tooltip
 	root.resized.connect(layout)
 	layout()
 

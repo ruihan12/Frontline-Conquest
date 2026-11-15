@@ -656,10 +656,12 @@ func _uishot() -> void:
 	for _f in 30: await get_tree().process_frame
 	_update_hud()
 	tip_slot = 8
+	if client: client.ctx.show_hint(client.bar.buttons["hydrogen"], client.bar.buttons["hydrogen"].hint_spec())
 	for _f in 12: await get_tree().process_frame
 	_shot("2_mid.png")
 	_uishot_rects("2_mid")
 	tip_slot = -1
+	if client: client.ctx.hide_hint()
 	hud.set_board_open(false)
 	if foe > 0: _uishot_mouse_at_tile(fo[1])
 	for _f in 12: await get_tree().process_frame

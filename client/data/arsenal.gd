@@ -104,7 +104,15 @@ static func next_goal(owned: Dictionary):
 	return null
 
 
-## The item's render (assets/rw/arsenal/renders), or null.
+static var _renders := {}
+
+
+## The item's render (assets/rw/arsenal/renders), or null. Kept: a texture nothing holds is freed
+## before the frame that draws it.
 static func render(key: String) -> Texture2D:
+	if _renders.has(key):
+		return _renders[key]
 	var p := "res://assets/rw/arsenal/renders/%s.png" % key
-	return load(p) if ResourceLoader.exists(p) else null
+	var t: Texture2D = load(p) if ResourceLoader.exists(p) else null
+	_renders[key] = t
+	return t
