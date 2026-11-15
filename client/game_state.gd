@@ -110,6 +110,31 @@ var over_reason: int:
 		return Defs.OVER_DOMINATION
 
 
+## Ticks until the current phase ends (0: open-ended).
+var phase_ticks_left: int:
+	get:
+		return int(ceil(maxf(float(g.deploy_t), 0.0) * Defs.TICK_RATE)) if g.state == "pick" else 0
+
+## Absolute tick at which the match ends (0: no limit; solo matches have none).
+var time_limit_ticks: int:
+	get:
+		return 0
+
+
+## Spawn phase: seconds until the match starts (-1: not counting).
+func spawn_seconds_left() -> float:
+	if g.state != "pick" or g.start_tile < 0:
+		return -1.0
+	return maxf(float(g.deploy_t), 0.0)
+
+
+## Seconds of the opening protection left (the game's peace clock).
+func grace_seconds_left() -> float:
+	if g.state != "play":
+		return 0.0
+	return maxf(float(g.peace) - float(g.elapsed), 0.0)
+
+
 # ---------------------------------------------------------------------------------------------
 # Owners
 # ---------------------------------------------------------------------------------------------
@@ -171,6 +196,12 @@ func owner_name(id: int) -> String:
 	return g.nations[id].get("name", "")
 
 
+func owner_color(id: int) -> Color:
+	if id <= 0 or id >= g.nations.size():
+		return Color.GRAY
+	return g.nations[id].get("color", Color.GRAY)
+
+
 func tile_owner(tile: int) -> int:
 	if tile < 0 or tile >= g.owner_map.size():
 		return 0
@@ -195,6 +226,24 @@ func team_name(_t: int) -> String:
 
 func has_fallout(tile: int) -> bool:
 	return tile >= 0 and tile < g.fallout.size() and g.fallout[tile] != 0
+
+
+## `a` and `b` share a land border (BorderTracker.borders_owner). Kept for a second per pair.
+var _bord_tick := -100
+var _bord := {}
+
+
+func borders_owner(a: int, b: int) -> bool:
+	if a <= 0 or b <= 0 or a == b:
+		return false
+	var t := tick
+	if t - _bord_tick >= 10 or t < _bord_tick:
+		_bord_tick = t
+		_bord.clear()
+	var k := a * 4096 + b
+	if not _bord.has(k):
+		_bord[k] = bool(g._shares_land_border(a, b))
+	return _bord[k]
 
 
 ## Share of the contestable land `id` holds.
@@ -307,7 +356,7 @@ func units() -> Array:
 	return _units
 
 
-## [{attacker, target, troops, raw}]
+## [{aid, attacker, target, troops, anchor_tile, retreating, raw}]
 func attacks() -> Array:
 	var t := tick
 	if t == _atk_tick and _attacks.size() == g.attacks.size():
@@ -315,7 +364,15 @@ func attacks() -> Array:
 	_atk_tick = t
 	_attacks.clear()
 	for a in g.attacks:
-		_attacks.append({"attacker": int(a.a), "target": int(a.t), "troops": float(a.get("troops", 0.0)), "raw": a})
+		_attacks.append({
+			"aid": int(a.get("aid", 0)),
+			"attacker": int(a.a),
+			"target": int(a.t),
+			"troops": float(a.get("troops", 0.0)),
+			"anchor_tile": int(a.get("last", -1)),
+			"retreating": int(a.get("retreat_at", 0)) > 0,
+			"raw": a,
+		})
 	return _attacks
 
 

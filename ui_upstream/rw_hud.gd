@@ -234,7 +234,7 @@ func _topbar_pressed(key: String) -> void:
 	match key:
 		"music": m.hud_toggle_music()
 		"help": m.help_panel.visible = not m.help_panel.visible
-		"leaderboard": set_board_open(not board_open)
+		"leaderboard": set_board_open(not (m.client.board.expanded if m.client != null else board_open))
 		"home": m._focus_player_smooth(m.cam.zoom.x)
 		"settings": m._open_settings()
 		"menu": open_menu()
@@ -565,6 +565,10 @@ func _set_board_row(r: Dictionary, id: int, rank: int) -> void:
 	b.add_theme_stylebox_override("hover", r.me_style if me else r.hov)
 
 func set_board_open(on: bool) -> void:
+	if m.client != null:  # the board is the remade client's now
+		board_open = on
+		m.client.board.set_open(on)
+		return
 	var was := board_open
 	board_open = on
 	board.visible = on
@@ -1361,6 +1365,7 @@ func layout() -> void:
 	spawn.reset_size()
 	spawn.position = Vector2(round((vs.x - spawn.size.x) * 0.5), 12)
 	var status_bottom := top.position.y + top.size.y
+	if m.client != null: status_bottom = m.client.status_bottom()
 	if spawn.is_visible_in_tree(): status_bottom = maxf(status_bottom, spawn.position.y + spawn.size.y)
 	alert.reset_size()
 	alert.position = Vector2(round((vs.x - alert.size.x) * 0.5), status_bottom + 10)

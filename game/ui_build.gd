@@ -197,8 +197,9 @@ func _build_ui() -> void:
 	# the remade client's parts sit above the old HUD; the old command bar is no longer shown
 	client = ClientHud.new(); client.name = "ClientHudCtl"; add_child(client)
 	client.setup(self, ui, hud.root.get_index() + 1)
-	hud.bar.get_parent().visible = false
-	hud.groups.erase(hud.bar.get_parent())
+	for old_part in [hud.bar, hud.top, hud.board, hud.atk]:
+		old_part.get_parent().visible = false
+		hud.groups.erase(old_part.get_parent())
 	hud_nodes = hud.groups.duplicate()
 	note_box = Control.new(); note_box.position = Vector2(16, 96); note_box.size = Vector2(380, 480)
 	note_box.mouse_filter = Control.MOUSE_FILTER_IGNORE

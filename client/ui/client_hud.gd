@@ -11,6 +11,11 @@ var root: Control
 var bar: CommandBar
 var icbm: IcbmSlot
 var tooltip: Tooltip
+var top: TopStatus
+var board: Leaderboard
+var attacks: AttacksPanel
+var _phase := -1
+var _in_layout := false
 var _stats_t := 0.0
 var _growth_t := 0.0
 var _was_play := false
@@ -23,6 +28,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	ctx.state = RWGameState.new(main)
 	ctx.session = RWSession.new(main)
 	ctx.audio = RWAudio.new(main)
+	ctx.world = RWWorld.new(main)
 	ctx.reload_settings()
 	root = Control.new()
 	root.name = "ClientHud"
@@ -33,6 +39,26 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	if at_index >= 0:
 		layer.move_child(root, at_index)
 	ctx.root = root
+
+	top = TopStatus.new(ctx)
+	root.add_child(top)
+	top.visible = false
+	board = Leaderboard.new(ctx)
+	root.add_child(board)
+	board.visible = false
+	attacks = AttacksPanel.new(ctx)
+	root.add_child(attacks)
+	attacks.visible = false
+	top.rank_provider = board.my_rank
+	top.tapped.connect(func() -> void:
+		if ctx.compact:
+			board.toggle())
+	board.toggled.connect(func(_on: bool) -> void: layout())
+	attacks.toggled.connect(func(_c: bool) -> void: layout())
+	attacks.retreat_requested.connect(_on_retreat)
+	for c in [top.panel, board.panel, board._pill, attacks.panel]:
+		c.resized.connect(_queue_layout)
+		c.visibility_changed.connect(_queue_layout)
 
 	bar = CommandBar.new(ctx)
 	icbm = IcbmSlot.new(ctx)
@@ -50,19 +76,76 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	layout()
 
 
+var _layout_queued := false
+
+
+func _queue_layout() -> void:
+	if _in_layout or _layout_queued:
+		return
+	_layout_queued = true
+	_do_queued.call_deferred()
+
+
+func _do_queued() -> void:
+	_layout_queued = false
+	layout()
+
+
 ## UIRoot._layout: metrics, then each part.
 func layout() -> void:
-	if root == null:
+	if root == null or _in_layout:
 		return
-	var vs := root.size
-	if vs.x < 10:
-		vs = Vector2(1600, 900)
-	ctx.vp = vs
-	ctx.compact = false
-	# UIRoot: the single-row bar needs 1420 px plus what the Arsenal adds
-	ctx.wide = vs.x >= 1420.0 + bar.extra_width() + 62.0 * bar.port_slots.size()
+	_in_layout = true
+	var vp := root.size
+	if vp.x < 10:
+		vp = Vector2(1600, 900)
+	ctx.vp = vp
+	ctx.compact = vp.y < 560.0 or vp.x < 900.0
+	# (the single-row bar: ten slots, plus the Arsenal's SHOP slot and a slot per unlocked kind)
+	ctx.wide = vp.x >= 1420.0 + bar.extra_width() + 62.0 * bar.port_slots.size()
+	# the top-left corner belongs to the top-bar buttons (still drawn by the old HUD)
+	if g.hud != null and g.hud.topbar != null:
+		var tr: Rect2 = g.hud.topbar.get_global_rect()
+		ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
+	top.apply_layout()
 	bar.apply_layout()
+	# Leaderboard: top-right, dropping below the status pill / spawn banner when they would touch.
+	var board_top := 12.0 + ctx.insets.y
+	var board_w := 250.0 if ctx.compact else 300.0
+	var board_left := vp.x - 12.0 - ctx.insets.z - board_w
+	var blockers: Array[Control] = []
+	if top.visible:
+		blockers.append(top.panel)
+	if g.hud != null and g.hud.spawn != null and g.hud.spawn.is_visible_in_tree():
+		blockers.append(g.hud.spawn)
+	for b in blockers:
+		var r := b.get_global_rect()
+		if r.end.x + 12.0 > board_left:
+			board_top = maxf(board_top, r.end.y + 10.0)
+	board.apply_layout(board_top)
+	# Phones: when the status pill had to drop below the top bar, the rank pill sits beside it.
+	if ctx.compact and top.visible and not board.expanded:
+		var tr2 := top.panel.get_global_rect()
+		var pill_w := board._pill.get_combined_minimum_size().x
+		var min_x := ctx.insets.x + 8.0 if tr2.position.y >= ctx.reserved_top_left.end.y else ctx.reserved_top_left.end.x + 8.0
+		if tr2.position.x - 8.0 - pill_w >= min_x:
+			board.place_pill_left_of(tr2)
+	var attacks_top := maxf(board.bottom_edge() if board.visible else 0.0, top.bottom_edge() if top.visible else 0.0) + 10.0
+	attacks.tray_open = bar.tray.visible
+	attacks.apply_layout(attacks_top, (bar.top_edge() if bar.visible else vp.y - ctx.insets.w) - 8.0)
+	if attacks.visible:
+		attacks.refresh()
 	ctx.layout_changed.emit()
+	_in_layout = false
+
+
+func _on_retreat(aid: int) -> void:
+	for a in ctx.state.attacks():
+		if a.aid == aid:
+			ctx.send({"type": "retreat", "attack": a})
+			ctx.sfx("click", -6.0)
+			attacks.mark_dirty()
+			return
 
 
 func _on_build_chosen(kind: String) -> void:
@@ -109,22 +192,48 @@ func _placing_kind() -> String:
 	return ""
 
 
+## Bottom edge of the status pill (the old HUD's alert banner sits under it).
+func status_bottom() -> float:
+	return top.bottom_edge() if top.visible else 0.0
+
+
 func process(dt: float) -> void:
 	if root == null:
 		return
-	var play: bool = g.state == "play" and g.nations.size() > g.PLAYER
+	var in_match: bool = (g.state == "play" or g.state == "pick" or g.state == "over") and g.nations.size() > g.PLAYER
+	var play: bool = g.state == "play" and in_match
 	ctx.state_mode = ctx.mode()
+	var ph: int = ctx.state.phase if in_match else -1
+	if ph != _phase:
+		var before := _phase
+		_phase = ph
+		top.visible = ph == Defs.PHASE_PLAYING or ph == Defs.PHASE_OVER
+		board.visible = ph == Defs.PHASE_PLAYING
+		attacks.visible = ph == Defs.PHASE_PLAYING
+		if ph == Defs.PHASE_SPAWN or (ph == Defs.PHASE_PLAYING and before != Defs.PHASE_SPAWN):
+			# a new match
+			board.close_for_match()
+			ctx.play_start_tick = -1.0
+			ctx.alive_from_tick = NAN
+		if ph == Defs.PHASE_PLAYING:
+			ctx.play_start_tick = float(ctx.state.tick)
+			top.on_bind()
+			board.refresh()
+			attacks.mark_dirty()
+		elif ph == Defs.PHASE_OVER:
+			top.on_phase(ph, 0)
+		layout()
 	if play != _was_play:
 		_was_play = play
 		bar.visible = play
 		if play:
-			ctx.play_start_tick = float(ctx.state.tick)
-			ctx.alive_from_tick = NAN
 			ctx.rules.recount()
 			bar.reset_rate()
 			on_share_changed()
 			bar.refresh(false)
 			layout()
+	if top.visible:
+		top.update(dt)
 	if not play:
 		return
 	# (the server sends stats every 5 ticks: the bar's numbers refresh four times a second)
@@ -132,6 +241,7 @@ func process(dt: float) -> void:
 	if _stats_t >= 0.25:
 		_stats_t = 0.0
 		bar.refresh(true)
+		board.mark_dirty()
 	_growth_t += dt
 	if _growth_t >= 0.5:
 		_growth_t = 0.0
@@ -141,3 +251,5 @@ func process(dt: float) -> void:
 		bar.set_placing(placing)
 	icbm.refresh()
 	bar.update(dt)
+	board.update(dt)
+	attacks.update(dt)
