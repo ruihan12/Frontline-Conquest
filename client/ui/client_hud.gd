@@ -29,6 +29,12 @@ var target_card: TargetCard
 var place_confirm: PlaceConfirm
 var hold_ring: HoldRing
 var busy: BusyChip
+var coach: Coach
+var advisor: UIAdvisor
+var tutorial: Tutorial
+var _tutorial_at := -1.0
+const TUTORIAL_DELAY_S := 0.9
+var _advise_t := 0.0
 var unit_card: UnitCard
 var map_picker: MapPicker
 var _hover_seen := -2
@@ -175,6 +181,38 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(hold_ring)
 	busy = BusyChip.new(ctx)
 	root.add_child(busy)
+	# Coach marks and the advisor that offers them (UIRoot's wiring).
+	coach = Coach.new(ctx)
+	root.add_child(coach)
+	root.move_child(coach, bar.get_index() + 1)
+	ctx.coach = coach
+	coach.blockers = func() -> Array:
+		var out := []
+		for c in [top.panel, board.panel, attacks.panel, bar.panel, bar.tray, bar._place_chip, alert.panel, spawn.panel]:
+			if c != null and c.is_visible_in_tree():
+				out.append(c.get_global_rect())
+		out.append(feed.stack_rect())
+		return out
+	advisor = UIAdvisor.new(self)
+	ctx.floor_held.connect(advisor.on_floor_held)
+	ctx.ratio_changed.connect(func(_r) -> void:
+		if screen() == "play":
+			coach.complete("ratio"))
+	pause.tips_reset.connect(coach.reset)
+	tutorial = Tutorial.new(ctx, self)
+	root.add_child(tutorial)
+	root.move_child(tutorial, coach.get_index() + 1)
+	tutorial.closed.connect(func() -> void: coach.muted = false)
+	tutorial.finished.connect(func(how: String) -> void:
+		ctx.set_setting("tutorial", how)
+		if how == "done":
+			# what the steps taught is not said again as a tip
+			for id in ["expand", "ratio", "city", "contact", "select"]:
+				coach.complete(id)
+			# (port) the tutorial's Stars go into this port's save
+			g.save.stars = int(g.save.get("stars", 0)) + Tutorial.STARS
+			g.write_save())
+	_check_new_player("--tutorial" in OS.get_cmdline_user_args())
 	interact.target_card = target_card
 	interact.ui = self
 	interact.unit_card = unit_card
@@ -229,6 +267,10 @@ func layout() -> void:
 		map_picker.apply_layout()
 	top.apply_layout()
 	spawn.apply_layout()
+	if coach != null:
+		coach.apply_layout()
+	if tutorial != null:
+		tutorial.apply_layout()
 	bar.apply_layout()
 	# Leaderboard: top-right, dropping below the status pill / spawn banner when they would touch.
 	var board_top := 12.0 + ctx.insets.y
@@ -275,6 +317,8 @@ func layout() -> void:
 ## The match ended for the player (main.show_end). `earned`: the Stars this match paid, already added
 ## to the balance.
 func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
+	ctx.set_setting("matches", int(ctx.setting("matches", 0)) + 1)
+	coach.clear()
 	var st: Dictionary = g.stats
 	var me: int = g.PLAYER
 	var x2: bool = g.unlocked("x2")
@@ -504,39 +548,49 @@ func _hover(dt: float, in_match: bool) -> void:
 			interact.deselect_unit()
 
 
-## Spawn -> play: a short "the war begins" moment and a glide to the capital
-## (UIAdvisor.war_begins; the rest of UIAdvisor is not ported yet).
-func war_begins() -> void:
-	var me := ctx.me()
-	if me != 0:
-		ctx.world_call("focus_owner", [me])
-	# The camera lands the capital in the middle of the HUD-free band; use the roomier side of it,
-	# and a title-only banner on very short screens.
-	var band := ctx.clear_rect()
-	if bar.visible:
-		band.end.y = minf(band.end.y, bar.top_edge())
-	if top.visible:
-		var cut := maxf(0.0, top.bottom_edge() - band.position.y)
-		band.position.y += cut
-		band.size.y = maxf(1.0, band.size.y - cut)
-	var cap_y := band.get_center().y
-	var gap := 30.0 if ctx.compact else 60.0
-	var above := cap_y - gap - band.position.y
-	var below := band.end.y - (cap_y + gap)
-	var h := 70.0 if ctx.compact else 96.0
-	var small := maxf(above, below) < h
-	if small:
-		h = 38.0
-	var top_y := cap_y - gap - h if above >= below else cap_y + gap
-	top_y = maxf(top_y, band.position.y - 12.0)
-	var nations := 0
-	for o in ctx.state.owners():
-		if int(o.kind) == Defs.KIND_NATION and o.alive:
-			nations += 1
-	var banner := Banner.make(ctx, "THE WAR BEGINS", "Expand, build and outlast %d nations" % nations, UITheme.AMBER, 1.6, top_y, h, small)
-	banner.min_top = band.position.y - 12.0
-	banner.max_bottom = band.end.y
-	float_layer.add_child(banner)
+## A new player on the title: their first match starts by itself, as the tutorial.
+func _check_new_player(forced: bool = false) -> void:
+	if tutorial == null or tutorial.active:
+		return
+	if not forced:
+		# (screenshot and test runs start their own matches)
+		var args := OS.get_cmdline_user_args()
+		for a in args:
+			if a.begins_with("--") and a != "--tutorial":
+				return
+		if DisplayServer.get_name() == "headless":
+			return
+		if int(g.save.get("stars", 0)) > 0 or not Tutorial.is_new(ctx.settings, int(ctx.setting("matches", 0))):
+			return
+	_tutorial_at = UICtx.msec() + TUTORIAL_DELAY_S * 1000.0
+
+
+func _tutorial_step() -> void:
+	if UICtx.msec() < _tutorial_at:
+		return
+	if g.state != "menu":
+		_tutorial_at = -1.0  # (they are on their way into a match already)
+		return
+	if g._loading or title.solo_menu_open() or map_picker.is_open:
+		return
+	_tutorial_at = -1.0
+	start_tutorial()
+
+
+## Starts the tutorial's match: a solo match on the default map with the gentlest AI, the steps on
+## top (UI/Tutorial).
+func start_tutorial() -> void:
+	if g._loading or g.state != "menu":
+		return
+	ctx.set_setting("tutorial", "started")
+	coach.muted = true
+	coach.clear()
+	tutorial.begin()
+	g.map_tab = 0
+	g.map_i = 0
+	g.diff_i = Tutorial.DIFFICULTY
+	g.bot_players = 0
+	g._start_game_ui()
 
 
 ## The game is building a match: the busy chip with how far along it is.
@@ -617,8 +671,11 @@ func process(dt: float) -> void:
 			board.close_for_match()
 			ctx.play_start_tick = -1.0
 			ctx.alive_from_tick = NAN
+			ctx.troop_floor = NAN  # (a new player's floor arms again in this match)
+			coach.clear()
+			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:
-			war_begins()
+			advisor.war_begins()
 		if ph == Defs.PHASE_PLAYING:
 			ctx.play_start_tick = float(ctx.state.tick)
 			top.on_bind()
@@ -636,6 +693,24 @@ func process(dt: float) -> void:
 			on_share_changed()
 			bar.refresh(false)
 			layout()
+	# Coach marks: hidden outside a match, and they step aside while placing or using the ring.
+	coach.visible = (play or g.state == "pick") and not over.is_open
+	var want_a := 0.0 if (radial.is_open or interact.aim_kind != "") else 1.0
+	coach.modulate.a = move_toward(coach.modulate.a, want_a, dt * 6.0)
+	coach.eff_a = coach.modulate.a
+	tutorial.visible = (play or g.state == "pick") and not over.is_open
+	if _tutorial_at >= 0.0:
+		_tutorial_step()
+	# back on the title from the tutorial's match: it is over
+	if g.state == "menu" and tutorial.active and not g._loading:
+		tutorial.stop("left")
+	_advise_t += dt
+	if _advise_t >= 0.5 and in_match:
+		_advise_t = 0.0
+		advisor.check_threats()
+		if not tutorial.active:
+			advisor.check_tips()
+			advisor.check_floor()
 	if top.visible:
 		top.update(dt)
 	feed.visible = in_match

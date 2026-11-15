@@ -31,3 +31,40 @@ func region_touches_me(tile: int) -> int:
 ## hint only asks that we have a coast at all.)
 func can_reach_by_sea(_tile: int) -> bool:
 	return has_coast()
+
+
+var _nb_cache: Array[int] = []
+var _nb_tick := -1.0
+
+
+## The local owner's border tiles (the game tracks them per nation).
+func border() -> Array:
+	var g = st.g
+	var me: int = st.local_owner
+	if me <= 0 or me >= g.border.size():
+		return []
+	return g.border[me].keys()
+
+
+## Owners that share a land border with the local owner, nearest the start of the border first.
+## Recomputed at most twice a second.
+func neighbour_ids() -> Array[int]:
+	var g = st.g
+	var now := float(Time.get_ticks_msec())
+	if _nb_tick >= 0.0 and now - _nb_tick < 500.0:
+		return _nb_cache
+	_nb_tick = now
+	var out: Array[int] = []
+	var me: int = st.local_owner
+	var w: int = g.W
+	var n: int = g.owner_map.size()
+	for t: int in border():
+		for d: int in [1, -1, w, -w]:
+			var q := t + d
+			if q < 0 or q >= n:
+				continue
+			var o: int = g.owner_map[q]
+			if o > 0 and o != me and not out.has(o):
+				out.append(o)
+	_nb_cache = out
+	return out
