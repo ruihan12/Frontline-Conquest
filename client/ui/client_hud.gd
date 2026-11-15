@@ -15,6 +15,9 @@ var top: TopStatus
 var board: Leaderboard
 var attacks: AttacksPanel
 var feed: EventFeed
+var alert: AlertBanner
+var spawn: SpawnOverlay
+var _seen_nukes := {}
 var _pending_toasts: Array = []
 var _phase := -1
 var _in_layout := false
@@ -51,8 +54,13 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	attacks = AttacksPanel.new(ctx)
 	root.add_child(attacks)
 	attacks.visible = false
+	spawn = SpawnOverlay.new(ctx)
+	root.add_child(spawn)
+	spawn.visible = false
 	feed = EventFeed.new(ctx)
 	root.add_child(feed)
+	alert = AlertBanner.new(ctx)
+	root.add_child(alert)
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
 		if ctx.compact:
@@ -60,7 +68,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	board.toggled.connect(func(_on: bool) -> void: layout())
 	attacks.toggled.connect(func(_c: bool) -> void: layout())
 	attacks.retreat_requested.connect(_on_retreat)
-	for c in [top.panel, board.panel, board._pill, attacks.panel]:
+	for c in [top.panel, board.panel, board._pill, attacks.panel, spawn.panel]:
 		c.resized.connect(_queue_layout)
 		c.visibility_changed.connect(_queue_layout)
 
@@ -112,6 +120,7 @@ func layout() -> void:
 		var tr: Rect2 = g.hud.topbar.get_global_rect()
 		ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
 	top.apply_layout()
+	spawn.apply_layout()
 	bar.apply_layout()
 	# Leaderboard: top-right, dropping below the status pill / spawn banner when they would touch.
 	var board_top := 12.0 + ctx.insets.y
@@ -120,8 +129,8 @@ func layout() -> void:
 	var blockers: Array[Control] = []
 	if top.visible:
 		blockers.append(top.panel)
-	if g.hud != null and g.hud.spawn != null and g.hud.spawn.is_visible_in_tree():
-		blockers.append(g.hud.spawn)
+	if spawn.visible:
+		blockers.append(spawn.panel)
 	for b in blockers:
 		var r := b.get_global_rect()
 		if r.end.x + 12.0 > board_left:
@@ -144,8 +153,40 @@ func layout() -> void:
 	if bar.visible and bar.panel.position.x > 16.0 + 340.0 + 12.0:
 		bar_top = vp.y - ctx.insets.w - 4.0
 	feed.apply_layout(bar_top - 12.0)
+	_layout_alert()
 	ctx.layout_changed.emit()
 	_in_layout = false
+
+
+func _layout_alert() -> void:
+	if ctx.compact:
+		# Phones: the alert temporarily takes over the status pill's slot (top-right).
+		alert.apply_layout(top.panel.offset_top, 8.0 + ctx.insets.z)
+		return
+	var y := 12.0 + ctx.insets.y
+	if top.visible:
+		y = top.bottom_edge() + 10.0
+	elif spawn.visible:
+		y = spawn.bottom_edge() + 10.0
+	alert.apply_layout(y)
+
+
+## The game has no nuke events: the missiles in flight are compared with the last frame's.
+func _track_nukes() -> void:
+	var now: Dictionary = ctx.state.nukes()
+	for uid in now:
+		if not _seen_nukes.has(uid):
+			var r := alert.track(uid)
+			if r[1]:
+				ctx.sfx("alarm")
+				_layout_alert()
+	for uid in _seen_nukes.keys():
+		if not now.has(uid):
+			var raw = _seen_nukes[uid]
+			alert.resolve(uid, bool(raw.get("shot_down", false)))
+			_seen_nukes.erase(uid)
+	for uid in now:
+		_seen_nukes[uid] = now[uid].raw
 
 
 func _on_retreat(aid: int) -> void:
@@ -270,6 +311,13 @@ func process(dt: float) -> void:
 		var before := _phase
 		_phase = ph
 		top.visible = ph == Defs.PHASE_PLAYING or ph == Defs.PHASE_OVER
+		var was_spawn := spawn.visible
+		spawn.visible = ph == Defs.PHASE_SPAWN
+		if spawn.visible and not was_spawn:
+			spawn.on_show()
+		if ph != Defs.PHASE_PLAYING:
+			alert.clear()
+			_seen_nukes.clear()
 		board.visible = ph == Defs.PHASE_PLAYING
 		attacks.visible = ph == Defs.PHASE_PLAYING
 		if ph == Defs.PHASE_SPAWN or (ph == Defs.PHASE_PLAYING and before != Defs.PHASE_SPAWN) or ph == -1:
@@ -320,6 +368,8 @@ func process(dt: float) -> void:
 	if placing != bar._placing:
 		bar.set_placing(placing)
 	icbm.refresh()
+	_track_nukes()
+	alert.update(dt)
 	bar.update(dt)
 	board.update(dt)
 	attacks.update(dt)

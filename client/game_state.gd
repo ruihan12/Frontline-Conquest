@@ -391,3 +391,44 @@ func reinforce_ready(id: int) -> int:
 		return 0
 	var cd: float = float(g.nations[id].get("reinf_cd", 0.0))
 	return tick + int(ceil(cd * Defs.TICK_RATE)) if cd > 0.0 else 0
+
+
+# ---------------------------------------------------------------------------------------------
+# Nukes in flight
+# ---------------------------------------------------------------------------------------------
+var _nuke_uid := 0
+var _nuke_tick := -1
+var _nukes := {}
+
+
+## uid -> {uid, owner, kind (Defs.N_*), to_tile, launch_tick, flight_ticks, raw}. A uid is given to
+## each missile of the game the first time it is seen. (A MIRV bus that has split is not listed: its
+## warheads are.)
+func nukes() -> Dictionary:
+	var t := tick
+	if t == _nuke_tick and _nukes.size() <= g.missiles.size():
+		return _nukes
+	_nuke_tick = t
+	_nukes = {}
+	var w: int = g.W
+	for ms in g.missiles:
+		if bool(ms.get("mirv_bus", false)) and bool(ms.get("split_done", false)):
+			continue
+		if not ms.has("cuid"):
+			_nuke_uid += 1
+			ms["cuid"] = _nuke_uid
+		var to: Vector2 = ms.to
+		var tx := int(to.x)
+		var ty := int(to.y)
+		var left_ticks := maxf(0.0, float(ms.dur) - float(ms.t)) / SimArsenal.DT_TICK
+		_nukes[int(ms.cuid)] = {
+			"uid": int(ms.cuid),
+			"owner": int(ms.o),
+			"kind": int(ms.get("nk", SimRules.NUKE_KIND_OF.get(int(ms.k), 0))),
+			"to_tile": ty * w + tx if (tx >= 0 and ty >= 0 and tx < w and ty < g.H) else -1,
+			"target_owner": int(ms.get("tgt_o", -1)),
+			"launch_tick": t,
+			"flight_ticks": left_ticks,
+			"raw": ms,
+		}
+	return _nukes

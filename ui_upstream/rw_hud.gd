@@ -115,6 +115,7 @@ var _slices := []
 var _shop_t := 0.0
 var _last_ws := Vector2i.ZERO
 var groups := []
+var replaced := false  # the remade client draws the status pill, board, attacks, bar, feed, alert and spawn banner
 var _dirty := true
 var _in_layout := false
 var _clock_s := -1
@@ -1267,6 +1268,9 @@ func _build_alert() -> void:
 	root.add_child(alert)
 
 func _tick_alert(dt: float) -> void:
+	if replaced:
+		alert.visible = false
+		return
 	var soon := INF
 	var who := -1
 	var cnt := 0
@@ -1395,6 +1399,7 @@ func layout() -> void:
 
 func process(dt: float) -> void:
 	if root == null: return
+	if replaced and spawn.visible: spawn.visible = false
 	_shop_t += dt
 	var ws := Vector2i(m.get_window().size) if m.get_window() else Vector2i.ZERO
 	if ws != _last_ws:

@@ -82,3 +82,5 @@ static func struct_kind_from_name(kind_name: String) -> int:
 
 static func nuke_kind_from_name(kind_name: String) -> int:
 	return NUKE_NAMES.find(kind_name)
+
+const NUKE_TITLES: Array[String] = ["Atom Bomb", "Hydrogen Bomb", "MIRV", "Warhead", "Mega Nuke", "Scattershot", "Artillery Shell", "Air Strike", "Railgun Slug"]

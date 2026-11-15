@@ -200,6 +200,7 @@ func _build_ui() -> void:
 	for old_part in [hud.bar, hud.top, hud.board, hud.atk]:
 		old_part.get_parent().visible = false
 		hud.groups.erase(old_part.get_parent())
+	hud.replaced = true  # (its alert banner and spawn banner stay hidden too)
 	hud_nodes = hud.groups.duplicate()
 	note_box = Control.new(); note_box.position = Vector2(16, 96); note_box.size = Vector2(380, 480)
 	note_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
