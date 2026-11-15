@@ -1,16 +1,23 @@
 # Port of src/client/UI/UIInteract.luau (scripts/ui/ui_interact.gd): what the pointer does on the
 # map. So far the hover part: on_hover, _update_tooltip, hover_spec, _aim_spec, _crowding and the
-# per-frame refresh. Clicks, the placement ghost, unit selection, the radial menu and the keys are
-# still handled by main.gd and come over with MapInput and the RadialMenu.
+# per-frame refresh, and the action ring: on_context, on_radial, donate_to, retreat, _float,
+# show_inspect. Left clicks, the placement ghost, unit selection and the keys are still handled by
+# main.gd and come over with MapInput.
 class_name UIInteract
 extends RefCounted
 
-## A spawn spot counts the nations within this many full-size tiles as neighbours.
-const CROWD_FULL_TILES := 45.0
+## Nations / tribes / commanders whose capital lies within ~88 full-size tiles count as neighbours
+## of a spawn spot.
+const CROWD_FULL_TILES := 88.0
 
 var ctx: UICtx
 var tooltip: Tooltip = null
-var radial = null
+var radial: RadialMenu = null
+var bar: CommandBar = null
+## The layer floating confirmations are added to.
+var float_layer: Control = null
+var _last_ctx_msec := -100000.0
+var _range_focus := -1
 ## Current placement kind ("" = none): a structure, "warship" or a nuke.
 var aim_kind := ""
 var hover_tile := -1
@@ -233,3 +240,179 @@ func process_frame(delta: float) -> void:
 		_tip_accum = 0.0
 		if enabled and tooltip.place == Tooltip.PLACE_FOLLOW and tooltip.is_shown():
 			_update_tooltip()
+
+
+# ---------------------------------------------------------------------------------------------
+# The action ring
+# ---------------------------------------------------------------------------------------------
+## Right-click (long-press) on the map: the ring of actions for that tile.
+func on_context(tile: int, screen_pos: Vector2) -> void:
+	if not enabled or ctx.state == null:
+		return
+	var now := UICtx.msec()
+	if now - _last_ctx_msec < 350:
+		return
+	_last_ctx_msec = now
+	if tile < 0:
+		return
+	var s = ctx.state
+	if s.phase == Defs.PHASE_SPAWN:
+		return
+	tooltip.hide_tip()
+	var own: int = s.tile_owner(tile)
+	var title := ctx.terrain_title(tile)
+	var col: Color = UITheme.TEXT_2
+	if own != 0:
+		title = s.owner_name(own)
+		col = UITheme.owner_ui_color(s.owner_color(own))
+	elif s.map.is_contestable(tile):
+		title = "Unclaimed " + ctx.terrain_title(tile).to_lower()
+	radial.open_at(tile, screen_pos, ctx.rules.radial_items(tile), title, col)
+
+
+func on_radial(id: String, tile: int) -> void:
+	var Th := UITheme
+	var s = ctx.state
+	if s == null:
+		return
+	var own: int = s.tile_owner(tile)
+	var pos := radial.center
+	# "build:<kind>" or "build:<kind>:<amount>" (the bulk ring: several levels at once), likewise nukes
+	if id.begins_with("build:"):
+		var parts := id.split(":")
+		var k := parts[1]
+		var n := maxi(1, int(parts[2]) if parts.size() > 2 else 1)
+		var cost: float = ctx.rules.bulk_cost(k, n) if n > 1 else ctx.rules.cost(k)
+		ctx.send({"type": "build", "kind": k, "tile": tile, "amount": n})
+		_float("%s%s  ·  %s gold" % [UIRules.TITLES[k], " ×%d" % n if n > 1 else "", Th.fmt_cost(cost)], k, Th.GOLD, pos)
+		return
+	if id.begins_with("nuke:"):
+		var nparts := id.split(":")
+		var nk := nparts[1]
+		var nn := maxi(1, int(nparts[2]) if nparts.size() > 2 else 1)
+		ctx.send({"type": "nuke", "kind": nk, "tile": tile, "amount": nn})
+		_float("%s%s launched at %s" % [UIRules.TITLES[nk], " ×%d" % nn if nn > 1 else "", s.owner_name(own)], nk, Th.RED, pos)
+		return
+	if id == "attack":
+		var act: Dictionary = ctx.rules.primary(tile)
+		ctx.send({"type": "attack", "tile": tile, "ratio": ctx.order_ratio()})
+		_float(ctx.rules.confirm_text(act), "attack", Th.AMBER if own != 0 else Th.GREEN, pos)
+	elif id == "boat":
+		var landing: int = ctx.rules.boat_landing(tile)
+		ctx.send({"type": "boat", "tile": landing if landing >= 0 else tile, "ratio": ctx.order_ratio()})
+		var act2: Dictionary = ctx.rules.primary(tile)
+		act2.type = "boat"
+		_float(ctx.rules.confirm_text(act2), "boat", Th.CYAN, pos)
+	elif id == "ally_request":
+		ctx.send({"type": "ally_request", "target": own})
+		ctx.sfx("click")
+		_float("Alliance proposed to " + s.owner_name(own), "alliance", Th.VIOLET, pos)
+	elif id == "ally_accept":
+		ctx.send({"type": "ally_reply", "target": own, "accept": true})
+		_float("Alliance accepted", "alliance", Th.VIOLET, pos)
+	elif id == "ally_extend":
+		ctx.send({"type": "ally_extend", "target": own})
+	elif id == "ally_break:yes":
+		# (upstream asks on the ally card; until that card is ported the ring's own sub-ring asks)
+		ctx.send({"type": "ally_break", "target": own})
+		ctx.sfx("deny", -2.0)
+		_float("You broke your alliance with " + s.owner_name(own), "betray", Th.RED, pos)
+	elif id == "donate":
+		donate_to(own, pos)
+	elif id == "donate_gold":
+		ctx.send({"type": "donate_gold", "target": own})
+	elif id == "retreat":
+		var aid := my_attack_on(own)
+		if aid >= 0:
+			retreat(aid)
+	elif id == "focus":
+		ctx.world_call("focus_tile", [tile])
+	elif id == "info":
+		show_inspect(tile)
+
+
+## Send troops to ally `own` (ratio share, capped at their troop headroom; see UIRules.donate_plan)
+## with a float at `pos`. False (and a deny float) when nothing useful can be sent.
+func donate_to(own: int, pos: Vector2) -> bool:
+	var Th := UITheme
+	var plan: Dictionary = ctx.rules.donate_plan(own)
+	var nm: String = ctx.state.owner_name(own)
+	if plan.want < 1 or plan.full or plan.amount < 1:
+		ctx.sfx("deny", -4.0)
+		_float("No troops to spare" if plan.want < 1 else nm + " is at its troop cap", "info", Th.RED, pos)
+		return false
+	ctx.send({"type": "donate", "target": own, "troops": plan.amount})
+	_float("Sent %s troops  ·  %s is now at its troop cap" % [Th.fmt_troops(plan.amount), nm] if plan.capped else "Sent %s troops to %s" % [Th.fmt_troops(plan.amount), nm], "donate", Th.GREEN, pos)
+	return true
+
+
+## Our newest outgoing attack against `target` (0 = expansion), or -1.
+func my_attack_on(target: int) -> int:
+	var best := -1
+	if ctx.state == null:
+		return best
+	var mine := ctx.me()
+	for a in ctx.state.attacks():
+		if a.attacker == mine and a.target == target and a.aid > best:
+			best = a.aid
+	return best
+
+
+func retreat(aid: int) -> void:
+	var s = ctx.state
+	if s == null:
+		return
+	for a in s.attacks():
+		if a.aid == aid:
+			ctx.send({"type": "retreat", "attack_id": aid})
+			ctx.sfx("click")
+			var who: String = s.owner_name(a.target) if a.target != 0 else "neutral land"
+			_float("Retreating from " + who, "retreat", UITheme.CYAN, ctx.mouse_pos())
+			return
+
+
+## Backspace: pull back the most recent outgoing attack.
+func retreat_latest() -> bool:
+	var s = ctx.state
+	if s == null:
+		return false
+	var best := -1
+	var mine := ctx.me()
+	for a in s.attacks():
+		if a.attacker == mine and a.aid > best:
+			best = a.aid
+	if best < 0:
+		return false
+	retreat(best)
+	return true
+
+
+func _float(text: String, icon_name: String, col: Color, pos: Vector2) -> void:
+	if not FloatText.bounds_provider.is_valid():
+		FloatText.bounds_provider = float_bounds
+	FloatText.spawn(float_layer, pos, text, icon_name, col, float_bounds())
+
+
+## Where floating confirmations may appear: below the top bar row, above the command bar / tray.
+func float_bounds() -> Rect2:
+	var area := ctx.clear_rect()
+	var bottom: float = bar.top_edge() if (bar != null and bar.is_visible_in_tree()) else area.end.y
+	return Rect2(area.position, Vector2(area.size.x, minf(area.end.y, bottom) - area.position.y))
+
+
+## The pinned card for a tile (the ring's Info).
+func show_inspect(tile: int) -> void:
+	var spec := hover_spec(tile, true)
+	if spec.is_empty():
+		return
+	# Bottom-left above the command bar: the right column holds the Attacks panel on phones.
+	var area := ctx.clear_rect()
+	var bottom: float = bar.top_edge() - 8.0 if bar.is_visible_in_tree() else area.end.y
+	tooltip.show_pinned(spec, Rect2(area.position.x, area.position.y, 0.0, bottom - area.position.y))
+	# Never cover the tapped spot: move to the right when it lies under the card.
+	var tp := ctx.tile_screen_pos(tile)
+	if tp.x >= 0 and tooltip.target_rect().grow(24.0).has_point(tp):
+		tooltip.show_pinned(spec, Rect2(area.end.x, area.position.y, 0.0, bottom - area.position.y))
+	# A tapped SAM / defense post shows its range ring while the card is open.
+	_range_focus = tile
+	ctx.world_call("set_range_focus", [tile])

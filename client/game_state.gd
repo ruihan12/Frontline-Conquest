@@ -255,12 +255,30 @@ func borders_tile(id: int, tile: int) -> bool:
 	return tile >= 0 and tile < g.owner_map.size() and bool(g._adj_any(tile, id))
 
 
-## The alliance between `a` and `b`: {expires_at, ticks_left, me_asked, other_asked}, or null.
+## The alliance between `a` and `b`: {expires_at, ticks_left, in_window, can_extend, me_asked,
+## other_asked}, or null.
 func alliance_info(a: int, b: int):
 	if not g.allied(a, b):
 		return null
 	var exp_t := int(g.allies.get(g._akey(a, b), -1))
-	return {"expires_at": exp_t, "ticks_left": maxi(0, exp_t - tick), "me_asked": bool(g.asked_to_extend(a, b)), "other_asked": bool(g.asked_to_extend(b, a))}
+	var me_asked := bool(g.asked_to_extend(a, b))
+	var in_window := bool(g.in_extension_window(a, b))
+	return {"expires_at": exp_t, "ticks_left": maxi(0, exp_t - tick), "in_window": in_window, "can_extend": in_window and not me_asked, "me_asked": me_asked, "other_asked": bool(g.asked_to_extend(b, a))}
+
+
+## An alliance (not a team) joins `a` and `b`.
+func has_alliance(a: int, b: int) -> bool:
+	return bool(g.allied(a, b))
+
+
+## `a` has asked `b` for an alliance and the request still stands.
+func has_request(a: int, b: int) -> bool:
+	return bool(g.has_request(a, b))
+
+
+## Ticks until `a` may ask `b` again.
+func request_cooldown_left(a: int, b: int) -> int:
+	return int(g.request_cooldown_left(a, b))
 
 
 ## `a` and `b` share a land border (BorderTracker.borders_owner). Kept for a second per pair.

@@ -675,6 +675,26 @@ func _uishot() -> void:
 		for _f in 12: await get_tree().process_frame
 		_shot("2c_diplo.png")
 		diplo_panel.visible = false
+		if client != null:
+			var rp := _screen_of(Vector2(fo[1] % W + 0.5, fo[1] / W + 0.5) * TS)
+			client.interact.enabled = true
+			client.interact.on_context(fo[1], rp)
+			for _f in 14: await get_tree().process_frame
+			client.radial._set_hover(0)
+			for _f in 4: await get_tree().process_frame
+			_shot("2d_radial.png")
+			client.radial.close()
+			client.interact._last_ctx_msec = -100000.0
+			var mt: int = nations[PLAYER].get("cap", -1)
+			if mt < 0: mt = start_tile
+			client.interact.on_context(mt, _screen_of(Vector2(mt % W + 0.5, mt / W + 0.5) * TS))
+			for _f in 14: await get_tree().process_frame
+			if client.radial.items.size() > 0 and client.radial.items[0].has("sub"):
+				client.radial._enter_sub(client.radial.items[0])
+			for _f in 14: await get_tree().process_frame
+			_shot("2e_radial_build.png")
+			client.radial.close()
+			for _f in 10: await get_tree().process_frame
 	hud.open_menu()
 	for _f in 30: await get_tree().process_frame
 	_shot("3_menu.png")

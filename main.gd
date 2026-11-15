@@ -1369,7 +1369,9 @@ func _unhandled_input(e: InputEvent) -> void:
 				elif lpress and not dragging and e.button_index == MOUSE_BUTTON_RIGHT:
 					if build_sel >= 0: build_sel = -1
 					elif sel_ws != null: sel_ws = null
-					elif state == "play": _right_click()
+					elif state == "play":
+						if client != null: client.on_context()
+						else: _right_click()
 				lpress = false; dragging = false
 	if e is InputEventMouseMotion and lpress:
 		if dragging or e.position.distance_to(drag_from) > 6:

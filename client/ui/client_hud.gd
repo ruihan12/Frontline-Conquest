@@ -22,6 +22,8 @@ var pause: PauseMenu
 var over: GameOver
 var help: HelpOverlay
 var interact: UIInteract
+var radial: RadialMenu
+var float_layer: Control
 var _hover_seen := -2
 var _state_seen := ""
 var _seen_nukes := {}
@@ -123,8 +125,20 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	tooltip = Tooltip.new(ctx)
 	root.add_child(tooltip)
 	ctx.tooltip = tooltip
+	float_layer = Control.new()
+	float_layer.name = "Floats"
+	float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	float_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.add_child(float_layer)
+	radial = RadialMenu.new(ctx)
+	root.add_child(radial)
+	radial.bottom_limit = func() -> float: return bar.top_edge() if bar.visible else ctx.vp.y
 	interact = UIInteract.new(ctx)
 	interact.tooltip = tooltip
+	interact.radial = radial
+	interact.bar = bar
+	interact.float_layer = float_layer
+	radial.picked.connect(interact.on_radial)
 	root.resized.connect(layout)
 	layout()
 
@@ -405,6 +419,18 @@ func _hover(dt: float, in_match: bool) -> void:
 		_hover_seen = tile
 		interact.on_hover(tile)
 	interact.process_frame(dt)
+	radial.update(dt)
+	if radial.is_open and not interact.enabled:
+		radial.close()
+
+
+## main.gd: a right-click on the map in play (nothing to cancel first). True when the ring opened.
+func on_context() -> bool:
+	if not interact.enabled:
+		return false
+	var pos := root.get_viewport().get_mouse_position()
+	interact.on_context(ctx.tile_at(pos), pos)
+	return radial.is_open
 
 
 ## Bottom edge of the status pill (the old HUD's alert banner sits under it).

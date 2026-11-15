@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 25205 of 52913 upstream lines accounted for (45 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. Not yet ported: map clicks and the radial menu, map layers, the title screens, the Arsenal window, tutorial and coach marks. The help window is ported.
+Progress: 26689 of 52913 upstream lines accounted for (48 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. Not yet ported: left-click handling, map layers, the title screens, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -42,7 +42,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/EventFeed.luau | 616 | client/ui/event_feed.gd | done, live (toasts, alliance cards) |
 | src/client/UI/FillBar.luau | 208 | client/ui/fill_bar.gd | done |
 | src/client/UI/FlagShop.luau | 867 | - | not applicable: flag shop (Robux) |
-| src/client/UI/FloatText.luau | 90 | client/ui/float_text.gd | todo |
+| src/client/UI/FloatText.luau | 90 | client/ui/float_text.gd | done, live |
 | src/client/UI/GameOver.luau | 1174 | client/ui/game_over.gd | done, live (paid take-over card left out) |
 | src/client/UI/GeneralButton.luau | 354 | - | not applicable: paid offer |
 | src/client/UI/GeneralOffer.luau | 444 | - | not applicable: paid offer |
@@ -58,7 +58,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | done, live (Settings row opens the port's own Settings window) |
 | src/client/UI/PlaceConfirm.luau | 221 | client/ui/place_confirm.gd | todo |
 | src/client/UI/Prices.luau | 117 | - | not applicable: Robux prices |
-| src/client/UI/RadialMenu.luau | 756 | client/ui/radial_menu.gd | todo |
+| src/client/UI/RadialMenu.luau | 756 | client/ui/radial_menu.gd | done, live (segments drawn as vectors, not masks) |
 | src/client/UI/RatioSlider.luau | 254 | client/ui/ratio_slider.gd | done, live |
 | src/client/UI/RotateCard.luau | 65 | - | not applicable: phone rotate prompt |
 | src/client/UI/ShopButton.luau | 268 | - | not applicable: flag shop (Robux) |
@@ -78,12 +78,12 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/Tutorial.luau | 652 | client/ui/tutorial.gd | todo |
 | src/client/UI/UIAdvisor.luau | 917 | client/ui/ui_advisor.gd | todo |
 | src/client/UI/UICtx.luau | 1490 | client/ui/ui_ctx.gd | done (Roblox-only drawing / module helpers left out) |
-| src/client/UI/UIInteract.luau | 1745 | client/ui/ui_interact.gd | part: hover card (on_hover, hover_spec, _aim_spec, _crowding), live; clicks, ghost, units, radial, keys still in main.gd |
+| src/client/UI/UIInteract.luau | 1745 | client/ui/ui_interact.gd | part: hover card and the action ring (on_context, on_radial, donate, retreat, floats, inspect), live; left clicks, ghost, units, keys still in main.gd |
 | src/client/UI/UIKern.luau | 11 | client/ui/ui_kern.gd | todo |
 | src/client/UI/UILayoutProbe.luau | 215 | - | not applicable: Roblox safe-area / top-bar probing |
 | src/client/UI/UIMaps.luau | 102 | client/ui/ui_maps.gd | todo |
 | src/client/UI/UIRoot.luau | 2636 | client/ui/ui_root.gd | todo |
-| src/client/UI/UIRules.luau | 1383 | client/ui/ui_rules.gd | part: all but the radial items and donate_plan (lines 1-1165); placement and sea reach ask the game |
+| src/client/UI/UIRules.luau | 1383 | client/ui/ui_rules.gd | done (placement and sea reach ask the game; + port-only gold donation item) |
 | src/client/UI/UITheme.luau | 1955 | client/ui/ui_theme.gd | ported (glyph metric tables dropped: Godot measures text natively) |
 | src/client/UI/UnitCard.luau | 305 | client/ui/unit_card.gd | todo |
 | src/client/UI/Widgets.luau | 3151 | (native Godot Controls) | not needed: upstream emulates Godot Control / Container / Label / Button / Tween on Roblox; animation helpers ported as client/ui/ui_fx.gd |

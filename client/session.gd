@@ -40,8 +40,27 @@ func send_intent(intent: Dictionary) -> void:
 			g.try_build(13, -1)
 		"retreat":
 			var a = intent.get("attack")
+			if a == null and intent.has("attack_id"):
+				for at in g.attacks:
+					if int(at.get("aid", -1)) == int(intent.attack_id):
+						a = at
 			if a != null:
 				g.retreat(a.get("raw", a))
+		"ally_request":
+			g.propose_alliance(me, int(intent.get("target", 0)))
+		"ally_break":
+			var other_b := int(intent.get("target", 0))
+			if g.allied(me, other_b):
+				g.break_alliance(me, other_b)
+		"donate":
+			var to := int(intent.get("target", 0))
+			var mine_t: float = float(g.nations[me].troops)
+			if g.allied(me, to) and mine_t > 0:
+				g.donate(me, to, clampf(float(intent.get("troops", 0.0)) / mine_t, 0.0, 1.0))
+		"donate_gold":
+			var to_g := int(intent.get("target", 0))
+			if g.allied(me, to_g):
+				g.donate_gold(me, to_g, 0.25)
 		"ally_reply":
 			var who := int(intent.get("target", 0))
 			if not g.ally_reply(me, who, bool(intent.get("accept", false))) and bool(intent.get("accept", false)):

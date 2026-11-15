@@ -5,7 +5,6 @@
 #
 # Rules(): the port's SimRules (sim/rules.gd). Costs come from the game's own pricing
 # (main.build_cost), which keeps the port's additions (the ICBM fee) in the numbers shown.
-# The radial items and donate_plan (UIRules.luau 1165-1383) come with the RadialMenu.
 class_name UIRules
 extends RefCounted
 
@@ -840,3 +839,139 @@ func confirm_text(action: Dictionary) -> String:
 			return "Boat launched with " + troops
 		return "Invading %s by sea with %s" % [s.owner_name(target), troops]
 	return ""
+
+
+# ---------------------------------------------------------------------------------------------
+# Radial menu
+# ---------------------------------------------------------------------------------------------
+## A donation to ally `own` at the current attack ratio, limited to the ally's troop headroom:
+## {amount, want, room, cap, capped (amount < want), full (no useful room: < 1 % of cap)}.
+func donate_plan(own: int) -> Dictionary:
+	var want := floorf(ctx.troops_for_ratio())
+	var s = ctx.state
+	var o = s.get_owner(own) if (s != null and own != 0) else null
+	var cap: float = float(o.max_troops) if o != null else 0.0
+	var room := want
+	if cap > 0:
+		room = maxf(0.0, floorf(cap - float(o.troops)))
+	var amount := maxf(0.0, minf(want, room))
+	return {"amount": amount, "want": want, "room": room, "cap": cap, "capped": amount < want, "full": cap > 0 and room < maxf(1.0, cap * 0.01)}
+
+
+## Items: {id, label, icon, ok, reason, danger, sub: [items]}
+func radial_items(tile: int) -> Array:
+	var items := []
+	var s = ctx.state
+	if s == null or tile < 0:
+		return items
+	var mine := ctx.me()
+	var own: int = s.tile_owner(tile)
+	var playing: bool = s.phase == Defs.PHASE_PLAYING and ctx.alive_player() and not ctx.needs_spawn()
+	var land: bool = s.map.is_contestable(tile)
+	if playing and land and own != mine and not s.are_allies(mine, own):
+		var p := primary(tile)
+		var is_boat := str(p.type) == "boat"
+		var verb := "Expand" if own == 0 else "Attack"
+		var atk := {"id": "attack", "label": verb, "icon": "attack", "ok": p.ok and not is_boat, "reason": "", "danger": false}
+		if is_boat:
+			atk.reason = "No land border: send a boat"
+		elif not p.ok:
+			atk.reason = str(p.reason)
+		items.append(atk)
+		var boat := {"id": "boat", "label": "Boat", "icon": "boat", "ok": false, "reason": "", "danger": false}
+		if boat_landing(tile) < 0:
+			boat.reason = "None of your coasts reach it" if s.map.is_coastal(tile) else "No coast of theirs within reach"
+		elif transports() >= SimRules.MAX_BOATS_PLAYER:
+			boat.reason = "All transports are at sea"
+		elif ctx.troops_for_ratio() < 1.0:
+			boat.reason = "No troops available"
+		else:
+			boat.ok = true
+		items.append(boat)
+	if playing and own != mine and mine != 0:
+		for a in s.attacks():
+			if a.attacker == mine and a.target == own:
+				items.append({"id": "retreat", "label": "Retreat", "icon": "retreat", "ok": true, "reason": "", "danger": false})
+				break
+	if playing and own == mine:
+		var sub := []
+		# (the Arsenal's structures the player has unlocked come after the others)
+		var build_kinds: Array[String] = BUILD_KINDS.duplicate()
+		for k in ARSENAL_BUILD:
+			if not arsenal_locked(k):
+				build_kinds.append(k)
+		for k in build_kinds:
+			var av := availability(k)
+			var pl := placement(k, tile)
+			var ok: bool = av.ok and pl.ok
+			var it := {"id": "build:" + k, "label": SHORT[k], "icon": k, "ok": ok, "reason": str(av.reason) if not av.ok else str(pl.reason), "danger": false, "cost": av.cost}
+			# an existing structure here: level it up several times at once (bulk upgrade)
+			if ok and pl.get("upgrade", false):
+				var ring := bulk_ring("build", k)
+				if not ring.is_empty():
+					it["sub"] = ring
+			sub.append(it)
+		items.append({"id": "build", "label": "Build", "icon": "city", "ok": true, "reason": "", "danger": false, "sub": sub})
+	# what can be launched at the tile: the bombs with a silo, and the Arsenal's munitions the player
+	# has unlocked (a strike with its own structure)
+	var launch_kinds: Array[String] = []
+	if playing and own != mine and mine != 0:
+		var kinds: Array[String] = NUKE_KINDS.duplicate()
+		for k in ARSENAL_NUKES:
+			if not arsenal_locked(k):
+				kinds.append(k)
+		for k in kinds:
+			if struct_count(launcher(k)) > 0:
+				launch_kinds.append(k)
+	if launch_kinds.size() > 0:
+		var nsub := []
+		for k2 in launch_kinds:
+			var av2 := availability(k2)
+			var pl2 := placement(k2, tile)
+			var ok2: bool = av2.ok and pl2.ok
+			var it2 := {"id": "nuke:" + k2, "label": SHORT[k2], "icon": k2, "ok": ok2, "reason": str(av2.reason) if not av2.ok else str(pl2.reason), "danger": true, "cost": av2.cost}
+			# atom bombs stack (x2 against a SAM): a bulk launch
+			if ok2 and k2 == "atom":
+				var ring2 := bulk_ring("nuke", k2)
+				if not ring2.is_empty():
+					it2["sub"] = ring2
+			nsub.append(it2)
+		var only_strikes := struct_count(Defs.S_SILO) == 0
+		items.append({"id": "nuke", "label": "Strike" if only_strikes else "Nuke", "icon": launch_kinds[0] if only_strikes else "atom", "ok": true, "reason": "", "danger": true, "sub": nsub})
+	if playing and own != 0 and own != mine:
+		var target_info = s.get_owner(own)
+		if s.are_allies(mine, own):
+			var plan := donate_plan(own)
+			items.append({
+				"id": "donate", "label": "Donate", "icon": "donate",
+				"ok": plan.want >= 1 and not plan.full,
+				"reason": "No troops to spare" if plan.want < 1 else ("At their troop cap" if plan.full else ""),
+				"danger": false, "troops": plan.amount, "capped": plan.capped,
+			})
+			# port-only: this port's gold donation (a quarter of the treasury)
+			var me_o = ctx.my()
+			var gold: float = floorf(float(me_o.gold) * 0.25) if me_o != null else 0.0
+			items.append({"id": "donate_gold", "label": "Gold", "icon": "gold", "ok": gold >= 1.0, "reason": "No gold to spare" if gold < 1.0 else "", "danger": false, "note": UITheme.fmt_num(gold) + " gold (25%)"})
+			# the last ALLIANCE_EXTEND_WINDOW_TICKS: ask to renew (renewed once both asked)
+			var ai = s.alliance_info(mine, own)
+			if ai != null and ai.in_window:
+				items.append({"id": "ally_extend", "label": "Renew", "icon": "alliance", "ok": ai.can_extend, "reason": "Renewal asked" if ai.me_asked else "", "danger": false})
+			# (a teammate is no alliance: nothing to betray). Never in one tap: the sub-ring asks first.
+			if s.has_alliance(mine, own):
+				items.append({"id": "ally_break", "label": "Betray", "icon": "betray", "ok": true, "reason": "", "danger": true,
+					"sub": [
+						{"id": "ally_break:yes", "label": "Betray", "icon": "betray", "ok": true, "reason": "", "danger": true, "note": "You become a Traitor for %d s" % int(SimRules.TRAITOR_TICKS / SimRules.TICK_RATE)},
+						{"id": "cancel", "label": "Keep", "icon": "alliance", "ok": true, "reason": "", "danger": false},
+					]})
+		elif s.has_request(own, mine):
+			items.append({"id": "ally_accept", "label": "Accept", "icon": "alliance", "ok": true, "reason": "", "danger": false})
+		elif s.has_request(mine, own):
+			items.append({"id": "ally_request", "label": "Ally", "icon": "alliance", "ok": false, "reason": "Request pending", "danger": false})
+		elif target_info != null and target_info.alive:
+			# a new request waits 30 s after the previous one (Rules.ALLY_REQUEST_COOLDOWN_TICKS)
+			var wait: int = s.request_cooldown_left(mine, own)
+			items.append({"id": "ally_request", "label": "Ally", "icon": "alliance", "ok": wait <= 0, "reason": "Wait %ds" % int(ceil(float(wait) / Defs.TICK_RATE)) if wait > 0 else "", "danger": false})
+	items.append({"id": "focus", "label": "Focus", "icon": "eye", "ok": true, "reason": "", "danger": false})
+	if own != 0:
+		items.append({"id": "info", "label": "Info", "icon": "info", "ok": true, "reason": "", "danger": false})
+	return items
