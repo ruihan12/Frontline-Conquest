@@ -1389,9 +1389,12 @@ func _unhandled_input(e: InputEvent) -> void:
 						retreat(attacks[k]); break
 			KEY_TAB: toggle_console()
 			KEY_I: if state == "play": set_icbm(not icbm_mode)
-			KEY_H: help_panel.visible = not help_panel.visible
+			KEY_H:
+				if client != null: client.toggle_help()
+				else: help_panel.visible = not help_panel.visible
 			KEY_ESCAPE:
 				if arsenal_dlg != null and arsenal_dlg.visible: _close_shop()
+				elif client != null and client.help.is_open: client.toggle_help()
 				elif client != null and client.pause.is_open: client.pause.close()
 				elif hud != null and hud.menu_open(): hud.close_menu()
 				elif build_sel >= 0: build_sel = -1

@@ -88,7 +88,7 @@ func _init(h) -> void:
 	_make("music", "music_on" if g.music_on_setting() else "music_off", "Music (M)", func() -> void:
 		g.hud_toggle_music()
 		refresh())
-	_make("help", "help", "Help & Credits (H)", func() -> void: g.help_panel.visible = not g.help_panel.visible)
+	_make("help", "help", "Help & Credits (H)", func() -> void: hud.toggle_help())
 	_make("leaderboard", "leaderboard", "Leaderboard", func() -> void: hud.board.toggle())
 	_make("home", "globe", "Center on your nation (Home)", func() -> void: hud.ctx.world_call("focus_owner", [hud.ctx.me()]))
 	_make("settings", "settings", "Settings", func() -> void: g._open_settings())

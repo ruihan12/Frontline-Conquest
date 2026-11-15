@@ -20,6 +20,7 @@ var spawn: SpawnOverlay
 var topbar: ClientTopbar
 var pause: PauseMenu
 var over: GameOver
+var help: HelpOverlay
 var interact: UIInteract
 var _hover_seen := -2
 var _state_seen := ""
@@ -79,12 +80,15 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		over.close()
 		g._to_menu())
 	over.open_arsenal.connect(func(_key, _from) -> void: g._open_shop())
+	help = HelpOverlay.new(ctx)
+	root.add_child(help)
+	help.closed.connect(_update_pause)
 	pause = PauseMenu.new(ctx)
 	root.add_child(pause)
 	# (this port keeps its own Settings window)
 	pause.port_settings = func() -> void: g._open_settings()
 	pause.closed.connect(_update_pause)
-	pause.help_requested.connect(func() -> void: g.help_panel.visible = true)
+	pause.help_requested.connect(toggle_help)
 	pause.leave_requested.connect(func() -> void:
 		_update_pause()
 		g._to_menu())
@@ -196,6 +200,8 @@ func layout() -> void:
 		pause.apply_layout()
 	if over.is_open:
 		over.apply_layout()
+	if help.is_open:
+		help.apply_layout()
 	ctx.layout_changed.emit()
 	_in_layout = false
 
@@ -225,6 +231,17 @@ func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
 	over.move_to_front()
 
 
+## The top bar's ? and the H key.
+func toggle_help() -> void:
+	if help.is_open:
+		help.close()
+	else:
+		help.open()
+		help.move_to_front()
+		tooltip.move_to_front()
+	_update_pause()
+
+
 func open_pause_menu() -> void:
 	if g.state != "play" and g.state != "pick":
 		return
@@ -235,7 +252,7 @@ func open_pause_menu() -> void:
 
 ## Solo freezes the simulation while the game menu is open (UIRoot._update_pause).
 func _update_pause() -> void:
-	var want: bool = pause.is_open and ctx.mode() == UICtx.MODE_SOLO and ctx.in_match() and ctx.state.phase != Defs.PHASE_OVER
+	var want: bool = (pause.is_open or help.is_open) and ctx.mode() == UICtx.MODE_SOLO and ctx.in_match() and ctx.state.phase != Defs.PHASE_OVER
 	ctx.set_paused(want)
 
 
@@ -378,7 +395,7 @@ func clear_feed() -> void:
 
 ## The pointer over the map: the hover card (UIInteract.on_hover). main.gd still owns the clicks.
 func _hover(dt: float, in_match: bool) -> void:
-	var modal: bool = pause.is_open or over.is_open or g.help_panel.visible or (g.arsenal_dlg != null and g.arsenal_dlg.visible) or (g.settings_dlg != null and g.settings_dlg.visible)
+	var modal: bool = pause.is_open or over.is_open or help.is_open or (g.arsenal_dlg != null and g.arsenal_dlg.visible) or (g.settings_dlg != null and g.settings_dlg.visible)
 	interact.enabled = in_match and not modal and (g.state == "pick" or g.state == "play")
 	interact.aim_kind = _placing_kind() if g.state == "play" else ""
 	var tile := -1

@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 24493 of 52913 upstream lines accounted for (44 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. Not yet ported: map clicks and the radial menu, map layers, the title screens, the Arsenal window, help, tutorial and coach marks.
+Progress: 25205 of 52913 upstream lines accounted for (45 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. Not yet ported: map clicks and the radial menu, map layers, the title screens, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -48,7 +48,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/GeneralOffer.luau | 444 | - | not applicable: paid offer |
 | src/client/UI/GlassPanel.luau | 216 | client/ui/glass_panel.gd | ported |
 | src/client/UI/GlobeNotice.luau | 251 | - | not applicable: Roblox EditableImage permission notice |
-| src/client/UI/HelpOverlay.luau | 712 | client/ui/help_overlay.gd | todo |
+| src/client/UI/HelpOverlay.luau | 712 | client/ui/help_overlay.gd | done, live (key list and credits are this port's) |
 | src/client/UI/HoldRing.luau | 71 | client/ui/hold_ring.gd | todo |
 | src/client/UI/Leaderboard.luau | 663 | client/ui/leaderboard.gd | done, live (head shots / cosmetic flags left out) |
 | src/client/UI/Locker.luau | 964 | - | not applicable: cosmetics locker (accounts) |

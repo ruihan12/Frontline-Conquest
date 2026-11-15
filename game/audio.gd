@@ -678,6 +678,13 @@ func _uishot() -> void:
 	hud.open_menu()
 	for _f in 30: await get_tree().process_frame
 	_shot("3_menu.png")
+	if client != null:
+		client.pause.close()
+		client.toggle_help()
+		for _f in 30: await get_tree().process_frame
+		_shot("3b_help.png")
+		client.toggle_help()
+		for _f in 20: await get_tree().process_frame
 	hud.close_menu()
 	# nukes in flight: a rival bomb at us (alert banner) and ours with the seconds countdown
 	if foe > 0:
