@@ -120,5 +120,17 @@ func _initialize() -> void:
 		else:
 			print("  (atom not placeable: %s)" % str(pl.reason))
 			m.build_sel = -1
+	# keys and slots
+	for _f in 2: await process_frame
+	it.enabled = true
+	m.build_sel = -1
+	c._hover(0.0, true)
+	_check(it.on_key(KEY_1, false) and m.build_sel == 0 and it.aim_kind == "city", "key 1 selects the City slot")
+	_check(it.escape() and m.build_sel == -1 and it.aim_kind == "", "escape leaves placement")
+	var r0: float = c.ctx.ratio
+	it.on_key(KEY_E, false)
+	_check(c.ctx.ratio > r0, "E raises the attack ratio")
+	it._held.clear()
+	_check(not it.on_key(KEY_TAB, false), "Tab is left to the console")
 	print("CLIENT_CLICKS_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(0 if fails == 0 else 1)

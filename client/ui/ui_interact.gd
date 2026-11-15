@@ -3,9 +3,10 @@
 # per-frame refresh), the action ring (on_context, on_radial, donate_to, retreat, _float,
 # show_inspect) and left clicks (on_click, the target card's select-then-fire flow, warship
 # selection and move orders, pick) and placement (_place with the two-click nuke lock, the touch
-# ghost and its confirm buttons). Choosing what to place (select_action) and the keys are still
-# the game's: aim_kind follows the game's build selection, and the build itself goes through the
-# game's try_build, so the port's range system and ICBM mode keep working.
+# ghost and its confirm buttons), select_action and the keys (on_key, key repeat, escape).
+# The selection and the build themselves go through the game's select_build / try_build, so the
+# port's range system, ICBM mode and warship auto-launch keep working; aim_kind follows the game's
+# build slot. Touch input (connect_input, _set_touch) comes over with MapInput.
 class_name UIInteract
 extends RefCounted
 
@@ -22,7 +23,15 @@ const PICK_MOUSE_PX := 6.0
 const UNIT_PICK_TOUCH := 26.0
 const UNIT_PICK_MOUSE := 12.0
 
+## Q / E held: seconds before the first repeat, then seconds between repeats.
+const REPEAT_DELAY := 0.35
+const REPEAT_RATE := 0.07
+const HOTKEY_INDEX := {KEY_1: 0, KEY_2: 1, KEY_3: 2, KEY_4: 3, KEY_5: 4, KEY_6: 5, KEY_7: 6, KEY_8: 7, KEY_9: 8, KEY_0: 9}
+
 var ctx: UICtx
+## the host (ClientHud): toggle_help, help, pause, screen()
+var ui = null
+var _held := {}  # keycode -> {t, next}
 var target_card: TargetCard = null
 var place_confirm: PlaceConfirm = null
 var _confirm_msec := 0.0
@@ -252,6 +261,7 @@ func _aim_spec(tile: int) -> Dictionary:
 
 
 func process_frame(delta: float) -> void:
+	_key_repeat(delta)
 	if _tip_wait > 0.0:
 		_tip_wait -= delta
 		if _tip_wait <= 0.0 and _tip_dirty:
@@ -480,6 +490,144 @@ func primary_at_hover() -> void:
 	if hover_tile >= 0:
 		_last_click_tile = -1
 		on_click(hover_tile)
+
+
+# ---------------------------------------------------------------------------------------------
+# Choosing what to place, and the keys
+# ---------------------------------------------------------------------------------------------
+## A build / launch slot was pressed (or its number key): refuse with the reason, open the Arsenal
+## for a locked item, or enter (or leave) placement.
+func select_action(kind: String) -> void:
+	if not enabled or not ctx.alive_player():
+		return
+	var b = bar.button(kind) if bar != null else null
+	var av: Dictionary = ctx.rules.availability(kind)
+	if av.get("arsenal") != null:
+		ctx.sfx("locked")
+		if ui != null:
+			ui.open_arsenal(av.arsenal, "locked")
+		return
+	if not av.ok:
+		if b != null:
+			b.deny()
+		ctx.sfx("deny")
+		_float(str(av.reason), "info", UITheme.RED, _anchor_pos(b))
+		return
+	var g = ctx.session.g
+	var k := int(RWGameState.BUILD_ID.get(kind, -1))
+	if k < 0:
+		return
+	if kind == "reinforce":
+		cancel_aim(false)
+		ctx.send({"type": "reinforce"})
+		ctx.sfx("confirm")
+		return
+	# (port) the game's own selection: pressing Warship twice launches one from your port
+	var was: int = g.build_sel
+	g.select_build(k)
+	var now: int = g.build_sel
+	if now == was and now != k:
+		return
+	aim_kind = kind if now == k else ""
+	_confirm_tile = -1
+	_clear_ghost()
+	if aim_kind == "":
+		bar.set_placing("")
+		ctx.set_aim("", -1, 0)
+		ctx.world_call("set_range_mode", ["auto"])
+		ctx.sfx("close", -6.0)
+		on_hover(hover_tile)
+		return
+	if target_card != null:
+		target_card.hide_card()
+	ctx.world_call("set_range_mode", ["nuke_aim" if UIRules.is_nuke(kind) else "auto"])
+	bar.set_placing(kind)
+	ctx.hide_hint()
+	ctx.sfx("click")
+	on_hover(hover_tile)
+
+
+## Where a slot's messages float from: just above it (the pointer when the slot is off screen).
+func _anchor_pos(c) -> Vector2:
+	if c is Control and c.is_visible_in_tree():
+		var r: Rect2 = c.get_global_rect()
+		return Vector2(r.get_center().x, r.position.y - 6.0)
+	return ctx.mouse_pos()
+
+
+## A key went down. True when it was used. (Port: Tab is the console, and the game keeps its own
+## keys: I for ICBM, R for reinforcements, - and = for the game speed.)
+func on_key(key: int, echo: bool) -> bool:
+	if Input.is_key_pressed(KEY_CTRL) or Input.is_key_pressed(KEY_META) or Input.is_key_pressed(KEY_ALT) or ctx.pause_menu_open():
+		return false
+	if echo and key != KEY_Q and key != KEY_E:
+		return false
+	var scr: String = ui.screen() if ui != null else ""
+	var handled := true
+	if key == KEY_X:
+		handled = escape()
+	elif key == KEY_H:
+		ui.toggle_help()
+	elif key == KEY_SPACE:
+		if scr == "play" or scr == "spawn":
+			primary_at_hover()
+		else:
+			handled = false
+	elif key == KEY_BACKSPACE:
+		handled = scr == "play" and enabled and retreat_latest()
+	elif key == KEY_Q or key == KEY_E:
+		if scr == "play" and enabled:
+			ctx.step_ratio(1 if key == KEY_E else -1)
+			if not echo:
+				_held[key] = {"t": 0.0, "next": REPEAT_DELAY}
+		else:
+			handled = false
+	else:
+		if HOTKEY_INDEX.has(key) and scr == "play" and enabled:
+			select_action(UIRules.ACTIONS[HOTKEY_INDEX[key]])
+		else:
+			handled = false
+	return handled
+
+
+func _key_repeat(delta: float) -> void:
+	if _held.is_empty():
+		return
+	for key in _held.keys():
+		if not Input.is_key_pressed(key):
+			_held.erase(key)
+			continue
+		var h: Dictionary = _held[key]
+		h.t += delta
+		while h.t >= h.next:
+			h.next += REPEAT_RATE
+			on_key(key, true)
+
+
+## Esc (or X): close the innermost open thing. True when something was closed.
+func escape() -> bool:
+	if radial.is_open:
+		radial.close()
+		return true
+	if unit_card != null and unit_card.is_open:
+		deselect_unit(true)
+		return true
+	if target_card != null and target_card.is_open:
+		target_card.hide_card(true)
+		return true
+	if aim_kind != "":
+		cancel_aim()
+		return true
+	if ui != null and ui.help.is_open:
+		ui.help.close()
+		return true
+	if ui != null and ui.pause.is_open:
+		ui.pause.close()
+		return true
+	if tooltip.is_shown() and tooltip.place == Tooltip.PLACE_PINNED:
+		tooltip.hide_tip()
+		return true
+	return false
 
 
 # ---------------------------------------------------------------------------------------------

@@ -176,6 +176,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	busy = BusyChip.new(ctx)
 	root.add_child(busy)
 	interact.target_card = target_card
+	interact.ui = self
 	interact.unit_card = unit_card
 	target_card.fire.connect(interact.fire_from_card)
 	target_card.ally.connect(interact.ally_from_card)
@@ -362,14 +363,29 @@ func _on_retreat(aid: int) -> void:
 
 
 func _on_build_chosen(kind: String) -> void:
-	var k: int = RWGameState.BUILD_ID.get(kind, -1)
-	if k < 0:
-		return
-	var av := ctx.rules.availability(kind)
-	if av.get("arsenal") != null:
-		g._open_shop()
-		return
-	g.select_build(k)
+	interact.select_action(kind)
+
+
+## UIRoot.open_arsenal: the Arsenal window (still the game's).
+func open_arsenal(_key = null, _from = "") -> void:
+	g._open_shop()
+
+
+## UIRoot.screen: "title", "spawn", "play" or "over".
+func screen() -> String:
+	match str(g.state):
+		"pick":
+			return "spawn"
+		"play":
+			return "play"
+		"over":
+			return "over"
+	return "title"
+
+
+## main.gd: a key went down. True when the ported key handling used it.
+func on_key(key: int, echo: bool) -> bool:
+	return interact.on_key(key, echo)
 
 
 ## The Attack bar and the game's share index stay the same stop.

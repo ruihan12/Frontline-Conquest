@@ -1383,6 +1383,8 @@ func _unhandled_input(e: InputEvent) -> void:
 			_clamp_cam()
 	if console_panel != null and console_panel.visible and e is InputEventKey:
 		return
+	if e is InputEventKey and e.pressed and client != null and client.on_key(e.keycode, e.echo):
+		return
 	if e is InputEventKey and e.pressed and not e.echo:
 		match e.keycode:
 			KEY_Q: _set_share(share_i - 1)
@@ -1407,8 +1409,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				elif client != null and client.map_picker.is_open: client.map_picker.close()
 				elif client != null and state == "menu" and client.title.solo_menu_open(): client.title.close_solo_menu()
 				elif hud != null and hud.menu_open(): hud.close_menu()
+				elif client != null and client.interact.escape(): pass
 				elif build_sel >= 0: build_sel = -1
-				elif client != null and client.cancel_selection(): pass
 				elif sel_ws != null: sel_ws = null
 				elif hud != null and (state == "play" or state == "pick"): hud.open_menu()
 				else: _to_menu()
