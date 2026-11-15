@@ -283,7 +283,9 @@ static func shadow_box(radius: float, size: int = 18, alpha: float = 0.45, offse
 	return s
 
 static func draw_shadow(ci: CanvasItem, rect: Rect2, s: StyleBoxFlat) -> void:
-	ci.draw_style_box(s, Rect2(rect.position + Vector2(0, float(s.get_meta("offset_y", 0.0))), rect.size))
+	# (the solid core stays under the panel: only the soft falloff shows past its edges)
+	var inset := minf(float(s.shadow_size) * 0.5, minf(rect.size.x, rect.size.y) * 0.25)
+	ci.draw_style_box(s, Rect2(rect.position + Vector2(0, float(s.get_meta("offset_y", 0.0))), rect.size).grow(-inset))
 
 # Copy of a style (StyleBoxFlat.duplicate()).
 static func dup(s: StyleBox) -> StyleBox:

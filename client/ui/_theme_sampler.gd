@@ -73,6 +73,34 @@ func _ready() -> void:
 		mv.add_child(mr)
 	col.add_child(p5)
 
+	# stage 2 widgets: CountLabel, FillBar, RatioSlider
+	var ctx := UICtx.new()
+	var p6 := GlassPanel.new()
+	p6.position = Vector2(1060, 40)
+	add_child(p6)
+	var wv := UITheme.vbox(UITheme.S3)
+	p6.add_child(wv)
+	var cl := CountLabel.new(28, 800, UITheme.TEXT, func(v: float) -> String: return UITheme.fmt_troops(v))
+	wv.add_child(cl)
+	cl.set_value(120000.0, false)
+	cl.set_value(473000.0)
+	var fb := FillBar.new(6, UITheme.AMBER)
+	fb.custom_minimum_size = Vector2(320, 14)
+	fb.goal = 0.8
+	fb.markers = [{"v": 0.55, "color": UITheme.RED}]
+	wv.add_child(fb)
+	fb.set_target(0.39)
+	var fb2 := FillBar.new(4, UITheme.CYAN)
+	fb2.fill_color_2 = UITheme.GREEN
+	fb2.custom_minimum_size = Vector2(320, 8)
+	wv.add_child(fb2)
+	fb2.set_target(0.7, true)
+	var rs := RatioSlider.new(ctx)
+	rs.custom_minimum_size = Vector2(320, 30)
+	wv.add_child(rs)
+	ctx.set_ratio_max(0.5)
+	ctx.set_ratio(0.35)
+
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shot="):
 			await get_tree().create_timer(0.6).timeout
