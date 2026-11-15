@@ -175,8 +175,6 @@ func _build_ui() -> void:
 		f_bold.variation_embolden = 0.75; f_head.variation_embolden = 1.0
 	ui = CanvasLayer.new()
 	add_child(ui)
-	_build_menu()
-	_build_play_dialog()
 	_build_pick()
 	_build_top()
 	_build_speed()
@@ -201,6 +199,9 @@ func _build_ui() -> void:
 		old_part.get_parent().visible = false
 		hud.groups.erase(old_part.get_parent())
 	hud.replaced = true  # (its alert banner and spawn banner stay hidden too)
+	hud.topbar.visible = false
+	menu_panel = client.title
+	play_dialog = client.map_picker
 	hud_nodes = hud.groups.duplicate()
 	note_box = Control.new(); note_box.position = Vector2(16, 96); note_box.size = Vector2(380, 480)
 	note_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -223,168 +224,13 @@ func _build_ui() -> void:
 	# legacy handles
 	for n in hud_nodes: n.visible = false
 
-# ---- main menu ----
-func _build_menu() -> void:
-	menu_panel = Control.new()
-	menu_panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ui.add_child(menu_panel)
-	var shade := ColorRect.new(); shade.color = Color(0.03, 0.05, 0.10, 0.55)
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT); menu_panel.add_child(shade)
-	# original emblem: compass rose inside a rounded badge
-	_draw_ctl(menu_panel, Rect2(760, 62, 80, 80), func(c: Control):
-		c.draw_style_box(_flat(Color(0.10, 0.16, 0.32), 20, Color(1, 1, 1, 0.25), 2), Rect2(0, 0, 80, 80))
-		var o := Vector2(40, 40)
-		c.draw_arc(o, 26, 0, TAU, 40, ORANGE_Y, 3, true)
-		for k in 4:
-			var d := Vector2.from_angle(k * PI / 2)
-			var nn := Vector2(-d.y, d.x)
-			c.draw_colored_polygon(PackedVector2Array([o + d * 30, o + nn * 6, o - nn * 6]), Color.WHITE if k % 2 == 0 else Color(0.55, 0.75, 1.0))
-		c.draw_circle(o, 5, Color(0.95, 0.35, 0.3)))
-	var title := _T(menu_panel, "FRONTLINE CONQUEST", Vector2(0, 150), 86, Color(1.0, 0.95, 0.86), f_head, 1600, HORIZONTAL_ALIGNMENT_CENTER)
-	title.size.y = 110
-	title.add_theme_color_override("font_outline_color", Color(0.15, 0.08, 0.02))
-	title.add_theme_constant_override("outline_size", 14)
-	title.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.5))
-	title.add_theme_constant_override("shadow_offset_y", 6)
-	_draw_ctl(menu_panel, Rect2(600, 274, 400, 20), func(c: Control):
-		c.draw_line(Vector2(0, 10), Vector2(85, 10), ORANGE_Y, 2)
-		c.draw_line(Vector2(315, 10), Vector2(400, 10), ORANGE_Y, 2))
-	_head(menu_panel, "CONQUER THE WORLD", Vector2(0, 272), 16, Color(0.9, 0.88, 0.82), 1600, HORIZONTAL_ALIGNMENT_CENTER)
-	var cp := _P(menu_panel, Rect2(530, 470, 540, 250))
-	_T(cp, "Welcome, Commander", Vector2(0, 16), 15, MUTED, f_reg, 540, HORIZONTAL_ALIGNMENT_CENTER)
-	var play := _big_btn(cp, Rect2(18, 46, 430, 60), "PLAY SOLO", ORANGE_Y, 22)
-	_draw_ctl(play, Rect2(22, 18, 24, 24), func(c: Control):
-		c.draw_colored_polygon(PackedVector2Array([Vector2(4, 2), Vector2(20, 12), Vector2(4, 22)]), Color(0.12, 0.09, 0.05)))
-	play.pressed.connect(func(): _pop_in(play_dialog))
-	var hb := _card_btn(cp, Rect2(460, 46, 62, 60))
-	hb.text = "?"; hb.add_theme_font_override("font", f_head); hb.add_theme_font_size_override("font_size", 24)
-	hb.pressed.connect(func(): _pop_in(help_panel))
-	_head(cp, "PROGRESSION & SHOP", Vector2(0, 124), 12, GOLD_C, 540, HORIZONTAL_ALIGNMENT_CENTER)
-	var set_top := _card_btn(menu_panel, Rect2(1176, 26, 162, 52))
-	set_top.add_theme_stylebox_override("normal", _flat(Color(0.07, 0.085, 0.15, 0.94), 6, Color(1, 1, 1, 0.18), 1))
-	set_top.add_theme_stylebox_override("hover", _flat(Color(0.14, 0.16, 0.26, 0.98), 6, CYAN, 1))
-	set_top.pressed.connect(_open_settings)
-	_draw_ctl(set_top, Rect2(14, 13, 26, 26), func(c: Control): _draw_gear(c, Vector2(13, 13), 10.0, CYAN))
-	_T(set_top, "SETTINGS", Vector2(46, 8), 16, TEXT, f_bold, 108)
-	menu_settings_sub = _T(set_top, "1440p · 180 FPS · Ultra", Vector2(46, 29), 9, MUTED, f_bold, 112)
-	var sp := _card_btn(menu_panel, Rect2(1350, 26, 220, 52))
-	sp.add_theme_stylebox_override("normal", _flat(Color(0.07, 0.085, 0.15, 0.94), 6, Color(1, 0.8, 0.3, 0.55), 1))
-	sp.add_theme_stylebox_override("hover", _flat(Color(0.14, 0.16, 0.26, 0.98), 6, GOLD_C, 1))
-	sp.pressed.connect(_open_shop)
-	_draw_ctl(sp, Rect2(14, 13, 26, 26), func(c: Control): _star(c, Vector2(13, 13), 11, GOLD_C))
-	stars_lbl = _T(sp, _fmt_int(save.stars), Vector2(46, 7), 20, GOLD_C, f_bold, 120)
-	_T(sp, "OPEN SHOP  ▸", Vector2(46, 30), 10, MUTED, f_bold, 150)
-	var ab := _card_btn(cp, Rect2(18, 150, 368, 80))
-	ab.pressed.connect(_open_shop)
-	_draw_ctl(ab, Rect2(18, 20, 34, 40), func(c: Control):
-		c.draw_colored_polygon(PackedVector2Array([Vector2(0, 0), Vector2(34, 0), Vector2(34, 22), Vector2(17, 40), Vector2(0, 22)]), ORANGE_Y)
-		_star(c, Vector2(17, 17), 9, Color(0.15, 0.1, 0.03)))
-	_head(ab, "SHOP & ARSENAL", Vector2(66, 18), 16, TEXT)
-	_T(ab, "●  Stars & weapon unlocks", Vector2(66, 44), 13, MUTED)
-	var sb_cfg := _card_btn(cp, Rect2(396, 150, 126, 80))
-	sb_cfg.pressed.connect(_open_settings)
-	_draw_ctl(sb_cfg, Rect2(46, 14, 34, 34), func(c: Control): _draw_gear(c, Vector2(17, 17), 12.0, CYAN))
-	_head(sb_cfg, "SETTINGS", Vector2(0, 50), 13, TEXT, 126, HORIZONTAL_ALIGNMENT_CENTER)
-	_T(menu_panel, "Original prototype  ·  procedurally generated maps", Vector2(0, 864), 13, Color(0.6, 0.65, 0.78), f_reg, 1600, HORIZONTAL_ALIGNMENT_CENTER)
-
-# ---- play solo dialog ----
-func _build_play_dialog() -> void:
-	play_dialog = Control.new(); play_dialog.set_anchors_preset(Control.PRESET_FULL_RECT); play_dialog.visible = false
-	ui.add_child(play_dialog)
-	var sh := ColorRect.new(); sh.color = Color(0.01, 0.02, 0.05, 0.6); sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	play_dialog.add_child(sh)
-	var p := _P(play_dialog, Rect2(190, 36, 1220, 828), Color(0.07, 0.085, 0.15, 0.98), 18)
-	_head(p, "PLAY SOLO", Vector2(32, 20), 28, TEXT)
-	_T(p, "Choose from 12 strategic world & regional maps and set AI aggressiveness.", Vector2(32, 56), 14, MUTED)
-	var x := _card_btn(p, Rect2(1146, 18, 42, 42)); x.text = "✕"
-	x.pressed.connect(func(): play_dialog.visible = false)
-	var tab_real := _btn("REAL-WORLD MAPS (12)", true)
-	tab_real.position = Vector2(32, 80); tab_real.size = Vector2(216, 28)
-	tab_real.add_theme_font_size_override("font_size", 12)
-	p.add_child(tab_real)
-	var tab_rand := _btn("RANDOM MAPS (12)", false)
-	tab_rand.position = Vector2(256, 80); tab_rand.size = Vector2(196, 28)
-	tab_rand.add_theme_font_size_override("font_size", 12)
-	p.add_child(tab_rand)
-	var tab_up := _btn("ROWORLD MAPS (%d)" % UpstreamMaps.count(), false)
-	tab_up.position = Vector2(460, 80); tab_up.size = Vector2(196, 28)
-	tab_up.add_theme_font_size_override("font_size", 12)
-	p.add_child(tab_up)
-	map_tab_btns = [tab_real, tab_rand, tab_up]
-	reroll_btn = _card_btn(p, Rect2(668, 80, 164, 28))
-	reroll_btn.text = "REROLL RANDOM SEEDS"
-	reroll_btn.add_theme_font_override("font", f_bold)
-	reroll_btn.add_theme_font_size_override("font_size", 11)
-	reroll_btn.add_theme_color_override("font_color", GOLD_C)
-	reroll_btn.visible = false
-	reroll_btn.pressed.connect(func():
-		rand_seed_off = rng.randi_range(100, 999999)
-		_refresh_map_tab_cards())
-	tab_real.pressed.connect(func(): _set_map_tab(0))
-	tab_rand.pressed.connect(func(): _set_map_tab(1))
-	tab_up.pressed.connect(func(): _set_map_tab(2))
-	for k in MAPS.size():
-		var col_i := k % 4
-		var row_i := k / 4
-		var c := _card_btn(p, Rect2(32 + col_i * 292, 114 + row_i * 158, 280, 148))
-		var tr := TextureRect.new(); tr.texture = _map_preview(k, 148, 82)
-		tr.position = Vector2(10, 10); tr.size = Vector2(260, 86); tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tr.stretch_mode = TextureRect.STRETCH_SCALE
-		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-		c.add_child(tr)
-		var tl := _T(c, MAPS[k][0], Vector2(12, 100), 15, TEXT, f_bold, 256)
-		var sl := _T(c, _map_sub(k, 0), Vector2(12, 122), 12, MUTED, f_reg, 256)
-		map_cards.append(c)
-		map_card_tex.append(tr)
-		map_card_title.append(tl)
-		map_card_sub.append(sl)
-		c.pressed.connect(func():
-			map_i = k
-			for j in map_cards.size(): _card_style(map_cards[j], j == k))
-	_card_style(map_cards[map_i], true)
-	_head(p, "DIFFICULTY", Vector2(32, 594), 12, MUTED)
-	var descs := ["Gentle AI · long peace", "Balanced AI", "Ruthless AI · short peace"]
-	var cols := [GREEN, ORANGE_Y, RED]
-	for k in DIFFS.size():
-		var c := _card_btn(p, Rect2(32 + k * 392, 616, 372, 82))
-		_draw_ctl(c, Rect2(16, 21, 40, 40), func(cc: Control):
-			cc.draw_circle(Vector2(20, 20), 19, Color(cols[k], 0.18))
-			cc.draw_arc(Vector2(20, 20), 19, 0, TAU, 32, cols[k], 2, true)
-			for b in k + 1: cc.draw_rect(Rect2(10 + b * 8, 26 - b * 5, 5, 6 + b * 5), cols[k]))
-		_T(c, DIFFS[k][0], Vector2(70, 14), 18, TEXT, f_bold)
-		_T(c, "%s  ·  peace %s" % [descs[k], _fmt_time(DIFFS[k][1])], Vector2(70, 44), 13, MUTED)
-		diff_cards.append(c)
-		c.pressed.connect(func():
-			diff_i = k
-			for j in diff_cards.size(): _card_style(diff_cards[j], j == k))
-	_card_style(diff_cards[diff_i], true)
-	# bot players (upstream public matches): 0 keeps the match solo
-	_head(p, "BOT PLAYERS", Vector2(32, 712), 12, MUTED)
-	var bot_opts := [0, 4, 9, 19, 29]
-	var bot_cards := []
-	for k in bot_opts.size():
-		var bc := _card_btn(p, Rect2(32 + k * 70, 734, 62, 40))
-		_T(bc, "Off" if bot_opts[k] == 0 else str(bot_opts[k]), Vector2(0, 9), 16, TEXT, f_bold, 62, HORIZONTAL_ALIGNMENT_CENTER)
-		bot_cards.append(bc)
-		bc.pressed.connect(func():
-			bot_players = bot_opts[k]
-			for j in bot_cards.size(): _card_style(bot_cards[j], j == k))
-	_card_style(bot_cards[maxi(0, bot_opts.find(bot_players))], true)
-	_T(p, "Bot players look and play like people: 2 play smart, the rest are novices.", Vector2(392, 736), 12, MUTED)
-	_T(p, "Any bot ends solo play, so everyone gets a 30 s spawn shield.", Vector2(392, 756), 12, MUTED)
-	var st := _big_btn(p, Rect2(880, 732, 308, 60), "START GAME", ORANGE_Y, 22)
-	st.pressed.connect(_start_game_ui)
+# (the main menu and the PLAY SOLO window are client/ui/title_screen.gd and map_picker.gd)
 
 func _set_map_tab(t_idx: int) -> void:
 	map_tab = clampi(t_idx, 0, 2)
 	map_i = clampi(map_i, 0, (UpstreamMaps.count() if map_tab == 2 else MAPS.size()) - 1)
 	if map_tab == 1 and rand_seed_off == 0:
 		rand_seed_off = rng.randi_range(100, 999999)
-	for j in map_tab_btns.size():
-		_pill(map_tab_btns[j], j == map_tab)
-	if reroll_btn:
-		reroll_btn.visible = (map_tab == 1)
 	_refresh_map_tab_cards()
 
 func _preview_key(k: int) -> String:
@@ -398,26 +244,18 @@ func _blank_preview() -> ImageTexture:
 	_preview_blank = ImageTexture.create_from_image(im)
 	return _preview_blank
 
+# Queues the random maps' previews that are not drawn yet (a few rows a frame, _pump_previews) and
+# has the map picker rebuild its cards.
 func _refresh_map_tab_cards() -> void:
 	var tbl: Array = _upstream_menu() if map_tab == 2 else (RANDOM_MAPS if map_tab == 1 else MAPS)
 	_pv_job = {}
 	_preview_queue.clear()
-	for k in map_cards.size():
-		map_cards[k].visible = k < tbl.size()
-		if k >= tbl.size(): continue
-		map_card_title[k].text = tbl[k][0]
-		map_card_sub[k].text = _map_sub(k, map_tab)
-		_card_style(map_cards[k], k == map_i)
-		var key := _preview_key(k)
-		if _preview_cache.has(key):
-			map_card_tex[k].texture = _preview_cache[key]
-		elif map_tab != 1:
-			var tex := _map_preview(k, 148, 82)
-			_preview_cache[key] = tex
-			map_card_tex[k].texture = tex
-		else:
-			map_card_tex[k].texture = _blank_preview()
-			_preview_queue.append(k)
+	if map_tab == 1:
+		for k in tbl.size():
+			if not _preview_cache.has(_preview_key(k)):
+				_preview_queue.append(k)
+	if client != null and client.map_picker != null:
+		client.map_picker.rebuild()
 
 func _pump_previews() -> void:
 	if _loading:
@@ -466,8 +304,6 @@ func _preview_step() -> bool:
 		return true
 	var tex := ImageTexture.create_from_image(im)
 	_preview_cache[_pv_job.key] = tex
-	if k < map_card_tex.size() and _preview_key(k) == str(_pv_job.key):
-		map_card_tex[k].texture = tex
 	return false
 
 # ---- pick / deploy banner ----

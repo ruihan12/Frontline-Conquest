@@ -24,6 +24,8 @@ var help: HelpOverlay
 var interact: UIInteract
 var radial: RadialMenu
 var float_layer: Control
+var title: TitleScreen
+var map_picker: MapPicker
 var _hover_seen := -2
 var _state_seen := ""
 var _seen_nukes := {}
@@ -54,6 +56,15 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	if at_index >= 0:
 		layer.move_child(root, at_index)
 	ctx.root = root
+
+	# The title screen sits under every other part (the top bar, help and settings draw over it).
+	title = TitleScreen.new(ctx, main)
+	root.add_child(title)
+	title.play_solo.connect(func(d: int) -> void:
+		g.diff_i = d
+		g._start_game_ui())
+	title.show_help.connect(toggle_help)
+	title.open_arsenal.connect(func() -> void: g._open_shop())
 
 	top = TopStatus.new(ctx)
 	root.add_child(top)
@@ -139,6 +150,10 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	interact.bar = bar
 	interact.float_layer = float_layer
 	radial.picked.connect(interact.on_radial)
+	map_picker = MapPicker.new(ctx, main)
+	root.add_child(map_picker)
+	title.pick_map.connect(func() -> void: map_picker.open(UIMaps.selected(g)))
+	map_picker.picked.connect(func(id: String) -> void: title.set_map_name(UIMaps.name_of(g, id)))
 	root.resized.connect(layout)
 	layout()
 
@@ -175,6 +190,9 @@ func layout() -> void:
 	var tr := topbar.topbar_rect()
 	ctx.airship_bar = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 2.0)
 	ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
+	title.apply_layout()
+	if map_picker != null:
+		map_picker.apply_layout()
 	top.apply_layout()
 	spawn.apply_layout()
 	bar.apply_layout()

@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 26689 of 52913 upstream lines accounted for (48 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. Not yet ported: left-click handling, map layers, the title screens, the Arsenal window, tutorial and coach marks. The help window is ported.
+Progress: 28858 of 52913 upstream lines accounted for (52 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Not yet ported: left-click handling, map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -26,7 +26,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/init.client.luau | 19 | - | not applicable: Roblox script entry |
 | src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | done, live |
 | src/client/UI/Arsenal.luau | 1368 | client/ui/arsenal.gd | todo |
-| src/client/UI/ArsenalButton.luau | 304 | client/ui/arsenal_button.gd | todo |
+| src/client/UI/ArsenalButton.luau | 304 | client/ui/arsenal_button.gd | done, live (title screen, opens the Arsenal window) |
 | src/client/UI/ArsenalDemo.luau | 1462 | client/ui/arsenal_demo.gd | todo |
 | src/client/UI/AttacksPanel.luau | 462 | client/ui/attacks_panel.gd | done, live |
 | src/client/UI/Banner.luau | 188 | client/ui/banner.gd | todo |
@@ -52,7 +52,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/HoldRing.luau | 71 | client/ui/hold_ring.gd | todo |
 | src/client/UI/Leaderboard.luau | 663 | client/ui/leaderboard.gd | done, live (head shots / cosmetic flags left out) |
 | src/client/UI/Locker.luau | 964 | - | not applicable: cosmetics locker (accounts) |
-| src/client/UI/MapPicker.luau | 340 | client/ui/map_picker.gd | todo |
+| src/client/UI/MapPicker.luau | 340 | client/ui/map_picker.gd | done, live (tabs are the port's three map tables; REROLL chip on Random) |
 | src/client/UI/NextMatch.luau | 161 | - | not applicable: multiplayer lobby |
 | src/client/UI/PartyPanel.luau | 471 | - | not applicable: Roblox parties |
 | src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | done, live (Settings row opens the port's own Settings window) |
@@ -70,7 +70,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/Takeover.luau | 285 | - | not applicable: paid take-over |
 | src/client/UI/TargetCard.luau | 445 | client/ui/target_card.gd | todo |
 | src/client/UI/Telemetry.luau | 533 | - | not applicable: analytics |
-| src/client/UI/TitleScreen.luau | 1703 | client/ui/title_screen.gd | part: GradientText (client/ui/gradient_text.gd) |
+| src/client/UI/TitleScreen.luau | 1703 | client/ui/title_screen.gd | done, live (solo parts; public matches, queue, party and store buttons not applicable; port's BOT PLAYERS row) |
 | src/client/UI/Tooltip.luau | 314 | client/ui/tooltip.gd | done, live (slot hint cards) |
 | src/client/UI/TopStatus.luau | 509 | client/ui/top_status.gd | done, live |
 | src/client/UI/TouchRouter.luau | 120 | - | not applicable: multi-touch routing on Roblox |
@@ -81,7 +81,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/UIInteract.luau | 1745 | client/ui/ui_interact.gd | part: hover card and the action ring (on_context, on_radial, donate, retreat, floats, inspect), live; left clicks, ghost, units, keys still in main.gd |
 | src/client/UI/UIKern.luau | 11 | client/ui/ui_kern.gd | todo |
 | src/client/UI/UILayoutProbe.luau | 215 | - | not applicable: Roblox safe-area / top-bar probing |
-| src/client/UI/UIMaps.luau | 102 | client/ui/ui_maps.gd | todo |
+| src/client/UI/UIMaps.luau | 102 | client/ui/ui_maps.gd | done, live |
 | src/client/UI/UIRoot.luau | 2636 | client/ui/ui_root.gd | todo |
 | src/client/UI/UIRules.luau | 1383 | client/ui/ui_rules.gd | done (placement and sea reach ask the game; + port-only gold donation item) |
 | src/client/UI/UITheme.luau | 1955 | client/ui/ui_theme.gd | ported (glyph metric tables dropped: Godot measures text natively) |

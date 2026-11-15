@@ -613,6 +613,7 @@ func _autoshot(dt: float) -> void:
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--look27="):
 			_look27(a.substr(9)); return
+	if _pre == 0 and shot_t > 1.0 and client != null: client.title.finish_show()
 	if _pre == 0 and shot_t > 2.0:
 		_shot("01_menu.png"); play_dialog.visible = true; _set_map_tab(0); _pre = 1; return
 	if _pre == 1 and shot_t > 2.6:
@@ -1398,6 +1399,8 @@ func _unhandled_input(e: InputEvent) -> void:
 				if arsenal_dlg != null and arsenal_dlg.visible: _close_shop()
 				elif client != null and client.help.is_open: client.toggle_help()
 				elif client != null and client.pause.is_open: client.pause.close()
+				elif client != null and client.map_picker.is_open: client.map_picker.close()
+				elif client != null and state == "menu" and client.title.solo_menu_open(): client.title.close_solo_menu()
 				elif hud != null and hud.menu_open(): hud.close_menu()
 				elif build_sel >= 0: build_sel = -1
 				elif sel_ws != null: sel_ws = null

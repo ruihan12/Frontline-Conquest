@@ -373,7 +373,7 @@ func _maptest() -> void:
 		var t0 := Time.get_ticks_usec()
 		_set_map_tab(tab)
 		print("MAPTEST tab %d switch ms=%.0f" % [tab, (Time.get_ticks_usec() - t0) / 1000.0])
-		for k in map_card_tex.size():
+		for k in MAPS.size():
 			var im: Image = _map_preview(k, 448, 400).get_image()
 			im.save_png("/workspace/shots/31_%s_%02d.png" % ["real" if tab == 0 else "random", k])
 	for cfg in [[0, 0], [0, 7], [0, 2], [1, 0]]:
@@ -620,6 +620,15 @@ func _uishot() -> void:
 	DirAccess.make_dir_recursive_absolute(shots_dir)
 	play_dialog.visible = false
 	map_tab = 0; map_i = 0
+	if client != null:
+		for _f in 6: await get_tree().process_frame
+		client.title.finish_show()
+		for _f in 6: await get_tree().process_frame
+		_shot("0_title.png")
+		client.title.open_solo_menu()
+		for _f in 30: await get_tree().process_frame
+		_shot("0b_title_solo.png")
+		client.title.close_solo_menu(true)
 	_start_game()
 	var st := _find_spawn_tile(W * 52 / 100, H * 30 / 100)
 	cam.position = Vector2(st % W, st / W) * TS

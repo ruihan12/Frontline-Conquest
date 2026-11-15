@@ -501,7 +501,7 @@ func update(_delta: float) -> void:
 	var now := UICtx.msec()
 	# (the stack's own list: _remove only starts a fade, the node goes later)
 	for c in _stack.get_children():
-		var e = c.get_meta("expire", null)
+		var e = c.get_meta("expire") if c.has_meta("expire") else null
 		if e != null and now > e:
 			_remove(c)
 	# Expiry bars on alliance cards (drawn again when they move a pixel).
