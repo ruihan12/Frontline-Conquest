@@ -128,9 +128,10 @@ func _process_inner(dt: float) -> void:
 	var rdt := dt
 	_animate_labels(rdt)
 	dt *= sim_speed
+	if sim_paused: dt = 0.0
 	if state == "play":
 		# RoWorld runs 10 ticks per second at 1x (SPEED_BASE only slows the visual unit motion)
-		var tdt := rdt * sim_speed / SPEED_BASE
+		var tdt := (0.0 if sim_paused else rdt) * sim_speed / SPEED_BASE
 		elapsed += tdt
 		tick_acc += tdt
 		tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
@@ -1391,6 +1392,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_H: help_panel.visible = not help_panel.visible
 			KEY_ESCAPE:
 				if arsenal_dlg != null and arsenal_dlg.visible: _close_shop()
+				elif client != null and client.pause.is_open: client.pause.close()
 				elif hud != null and hud.menu_open(): hud.close_menu()
 				elif build_sel >= 0: build_sel = -1
 				elif sel_ws != null: sel_ws = null

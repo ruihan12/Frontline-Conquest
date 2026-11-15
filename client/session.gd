@@ -7,6 +7,10 @@ const MP_TIME_LIMIT_S := 2400.0
 
 var g  # main.gd
 var lobby := {}
+## 0 Relaxed, 1 Standard, 2 Brutal
+var difficulty: int:
+	get:
+		return int(g.diff_i)
 ## UICtx.MODE_*
 var mode: int:
 	get:
@@ -61,8 +65,7 @@ func has_unlock(key: String) -> bool:
 
 
 func set_paused(on: bool) -> void:
-	if g.has_method("set_sim_paused"):
-		g.set_sim_paused(on)
+	g.sim_paused = on
 
 
 func local_display_name() -> String:

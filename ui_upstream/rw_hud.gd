@@ -1566,9 +1566,13 @@ func build_menu() -> void:
 	menu.visible = false
 
 func menu_open() -> bool:
+	if replaced and m.client != null: return m.client.pause.is_open
 	return menu != null and menu.visible
 
 func open_menu() -> void:
+	if replaced and m.client != null:
+		m.client.open_pause_menu()
+		return
 	if menu == null: return
 	if menu.visible: return
 	var sub: Label = menu_panel.get_parent().get_parent().find_child("Sub", true, false)
@@ -1580,6 +1584,9 @@ func open_menu() -> void:
 	m.sfx("open", -6.0)
 
 func close_menu() -> void:
+	if replaced and m.client != null:
+		m.client.pause.close()
+		return
 	if menu == null or not menu.visible: return
 	menu.visible = false
 	m.sfx("close", -6.0)

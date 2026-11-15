@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 10370 of 52913 upstream lines accounted for (14 of 86 files). Live in the game: command bar, status pill, leaderboard, attacks panel, event feed, hint cards. Still drawn by the old HUD (ui_upstream/rw_hud.gd): top-bar buttons, speed chip, spawn banner, alert banner, game menu, game over.
+Progress: 12118 of 52913 upstream lines accounted for (17 of 86 files). Live in the game: top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu. Still drawn by the old HUD (ui_upstream/rw_hud.gd): speed chip (port-only), game over.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -21,10 +21,10 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 
 | Upstream file | Lines | Godot file | Status |
 |---|---:|---|---|
-| src/client/Main.luau | 645 | client/main.gd | todo |
+| src/client/Main.luau | 645 | client/main.gd | part: top bar (client/topbar.gd, lines 105-420); boot and key binds to do |
 | src/client/Session.luau | 1775 | client/session.gd | todo |
 | src/client/init.client.luau | 19 | client/init.client.gd | todo |
-| src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | todo |
+| src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | done, live |
 | src/client/UI/Arsenal.luau | 1368 | client/ui/arsenal.gd | todo |
 | src/client/UI/ArsenalButton.luau | 304 | client/ui/arsenal_button.gd | todo |
 | src/client/UI/ArsenalDemo.luau | 1462 | client/ui/arsenal_demo.gd | todo |
@@ -55,7 +55,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/MapPicker.luau | 340 | client/ui/map_picker.gd | todo |
 | src/client/UI/NextMatch.luau | 161 | client/ui/next_match.gd | todo |
 | src/client/UI/PartyPanel.luau | 471 | client/ui/party_panel.gd | todo |
-| src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | todo |
+| src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | done, live (Settings row opens the port's own Settings window) |
 | src/client/UI/PlaceConfirm.luau | 221 | client/ui/place_confirm.gd | todo |
 | src/client/UI/Prices.luau | 117 | client/ui/prices.gd | todo |
 | src/client/UI/RadialMenu.luau | 756 | client/ui/radial_menu.gd | todo |
@@ -64,7 +64,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/ShopButton.luau | 268 | client/ui/shop_button.gd | todo |
 | src/client/UI/ShopLayout.luau | 59 | client/ui/shop_layout.gd | todo |
 | src/client/UI/ShopSlot.luau | 356 | client/ui/shop_slot.gd | done, live |
-| src/client/UI/SpawnOverlay.luau | 320 | client/ui/spawn_overlay.gd | todo |
+| src/client/UI/SpawnOverlay.luau | 320 | client/ui/spawn_overlay.gd | done, live (head shots left out) |
 | src/client/UI/StarterButton.luau | 340 | client/ui/starter_button.gd | todo |
 | src/client/UI/StarterOffer.luau | 776 | client/ui/starter_offer.gd | todo |
 | src/client/UI/Takeover.luau | 285 | client/ui/takeover.gd | todo |

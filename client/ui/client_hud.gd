@@ -18,6 +18,7 @@ var feed: EventFeed
 var alert: AlertBanner
 var spawn: SpawnOverlay
 var topbar: ClientTopbar
+var pause: PauseMenu
 var _state_seen := ""
 var _seen_nukes := {}
 var _pending_toasts: Array = []
@@ -65,6 +66,23 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(alert)
 	topbar = ClientTopbar.new(self)
 	root.add_child(topbar)
+	pause = PauseMenu.new(ctx)
+	root.add_child(pause)
+	# (this port keeps its own Settings window)
+	pause.port_settings = func() -> void: g._open_settings()
+	pause.closed.connect(_update_pause)
+	pause.help_requested.connect(func() -> void: g.help_panel.visible = true)
+	pause.leave_requested.connect(func() -> void:
+		_update_pause()
+		g._to_menu())
+	pause.restart_requested.connect(func() -> void:
+		_update_pause()
+		g._start_game_ui())
+	pause.music_toggled.connect(func(on: bool) -> void:
+		ctx.set_music(on)
+		topbar.refresh())
+	pause.music_volume_changed.connect(func(v: float, final: bool) -> void: ctx.set_music_volume(v, final))
+	pause.pops_toggled.connect(func(on: bool) -> void: ctx.set_pops(on))
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
 		if ctx.compact:
@@ -159,8 +177,24 @@ func layout() -> void:
 		bar_top = vp.y - ctx.insets.w - 4.0
 	feed.apply_layout(bar_top - 12.0)
 	_layout_alert()
+	if pause.is_open:
+		pause.apply_layout()
 	ctx.layout_changed.emit()
 	_in_layout = false
+
+
+func open_pause_menu() -> void:
+	if g.state != "play" and g.state != "pick":
+		return
+	pause.open(true)
+	pause.move_to_front()
+	_update_pause()
+
+
+## Solo freezes the simulation while the game menu is open (UIRoot._update_pause).
+func _update_pause() -> void:
+	var want: bool = pause.is_open and ctx.mode() == UICtx.MODE_SOLO and ctx.in_match() and ctx.state.phase != Defs.PHASE_OVER
+	ctx.set_paused(want)
 
 
 func _layout_alert() -> void:
