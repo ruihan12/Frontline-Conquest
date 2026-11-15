@@ -89,6 +89,9 @@ func show_end(win: bool) -> void:
 		for id in range(1, nations.size()):
 			if nations[id].alive and nations[id].land > bl_e: bl_e = nations[id].land; lead_e = id
 		var eliminated: bool = not bool(nations[PLAYER].get("alive", true)) or nations[PLAYER].land <= 0
+		if client != null:
+			client.show_over(win, eliminated, lead_e, earned)
+			return
 		hud.show_over(win, {"title": "VICTORY" if win else ("ELIMINATED" if eliminated else "DEFEAT"),
 			"sub": end_refs.sub.text, "winner_id": PLAYER if win else lead_e,
 			"peak": "%.1f%%" % stats.peak, "troops": _fmt(stats.maxtroops), "kills": str(stats.elims),

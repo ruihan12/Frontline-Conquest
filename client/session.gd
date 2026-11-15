@@ -7,6 +7,8 @@ const MP_TIME_LIMIT_S := 2400.0
 
 var g  # main.gd
 var lobby := {}
+## The last match's Stars: {total, balance, lines} (GameOver shows it).
+var last_award = null
 ## 0 Relaxed, 1 Standard, 2 Brutal
 var difficulty: int:
 	get:
@@ -62,6 +64,17 @@ func has_unlock(key: String) -> bool:
 	if it == null:
 		return true
 	return bool(g.unlocked(it.local_id))
+
+
+## Stars the item costs in this port's Arsenal (0: free or unknown).
+func unlock_cost(key: String) -> int:
+	var it = ArsenalData.item(key)
+	if it == null:
+		return 0
+	for a in g.ARSENAL:
+		if a.id == it.local_id:
+			return int(a.cost)
+	return 0
 
 
 func set_paused(on: bool) -> void:

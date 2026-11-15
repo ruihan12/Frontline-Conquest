@@ -19,6 +19,7 @@ var alert: AlertBanner
 var spawn: SpawnOverlay
 var topbar: ClientTopbar
 var pause: PauseMenu
+var over: GameOver
 var _state_seen := ""
 var _seen_nukes := {}
 var _pending_toasts: Array = []
@@ -66,6 +67,15 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(alert)
 	topbar = ClientTopbar.new(self)
 	root.add_child(topbar)
+	over = GameOver.new(ctx)
+	root.add_child(over)
+	over.play_again.connect(func() -> void:
+		over.close()
+		g._start_game_ui())
+	over.to_title.connect(func() -> void:
+		over.close()
+		g._to_menu())
+	over.open_arsenal.connect(func(_key, _from) -> void: g._open_shop())
 	pause = PauseMenu.new(ctx)
 	root.add_child(pause)
 	# (this port keeps its own Settings window)
@@ -179,8 +189,35 @@ func layout() -> void:
 	_layout_alert()
 	if pause.is_open:
 		pause.apply_layout()
+	if over.is_open:
+		over.apply_layout()
 	ctx.layout_changed.emit()
 	_in_layout = false
+
+
+## The match ended for the player (main.show_end). `earned`: the Stars this match paid, already added
+## to the balance.
+func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
+	var st: Dictionary = g.stats
+	var me: int = g.PLAYER
+	var x2: bool = g.unlocked("x2")
+	var mult := 2 if x2 else 1
+	var lines := [["land", int(float(st.get("peak", 0.0)) * 20.0) * mult], ["kills", int(st.get("elims", 0)) * 150 * mult], ["time", int(g.elapsed / 6.0) * mult]]
+	if win:
+		lines.insert(2, ["win", 1500 * mult])
+	ctx.session.last_award = {"total": earned, "balance": int(g.save.stars), "lines": lines}
+	var kind := "victory" if win else ("eliminated" if eliminated else "defeat")
+	var killer := int(g.nations[me].get("last_by", 0)) if eliminated else 0
+	var winner := me if win else leader
+	var reason := Defs.OVER_DOMINATION if (winner > 0 and ctx.win_share(winner) >= SimRules.WIN_SHARE - 0.0005) else -1
+	over.open(kind, winner, killer, {
+		"peak_share": float(st.get("peak", 0.0)) / 100.0,
+		"max_troops": float(st.get("maxtroops", 0.0)),
+		"kills": int(st.get("elims", 0)),
+		"duration_s": float(g.elapsed),
+		"match_s": float(g.elapsed),
+	}, reason)
+	over.move_to_front()
 
 
 func open_pause_menu() -> void:
@@ -347,6 +384,8 @@ func process(dt: float) -> void:
 	ctx.state_mode = ctx.mode()
 	if g.state != _state_seen:
 		_state_seen = g.state
+		if g.state != "over" and over.is_open:
+			over.close()
 		topbar.refresh()
 		layout()
 	var ph: int = ctx.state.phase if in_match else -1

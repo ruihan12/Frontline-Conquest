@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 12118 of 52913 upstream lines accounted for (17 of 86 files). Live in the game: top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu. Still drawn by the old HUD (ui_upstream/rw_hud.gd): speed chip (port-only), game over.
+Progress: 13522 of 52913 upstream lines accounted for (18 of 86 files). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. Not yet ported: map clicks and the radial menu, map layers, the title screens, the Arsenal window.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -43,7 +43,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/FillBar.luau | 208 | client/ui/fill_bar.gd | done |
 | src/client/UI/FlagShop.luau | 867 | client/ui/flag_shop.gd | todo |
 | src/client/UI/FloatText.luau | 90 | client/ui/float_text.gd | todo |
-| src/client/UI/GameOver.luau | 1174 | client/ui/game_over.gd | todo |
+| src/client/UI/GameOver.luau | 1174 | client/ui/game_over.gd | done, live (paid take-over card left out) |
 | src/client/UI/GeneralButton.luau | 354 | client/ui/general_button.gd | todo |
 | src/client/UI/GeneralOffer.luau | 444 | client/ui/general_offer.gd | todo |
 | src/client/UI/GlassPanel.luau | 216 | client/ui/glass_panel.gd | ported |
@@ -70,7 +70,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/Takeover.luau | 285 | client/ui/takeover.gd | todo |
 | src/client/UI/TargetCard.luau | 445 | client/ui/target_card.gd | todo |
 | src/client/UI/Telemetry.luau | 533 | client/ui/telemetry.gd | todo |
-| src/client/UI/TitleScreen.luau | 1703 | client/ui/title_screen.gd | todo |
+| src/client/UI/TitleScreen.luau | 1703 | client/ui/title_screen.gd | part: GradientText (client/ui/gradient_text.gd) |
 | src/client/UI/Tooltip.luau | 314 | client/ui/tooltip.gd | done, live (slot hint cards) |
 | src/client/UI/TopStatus.luau | 509 | client/ui/top_status.gd | done, live |
 | src/client/UI/TouchRouter.luau | 120 | client/ui/touch_router.gd | todo |

@@ -1706,6 +1706,9 @@ func _stat_card(icon: String, value: String, cap: String, col: Color) -> PanelCo
 
 # d: title, sub, winner_id, peak, troops, kills, duration, stars, next
 func show_over(win: bool, d: Dictionary) -> void:
+	if replaced and m.client != null:  # the remade client's GameOver
+		m.client.show_over(win, d.get("title", "") == "ELIMINATED", int(d.get("winner_id", -1)), int(str(d.get("stars", "0")).replace("+", "").replace(",", "")))
+		return
 	if over == null: build_over()
 	var title: String = d.get("title", "VICTORY" if win else "DEFEAT")
 	ov_title.text = title
