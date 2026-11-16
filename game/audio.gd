@@ -745,6 +745,16 @@ func _uishot() -> void:
 				_shot("2i_ranges.png")
 				build_sel = -1; cam.zoom = zc; cam.position = pc
 				for _f in 3: await get_tree().process_frame
+			# a conquest flag and a collapsing building
+			if fx_layer != null:
+				var ctile := int(H / 2) * W + int(W / 2)
+				var wp := cam.get_screen_center_position() / TS
+				fx_layer.conquest(wp.x - 20.0, wp.y - 20.0, 12345.0)
+				fx_layer.on_structure_removed(Defs.S_DEFENSE, int(wp.y + 10.0) * W + int(wp.x + 20.0))
+				fx_layer.nuke(Defs.N_ATOM, int(wp.y - 30.0) * W + int(wp.x + 60.0), 12.0)
+				for _f in 3: await get_tree().process_frame
+				_shot("2j_fx.png")
+				fx_layer.unbind()
 			client.advisor.war_begins()
 			for _f in 4: await get_tree().process_frame
 			_shot("2h_banner.png")

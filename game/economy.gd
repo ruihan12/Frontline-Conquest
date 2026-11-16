@@ -677,7 +677,18 @@ func _upgrade_struct(st) -> void:
 		notify("%s upgraded to Lv%d" % [build_data[st.k][1], st.level], "good")
 		add_float(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS, "Lv%d!" % st.level, GOLD_C)
 
+# The local player conquered `victim` outright and took `gold`: a victory flag where its name was.
+func _on_conquest(victim: int, by: int, gold: float) -> void:
+	if by != PLAYER or fx_layer == null: return
+	var loc = names.name_location(victim) if names != null else null
+	var n = nations[victim]
+	var land := maxf(1.0, float(n.land))
+	var u: float = loc[0] if loc != null else float(n.sx) / land
+	var v: float = loc[1] if loc != null else float(n.sy) / land
+	fx_layer.conquest(u, v, gold)
+
 func _struct_remove(st) -> void:
+	if fx_layer != null: fx_layer.on_structure_removed(RWGameState.S_OF.get(int(st.k), -1), int(st.tile))
 	structs.erase(st); struct_at.erase(st.tile); _sv += 1; _own_sv[st.o] = _own_sv.get(st.o, 0) + 1
 
 func add_float(world_pos: Vector2, text: String, col: Color = GOLD_C) -> void:

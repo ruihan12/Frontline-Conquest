@@ -381,8 +381,10 @@ func _process(a: Dictionary) -> void:
 # (source: tiles touching the attacker go to it, others to a bordering non-allied player, in passes).
 func annex(victim: int, by: int) -> void:
 	var nv = g.nations[victim]
-	g.nations[by].gold += R.conquer_gold(g.kind_of(victim), nv.gold)
+	var taken: float = R.conquer_gold(g.kind_of(victim), nv.gold)
+	g.nations[by].gold += taken
 	nv.gold = 0.0
+	if g.has_method("_on_conquest"): g._on_conquest(victim, by, taken)  # (the view: a victory flag)
 	nv["last_by"] = by
 	nv["killer"] = by
 	# source _annex: tiles touching the attacker go to it, others to a bordering non-allied player,

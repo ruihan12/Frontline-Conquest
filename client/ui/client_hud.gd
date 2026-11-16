@@ -722,6 +722,8 @@ func process(dt: float) -> void:
 				g.names.unbind()
 			if g.ranges != null:
 				g.ranges.unbind()
+			if g.fx_layer != null:
+				g.fx_layer.unbind()
 			coach.clear()
 			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:

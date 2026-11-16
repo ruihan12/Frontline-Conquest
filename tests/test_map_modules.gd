@@ -57,5 +57,17 @@ func _initialize() -> void:
 	_check(FrameClock.now() == 12.5 and FrameClock.dt(0.5) == 0.04, "a film steps the clock itself")
 	FrameClock.film = {}
 	_check(FrameClock.dt(0.5) == 0.5 and FrameClock.now() > 0.0, "otherwise it is the real clock")
+	# FxLayer's pure parts
+	_check(FxLayer.format_gold(999.0) == "999" and FxLayer.format_gold(12345.0) == "12.3K" and FxLayer.format_gold(2500000.0) == "2.5M", "gold is shortened to K and M")
+	var r1 := FxLayer.seeded_random(1234)
+	_check(r1 >= 0.0 and r1 < 1.0 and r1 == FxLayer.seeded_random(1234) and r1 != FxLayer.seeded_random(1235), "seeded_random repeats for a seed")
+	var plan := FxLayer.debris_plan(5000, 70.0, 1.0)
+	_check(plan.size() == 2 + 2 + 1 + 1 and str(plan) == str(FxLayer.debris_plan(5000, 70.0, 1.0)), "an atom bomb leaves 6 debris sprites, the same every time (%d)" % plan.size())
+	var far := 0.0
+	for d in plan: far = maxf(far, Vector2(d.du, d.dv).length())
+	_check(far <= 35.5, "debris stays within half the look radius")
+	_check(FxLayer.banner_color(Color(0.1, 0.1, 0.2)).r > 0.3 and FxLayer.banner_color(Color(0.9, 0.5, 0.2)) == Color(0.9, 0.5, 0.2), "a dark banner colour is lifted")
+	_check(StructureLayer.icon_scale(1.0) == 0.3 and StructureLayer.icon_scale(3.0) == 1.0 and StructureLayer.icon_scale(14.0) == 2.0 and is_equal_approx(StructureLayer.icon_scale(1.5), 0.5), "structure icons: dots, full size, growing")
+	_check(StructureLayer.border_color(Color(0.5, 0.5, 0.5)).is_equal_approx(Color(0.375, 0.375, 0.375)), "border colour is 0.125 darker in lightness")
 	print("MAP_MODULES_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(0 if fails == 0 else 1)

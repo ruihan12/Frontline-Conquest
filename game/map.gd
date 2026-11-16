@@ -37,6 +37,8 @@ func _ready() -> void:
 	ol.add_child(overlay)
 	overlay.draw.connect(_draw_overlay)
 	if client != null:
+		fx_layer = FxLayer.new(self, client.ctx.state)
+		ol.add_child(fx_layer)
 		names = NameLayer.new(self, client.ctx.state)
 		ol.add_child(names)
 		fronts = FrontLayer.new(self)
