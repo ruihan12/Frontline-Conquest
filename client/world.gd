@@ -19,6 +19,10 @@ func _tile_world(tile: int) -> Vector2:
 
 
 func _glide(target: Vector2, dur: float) -> void:
+	if g._mcam_on():
+		# the ported camera glides (and pulls back on a long hop)
+		g.mcam.focus(target.x / g.TS, target.y / g.TS, 0.0, dur)
+		return
 	if _tween:
 		_tween.kill()
 	if g.autoshot or g.bench or dur <= 0.0:
@@ -33,6 +37,9 @@ func _glide(target: Vector2, dur: float) -> void:
 ## Glide the camera to a tile. `zoom` < 0 keeps the current zoom.
 func focus_tile(tile: int, zoom: float = -1.0, dur: float = 0.8) -> void:
 	if tile < 0:
+		return
+	if g._mcam_on():
+		g.mcam.focus_tile(tile, zoom * g.TS if zoom > 0 else 0.0, dur)
 		return
 	if zoom > 0:
 		g.cam.zoom = Vector2(zoom, zoom)

@@ -201,6 +201,7 @@ func _process_inner(dt: float) -> void:
 					_game_over(false); break
 	dt = rdt
 	_pan(dt)
+	_cam_tick(dt)
 	if shake_amp > 0.05:
 		shake_t += dt * 42.0
 		shake_amp = maxf(0.0, shake_amp - shake_amp * 14.0 * dt - 4.0 * dt)
@@ -1302,8 +1303,37 @@ func _pan(dt: float) -> void:
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): v.x += 1
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): v.y -= 1
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v.y += 1
+	if _mcam_on():
+		if v != Vector2.ZERO: mcam.pan(v, dt)
+		return
 	cam.position += v * 900.0 * dt / cam.zoom.x
 	_clamp_cam()
+
+
+# ---- the ported map camera drives the Camera2D (smooth zoom, drag inertia, focus glides) ----
+# Screenshot and benchmark runs place the Camera2D themselves and are left alone.
+func _mcam_on() -> bool:
+	return mcam != null and not _mc_off and not autoshot and not bench
+
+func _cam_tick(dt: float) -> void:
+	if cam == null or W <= 0 or H <= 0: return
+	if mcam == null:
+		mcam = MapCamera.new(W, H, get_viewport_rect().size)
+		_mc_off = "--uishot" in OS.get_cmdline_user_args()
+	if not _mcam_on(): return
+	if mcam.W != W or mcam.H != H:
+		mcam.set_map(W, H); _mc_pos = Vector2.INF
+	mcam.set_viewport(get_viewport_rect().size)
+	if cam.position != _mc_pos or cam.zoom != _mc_zoom:
+		# something else placed the camera (a match start, the console): take it from there
+		mcam.halt()
+		mcam.scale = mcam.clamp_scale(cam.zoom.x * TS); mcam.target_scale = mcam.scale
+		mcam.look_at(cam.position.x / TS, cam.position.y / TS)
+	mcam.attract = state == "menu"
+	mcam.tick(FrameClock.dt(dt))
+	cam.zoom = Vector2.ONE * (mcam.scale / TS)
+	cam.position = Vector2(mcam.cu, mcam.cv) * TS
+	_mc_pos = cam.position; _mc_zoom = cam.zoom
 
 func _clamp_cam() -> void:
 	var half := get_viewport_rect().size / cam.zoom / 2.0
@@ -1316,6 +1346,8 @@ func _clamp_cam() -> void:
 	cam.position.y = clampf(cam.position.y, lo.y, hi.y) if lo.y < hi.y else m.y / 2
 
 func _zoom_at(f: float, screen: Vector2) -> void:
+	if _mcam_on():
+		mcam.zoom_by(f, mcam.globe_hit(screen)); return
 	var before := get_global_mouse_position()
 	cam.zoom = (cam.zoom * f).clamp(Vector2(0.6, 0.6), Vector2(12, 12))
 	cam.force_update_scroll()
@@ -1376,11 +1408,16 @@ func _unhandled_input(e: InputEvent) -> void:
 						if client != null: client.on_context()
 						else: _right_click()
 				lpress = false; dragging = false
+				if mcam != null and mcam.dragging: mcam.end_drag()
 	if e is InputEventMouseMotion and lpress:
 		if dragging or e.position.distance_to(drag_from) > 6:
 			dragging = true
-			cam.position -= e.relative / cam.zoom.x
-			_clamp_cam()
+			if _mcam_on():
+				if not mcam.dragging: mcam.begin_drag()
+				mcam.drag_by(e.relative)
+			else:
+				cam.position -= e.relative / cam.zoom.x
+				_clamp_cam()
 	if console_panel != null and console_panel.visible and e is InputEventKey:
 		return
 	if e is InputEventKey and e.pressed and client != null and client.on_key(e.keycode, e.echo):

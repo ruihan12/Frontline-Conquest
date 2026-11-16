@@ -78,6 +78,11 @@ var settings_status_lbl: Label
 var menu_settings_sub: Label
 var uploads := 0
 var cam: Camera2D
+## the ported map camera (client/map/map_camera.gd); main.gd copies it to `cam` every frame
+var mcam: MapCamera
+var _mc_pos := Vector2.INF
+var _mc_zoom := Vector2.ZERO
+var _mc_off := false
 var dirty := false
 var land_total := 0
 var grow_n := PackedByteArray()  # per-match low-frequency growth noise (0..255, mean ~128)
