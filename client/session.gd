@@ -92,6 +92,113 @@ func send_intent(intent: Dictionary) -> void:
 			pass
 
 
+## Unlock Arsenal item `key` with Stars; true when it was taken (the Shop's own rule).
+func buy_unlock(key: String) -> bool:
+	var it = ArsenalData.item(key)
+	if it == null:
+		return false
+	return bool(g.unlock_arsenal_item(it.local_id))
+
+
+## Solo only: there is no server to ask, so the account calls say "unavailable".
+func multiplayer_available() -> bool:
+	return false
+
+
+## "connected", "connecting" or "offline" (the title card's multiplayer line).
+func multiplayer_status() -> String:
+	return "offline"
+
+
+func join_multiplayer() -> void:
+	g.notify("Multiplayer is unavailable right now. Try again in a moment.", "warn")
+
+
+func join_lobby(_id: String) -> void:
+	join_multiplayer()
+
+
+func join_public(_mode: String) -> void:
+	join_multiplayer()
+
+
+func spectate_lobby(_id: String) -> void:
+	join_multiplayer()
+
+
+func leave_line() -> void:
+	pass
+
+
+func vote_start() -> void:
+	pass
+
+
+func party_action(_action: String, _user_id := 0) -> void:
+	pass
+
+
+## (in a party?, leader?)
+func in_party() -> Array:
+	return [false, false]
+
+
+## Analytics and the account's credit and crate calls need a server: false.
+func report(_kind: String, _a = null, _b = null, _c = null) -> bool:
+	return false
+
+
+func use_credit(_kind: String, _target := 0) -> bool:
+	return false
+
+
+func open_crate() -> bool:
+	return false
+
+
+func equip(_slot: String, _id) -> bool:
+	return false
+
+
+func starter_seen() -> bool:
+	return false
+
+
+func new_player() -> bool:
+	return false
+
+
+func hop_solo(_difficulty: int, _map_id = null) -> bool:
+	return false
+
+
+## The player touched the controls (only multiplayer listens).
+func note_activity() -> void:
+	pass
+
+
+func is_building() -> bool:
+	return bool(g.get("_map_building")) if g.get("_map_building") != null else false
+
+
+## A fallen player may take over a living nation (the game has no take-over rule yet: never).
+func can_take_over(_target: int) -> bool:
+	return false
+
+
+func take_over(_target: int) -> bool:
+	return false
+
+
+## Back to the title.
+func leave_match() -> void:
+	g._to_menu()
+
+
+func local_sim():
+	return g.sim_atk
+
+
 func has_unlock(key: String) -> bool:
 	var it = ArsenalData.item(key)
 	if it == null:

@@ -22,7 +22,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | Upstream file | Lines | Godot file | Status |
 |---|---:|---|---|
 | src/client/Main.luau | 645 | client/main.gd | part: top bar (client/topbar.gd, lines 105-420); boot and key binds to do |
-| src/client/Session.luau | 1775 | client/session.gd | todo |
+| src/client/Session.luau | 1775 | client/session.gd | part: solo surface (intents, unlocks, settings, take-over/multiplayer/account calls as solo answers); networking, snapshot sync and local-sim build jobs are the game's own or N/A |
 | src/client/init.client.luau | 19 | - | not applicable: Roblox script entry |
 | src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | done, live |
 | src/client/UI/Arsenal.luau | 1368 | client/ui/arsenal.gd | done, live (replaces the old shop window; Stars only, no purchases; this port's prices) |
