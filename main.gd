@@ -192,13 +192,18 @@ func _process_inner(dt: float) -> void:
 		var win_land := (land_total - fallout_count) * SimRules.WIN_SHARE
 		if pl.land >= win_land:
 			_game_over(true)
-		elif pl.land <= 0:
+		elif pl.land <= 0 and not spectating:
 			_game_over(false)
 		elif ticks_done % 10 == 0:
 			for id in range(2, nations.size()):
 				if nations[id].alive and nations[id].land >= win_land:
 					notify("%s controls 80%% of the land" % nations[id].name, "bad")
-					_game_over(false); break
+					if spectating and client != null:
+						# the war ended while we watched: the result card, with no second award
+						spectating = false; state = "over"; client.show_over_watched(id)
+					else:
+						_game_over(false)
+					break
 	dt = rdt
 	_pan(dt)
 	_cam_tick(dt)

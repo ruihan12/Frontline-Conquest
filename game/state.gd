@@ -501,6 +501,8 @@ var fronts: FrontLayer
 var struct_layer: StructureLayer
 ## the ported map effects (client/map/fx_layer.gd): conquest flags, collapsing buildings
 var fx_layer: FxLayer
+## the player's nation fell and they chose to keep watching (UIRoot's spectate pill)
+var spectating := false
 
 # ---------------- UI ----------------
 const ORANGE_Y := Color(1.0, 0.72, 0.25)

@@ -29,6 +29,8 @@ var target_card: TargetCard
 var place_confirm: PlaceConfirm
 var hold_ring: HoldRing
 var busy: BusyChip
+var spectate_pill: GlassPanel
+var _spec_sub: Label
 var coach: Coach
 var advisor: UIAdvisor
 var tutorial: Tutorial
@@ -105,6 +107,9 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		over.close()
 		g._to_menu())
 	over.open_arsenal.connect(func(key, from) -> void: open_arsenal(key, from))
+	over.spectate.connect(_keep_watching)
+	spectate_pill = _build_spectate_pill()
+	root.add_child(spectate_pill)
 	help = HelpOverlay.new(ctx)
 	root.add_child(help)
 	help.closed.connect(_update_pause)
@@ -435,6 +440,86 @@ func screen() -> String:
 	return "title"
 
 
+## UIRoot._build_spectate_pill: shown at the bottom while the player watches a match their nation
+## is out of. (Upstream's "Take over" button buys a nation back in; not applicable here.)
+func _build_spectate_pill() -> GlassPanel:
+	var p := GlassPanel.new(16.0, 8.0, 999, true, 16)
+	p.name = "SpectatePill"
+	var h := UITheme.hbox(12)
+	p.add_child(h)
+	var eye := UITheme.icon_rect("eye", 18.0, UITheme.CYAN)
+	eye.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(eye)
+	var v := UITheme.vbox(0)
+	v.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	v.add_child(UITheme.label("SPECTATING", 13, 800, UITheme.TEXT, 2))
+	_spec_sub = UITheme.label("Drag to look around · click a nation for details", 11, 500, UITheme.TEXT_2)
+	v.add_child(_spec_sub)
+	h.add_child(v)
+	var again := UITheme.button("Play again", "PrimaryButton", "play", 44.0)
+	again.add_theme_font_size_override("font_size", 13)
+	again.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	again.pressed.connect(func() -> void:
+		g.spectating = false
+		g._start_game_ui())
+	h.add_child(again)
+	var b := UITheme.button("Title", "GlassButton", "exit", 44.0)
+	b.add_theme_font_size_override("font_size", 13)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(func() -> void:
+		g.spectating = false
+		g._to_menu())
+	h.add_child(b)
+	p.visible = false
+	return p
+
+
+## GameOver's "Keep watching": the war goes on without the player.
+func _keep_watching() -> void:
+	over.close()
+	g.spectating = true
+	g.state = "play"
+	g.build_sel = -1
+
+
+## main.gd: someone won while the player was watching.
+func show_over_watched(winner: int) -> void:
+	var st: Dictionary = g.stats
+	var reason := Defs.OVER_DOMINATION if ctx.win_share(winner) >= SimRules.WIN_SHARE - 0.0005 else -1
+	over.open("defeat", winner, 0, {
+		"peak_share": float(st.get("peak", 0.0)) / 100.0,
+		"max_troops": float(st.get("maxtroops", 0.0)),
+		"kills": int(st.get("elims", 0)),
+		"duration_s": float(g.elapsed),
+		"match_s": float(g.elapsed),
+	}, reason)
+	over.move_to_front()
+
+
+func _update_spectate_pill() -> void:
+	var show: bool = g.spectating and g.state == "play" and not over.is_open
+	if show != spectate_pill.visible:
+		spectate_pill.visible = show
+	if not show:
+		return
+	var killer := int(g.nations[g.PLAYER].get("last_by", 0)) if g.nations.size() > g.PLAYER else 0
+	_spec_sub.text = ("Conquered by %s · the war goes on without you" % ctx.state.owner_name(killer)) if killer > 0 else "Your nation fell · the war goes on without you"
+	var sp := spectate_pill
+	var sb := 14.0 + ctx.insets.w
+	sp.anchor_left = 0.5
+	sp.anchor_right = 0.5
+	sp.anchor_top = 1.0
+	sp.anchor_bottom = 1.0
+	sp.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	sp.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	sp.offset_top = -sb
+	sp.offset_bottom = -sb
+	sp.offset_left = 0
+	sp.offset_right = 0
+	UITheme.fix_width(_spec_sub, 250.0 if ctx.compact else 330.0, HORIZONTAL_ALIGNMENT_LEFT, false)
+	sp.reset_size()
+
+
 ## main.gd: a key went down. True when the ported key handling used it.
 func on_key(key: int, echo: bool) -> bool:
 	return interact.on_key(key, echo)
@@ -749,6 +834,7 @@ func process(dt: float) -> void:
 		g.names.visible = g.state != "menu"
 		var ht: int = interact.hover_tile
 		g.names.hover_owner = maxi(0, int(ctx.state.tile_owner(ht))) if (ht >= 0 and interact.enabled) else 0
+	_update_spectate_pill()
 	if g.ranges != null:
 		_feed_ranges()
 	# Coach marks: hidden outside a match, and they step aside while placing or using the ring.
