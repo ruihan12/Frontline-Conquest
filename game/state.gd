@@ -497,6 +497,8 @@ const R29_NAMES := {7: "atom", 8: "hydrogen", 9: "mirv_fan", 12: "scattershot"}
 
 ## the ported attack-front troop labels (client/map/front_layer.gd)
 var fronts: FrontLayer
+## the ported structure plates (client/map/structure_layer.gd), drawn onto the overlay
+var struct_layer: StructureLayer
 
 # ---------------- UI ----------------
 const ORANGE_Y := Color(1.0, 0.72, 0.25)

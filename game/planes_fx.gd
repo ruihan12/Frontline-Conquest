@@ -156,7 +156,11 @@ func _draw_world_fx(z: float) -> void:
 			overlay.draw_colored_polygon(loco, col.lightened(0.15))
 			overlay.draw_polyline(loco + PackedVector2Array([loco[0]]), Color(0.08, 0.08, 0.12), 1.5)
 			overlay.draw_circle(sp + dir * 2, 2.2, GOLD_C)
-	for st in structs:
+	if client != null:
+		# structure plates, level numbers and progress bars: client/map/structure_layer.gd
+		if struct_layer == null: struct_layer = StructureLayer.new(self)
+		struct_layer.draw(overlay)
+	for st in ([] if client != null else structs):
 		var t: int = st.tile
 		var sp := _screen_of(Vector2(t % W + 0.5, t / W + 0.5) * TS)
 		var bt: float = st.get("bt", 0.0)
