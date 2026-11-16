@@ -21,7 +21,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 
 | Upstream file | Lines | Godot file | Status |
 |---|---:|---|---|
-| src/client/Main.luau | 645 | client/main.gd | part: top bar (client/topbar.gd, lines 105-420); boot and key binds to do |
+| src/client/Main.luau | 645 | client/main.gd | done for this port: top bar (client/topbar.gd), M (music) and Home (focus own nation) keys in main.gd; boot, Roblox launch hooks and activity reports are N/A (solo, no server) |
 | src/client/Session.luau | 1775 | client/session.gd | part: solo surface (intents, unlocks, settings, take-over/multiplayer/account calls as solo answers); networking, snapshot sync and local-sim build jobs are the game's own or N/A |
 | src/client/init.client.luau | 19 | - | not applicable: Roblox script entry |
 | src/client/UI/AlertBanner.luau | 260 | client/ui/alert_banner.gd | done, live |
@@ -82,7 +82,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/UIKern.luau | 11 | - | not needed: Godot applies the font's kerning itself |
 | src/client/UI/UILayoutProbe.luau | 215 | - | not applicable: Roblox safe-area / top-bar probing |
 | src/client/UI/UIMaps.luau | 102 | client/ui/ui_maps.gd | done, live |
-| src/client/UI/UIRoot.luau | 2636 | client/ui/ui_root.gd | todo |
+| src/client/UI/UIRoot.luau | 2636 | client/ui/client_hud.gd | done for this port: screen switching, input gate, pause on modals, spectate pill, advisor and tutorial hooks, new-match rebind, toasts. Roblox GUI plumbing, store/account screens, telemetry and the multiplayer rebind are N/A |
 | src/client/UI/UIRules.luau | 1383 | client/ui/ui_rules.gd | done (placement and sea reach ask the game; + port-only gold donation item) |
 | src/client/UI/UITheme.luau | 1955 | client/ui/ui_theme.gd | ported (glyph metric tables dropped: Godot measures text natively) |
 | src/client/UI/UnitCard.luau | 305 | client/ui/unit_card.gd | done, live (warship selection and move orders) |

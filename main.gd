@@ -1338,6 +1338,9 @@ func _unhandled_input(e: InputEvent) -> void:
 					if attacks[k].a == PLAYER:
 						retreat(attacks[k]); break
 			KEY_TAB: toggle_console()
+			KEY_M: hud_toggle_music()
+			KEY_HOME:
+				if client != null and state != "menu" and nations.size() > PLAYER: client.ctx.world.focus_owner(PLAYER)
 			KEY_I: if state == "play": set_icbm(not icbm_mode)
 			KEY_H:
 				if client != null: client.toggle_help()
