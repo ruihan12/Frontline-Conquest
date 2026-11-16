@@ -58,7 +58,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	ctx.state = RWGameState.new(main)
 	ctx.session = RWSession.new(main)
 	ctx.audio = RWAudio.new(main)
-	ctx.world = RWWorld.new(main)
+	ctx.world = MapView.new(main)
 	ctx.borders = RWBorders.new(ctx.state)
 	ctx.reload_settings()
 	root = Control.new()
@@ -711,12 +711,6 @@ func _feed_ranges() -> void:
 	var px_tiles := 12.0 / maxf(0.01, g.cam.zoom.x * g.TS)
 	var ht: int = interact.hover_tile if interact.enabled else -1
 	rl.set_hover_tile(ht, px_tiles)
-	if interact.aim_kind != "":
-		var at: int = interact._confirm_tile if interact._confirm_tile >= 0 else (interact._ghost_tile if interact._ghost_tile >= 0 else ht)
-		var detail: String = interact._aim_for(at) if at >= 0 else interact.aim_kind
-		rl.set_aim("nuke" if UIRules.is_nuke(detail) else "build", at, detail, 1)
-	elif rl._aim_kind != "":
-		rl.set_aim("", -1)
 	var u = ctx.state.unit(unit_card.uid) if unit_card.is_open else null
 	if u != null:
 		var raw: Dictionary = u.raw
@@ -836,11 +830,7 @@ func process(dt: float) -> void:
 			layout()
 	if g.names != null:
 		g.names.visible = g.state != "menu"
-		var ht: int = interact.hover_tile
-		g.names.hover_owner = maxi(0, int(ctx.state.tile_owner(ht))) if (ht >= 0 and interact.enabled) else 0
-		if g.surface != null:
-			g.surface.set_hover(g.names.hover_owner if g.state != "menu" else 0)
-			g.surface.step()
+		ctx.world.update(dt)
 	_update_spectate_pill()
 	if g.ranges != null:
 		_feed_ranges()

@@ -171,6 +171,7 @@ func _draw_world_fx(z: float) -> void:
 		# ships, wakes, trains, shells and SAM missiles: client/map/unit_layer.gd
 		if unit_layer == null: unit_layer = UnitLayer.new(self)
 		unit_layer.draw(overlay)
+		client.ctx.world.draw_markers(overlay)  # the spawn ring (client/map/map_view.gd)
 	for st in ([] if client != null else structs):
 		var t: int = st.tile
 		var sp := _screen_of(Vector2(t % W + 0.5, t / W + 0.5) * TS)
