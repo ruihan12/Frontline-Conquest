@@ -507,6 +507,8 @@ var unit_layer: UnitLayer
 var road_layer: RoadLayer
 ## the glow of fresh fallout (client/map/fallout_glow.gd)
 var fallout_glow: FalloutGlow
+## the territory painting rules, hover and ally tint (client/map/map_surface.gd)
+var surface: MapSurface
 ## the player's nation fell and they chose to keep watching (UIRoot's spectate pill)
 var spectating := false
 

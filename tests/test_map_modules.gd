@@ -90,5 +90,12 @@ func _initialize() -> void:
 	var dst := PackedFloat32Array(); dst.resize(20)
 	FalloutGlow.blur_line(src, dst, 0, 1, 5)
 	_check(is_equal_approx(dst[8], 0.375) and is_equal_approx(dst[4], 0.25) and is_equal_approx(dst[0], 0.0625), "the 5-tap blur weighs 0.0625 .25 .375 .25 .0625")
+	# MapSurface: colour helpers and the border rule
+	var dk := MapSurface.darken(Color(0.5, 0.5, 0.5), 0.125)
+	_check(dk.is_equal_approx(Color(0.375, 0.375, 0.375)), "darken lowers HSL lightness by 0.125")
+	_check(MapSurface.saturate(Color(1, 0, 0), 0.0).is_equal_approx(Color(0.299, 0.299, 0.299)), "saturation 0 is the luma grey")
+	_check(is_equal_approx(MapSurface.contrast(0.5, 1.25), 0.5) and MapSurface.contrast(0.9, 1.25) > 0.9 and MapSurface.contrast(0.1, 1.25) < 0.1, "contrast x1.25 about mid-grey")
+	var hsl := MapSurface.rgb_to_hsl(Color(0.2, 0.6, 0.4))
+	_check(MapSurface.hsl_to_rgb(hsl.x, hsl.y, hsl.z).is_equal_approx(Color(0.2, 0.6, 0.4)), "rgb -> hsl -> rgb round trip")
 	print("MAP_MODULES_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(0 if fails == 0 else 1)

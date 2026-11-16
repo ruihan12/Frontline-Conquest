@@ -811,6 +811,8 @@ func process(dt: float) -> void:
 				g.fx_layer.unbind()
 			if g.fallout_glow != null:
 				g.fallout_glow.reset()
+			if g.surface != null:
+				g.surface.clear()
 			coach.clear()
 			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:
@@ -836,6 +838,9 @@ func process(dt: float) -> void:
 		g.names.visible = g.state != "menu"
 		var ht: int = interact.hover_tile
 		g.names.hover_owner = maxi(0, int(ctx.state.tile_owner(ht))) if (ht >= 0 and interact.enabled) else 0
+		if g.surface != null:
+			g.surface.set_hover(g.names.hover_owner if g.state != "menu" else 0)
+			g.surface.step()
 	_update_spectate_pill()
 	if g.ranges != null:
 		_feed_ranges()

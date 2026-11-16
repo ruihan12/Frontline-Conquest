@@ -19,6 +19,7 @@ func form_alliance(a: int, b: int) -> void:
 	ally_ext[k] = 0
 	ally_warned.erase(k)
 	_close_request(a, b); _close_request(b, a)
+	if surface != null: surface.repaint_between(a, b)
 	for at in attacks.duplicate():
 		if (at.a == a and at.t == b) or (at.a == b and at.t == a): sim_atk.end_attack(at, true)
 	if a == PLAYER or b == PLAYER: sfx("ally_accept")
@@ -29,6 +30,7 @@ func end_alliance(a: int, b: int, traitor_id: int, expired := false) -> void:
 	var k := _akey(a, b)
 	if not allies.has(k): return
 	allies.erase(k); ally_ext.erase(k); ally_warned.erase(k)
+	if surface != null: surface.repaint_between(a, b)
 	if expired and (a == PLAYER or b == PLAYER):
 		notify("Your alliance with %s has expired" % _nname(b if a == PLAYER else a), "info")
 	if traitor_id > 0:

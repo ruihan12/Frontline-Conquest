@@ -46,6 +46,7 @@ func _ready() -> void:
 		ranges = RangeLayer.new(self, client.ctx.state)
 		ol.add_child(ranges)
 		ol.move_child(ranges, 0)
+		surface = MapSurface.new(self)
 		fallout_glow = FalloutGlow.new(self)
 		ol.add_child(fallout_glow)
 		ol.move_child(fallout_glow, 0)
@@ -551,6 +552,7 @@ func _tile_color_rgb(i: int) -> Color:
 # border tiles opaque in the owner colour with HSL lightness - 0.125, fallout ground opaque green noise
 # (0.05, 0.55, 0.07) + hash * 0.05, glowing lime while fresh (FalloutGlow heat, 150,236,90).
 func _rw_tile_rgb(i: int, o: int) -> Color:
+	if surface != null: return surface.tile_color(i)  # client/map/map_surface.gd
 	var x := i % W
 	if fallout.size() > i and fallout[i] == 1 and o != WATER:
 		var y := i / W
