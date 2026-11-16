@@ -105,6 +105,7 @@ func _draw_world_fx(z: float) -> void:
 	_pf_add("w_meta", Time.get_ticks_usec() - _c0)
 	# railways: factories to nearby owned/allied cities, ports, and factories
 	var drawn_rails := {}
+	var rail_edges := []
 	var vr := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).grow(FACTORY_RANGE * 2.0 * TS * z)
 	for st in structs:
 		if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
@@ -114,8 +115,15 @@ func _draw_world_fx(z: float) -> void:
 			var rkey := "%d:%d" % [mini(st.tile, c.tile), maxi(st.tile, c.tile)]
 			if drawn_rails.has(rkey): continue
 			drawn_rails[rkey] = true
+			if client != null:
+				rail_edges.append([st.tile, c.tile])
+				continue
 			var rcol := GOLD_C if c.o != st.o else Color(0.95, 0.95, 0.98, 0.88)
 			_draw_railway(st, c, rcol)
+	if client != null:
+		# railroads, coloured by the land under them: client/map/road_layer.gd
+		if road_layer == null: road_layer = RoadLayer.new(self)
+		road_layer.draw(overlay, rail_edges)
 	_pf_add("w_rail", Time.get_ticks_usec() - _c0)
 	# moving gold trains strictly following the drawn canonical railway tracks
 	for tr in ([] if client != null else trains):
