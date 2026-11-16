@@ -495,22 +495,8 @@ var _r29_shot := 0
 const R29_KINDS := [7, 8, 9, 12]
 const R29_NAMES := {7: "atom", 8: "hydrogen", 9: "mirv_fan", 12: "scattershot"}
 
-# ---- FrontLayer.luau port (src/client/Map/FrontLayer.luau): troop counts on the local player's fronts ----
-# Outgoing attacks on a real owner (never wilderness / expansion) and incoming attacks from players or
-# nations (never tribes) get one label each: that attack's troops in Rubik Bold 17 px, blue / red, black
-# 1.5 px stroke, no background. Labels sit on the 1-2 largest 8-connected clusters of our border tiles that
-# touch the other owner (nearest tile to each cluster centroid), glide 0.25 s, snap on long jumps.
-const FRONT_POLL_S := 0.2
-const FRONT_ANIM_S := 0.25
-const FRONT_SNAP_FULL := 200.0
-const FRONT_MIN_CLUSTER_FULL := 30.0
-const FRONT_MAX_CLUSTERS := 2
-const FRONT_OUT := Color(0x3f / 255.0, 0xa9 / 255.0, 0xf5 / 255.0)
-const FRONT_IN := Color(0xf8 / 255.0, 0x71 / 255.0, 0x71 / 255.0)
-const FRONT_TEXT_PX := 17.0
-const FRONT_STROKE_PX := 1.5
-var _front_entries := {}  # aid -> {text, incoming, slots: [{sx, sy, dx, dy, t0}]}
-var _front_next := 0.0
+## the ported attack-front troop labels (client/map/front_layer.gd)
+var fronts: FrontLayer
 
 # ---------------- UI ----------------
 const ORANGE_Y := Color(1.0, 0.72, 0.25)

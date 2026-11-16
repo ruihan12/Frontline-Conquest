@@ -39,6 +39,8 @@ func _ready() -> void:
 	if client != null:
 		names = NameLayer.new(self, client.ctx.state)
 		ol.add_child(names)
+		fronts = FrontLayer.new(self)
+		ol.add_child(fronts)
 		ranges = RangeLayer.new(self, client.ctx.state)
 		ol.add_child(ranges)
 		ol.move_child(ranges, 0)

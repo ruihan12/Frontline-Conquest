@@ -817,7 +817,7 @@ func _dmgshot() -> void:
 	tip_slot = 8
 	for _f in 20: await get_tree().process_frame
 	var n_lbl := 0
-	for aid in _front_entries: n_lbl += _front_entries[aid].slots.size()
+	for aid in fronts.entries: n_lbl += fronts.entries[aid].slots.size()
 	print("DMGSHOT expand labels=%d attacks=%d" % [n_lbl, attacks.size()])
 	_shot("dmg_1_expand_hbomb.png")
 	tip_slot = -1
@@ -847,8 +847,8 @@ func _dmgshot() -> void:
 	for _f in 16: await get_tree().process_frame
 	n_lbl = 0
 	var txt := []
-	for aid in _front_entries:
-		n_lbl += _front_entries[aid].slots.size(); txt.append(("in " if _front_entries[aid].incoming else "out ") + _front_entries[aid].text + " x%d" % _front_entries[aid].slots.size())
+	for aid in fronts.entries:
+		n_lbl += fronts.entries[aid].slots.size(); txt.append(("in " if fronts.entries[aid].incoming else "out ") + fronts.entries[aid].text + " x%d" % fronts.entries[aid].slots.size())
 	var mine := attacks.filter(func(a): return a.a == PLAYER or a.t == PLAYER).map(func(a): return [a.a, a.t, int(a.troops)])
 	print("DMGSHOT state=%s border=%d mine=%s" % [state, border[PLAYER].size() if border.size() > PLAYER else -1, str(mine)])
 	print("DMGSHOT fronts foe=%d kind=%d labels=%d %s" % [foe, kind_of(foe) if foe > 0 else -1, n_lbl, str(txt)])
@@ -858,7 +858,7 @@ func _dmgshot() -> void:
 		launch_attack(foe, PLAYER, 0.5)
 	for _f in 16: await get_tree().process_frame
 	txt = []
-	for aid in _front_entries: txt.append(("in " if _front_entries[aid].incoming else "out ") + _front_entries[aid].text + " x%d" % _front_entries[aid].slots.size())
+	for aid in fronts.entries: txt.append(("in " if fronts.entries[aid].incoming else "out ") + fronts.entries[aid].text + " x%d" % fronts.entries[aid].slots.size())
 	print("DMGSHOT incoming %s" % str(txt))
 	_shot("dmg_3_front_in.png")
 	get_tree().quit()
