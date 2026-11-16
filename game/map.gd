@@ -39,6 +39,9 @@ func _ready() -> void:
 	if client != null:
 		names = NameLayer.new(self, client.ctx.state)
 		ol.add_child(names)
+		ranges = RangeLayer.new(self, client.ctx.state)
+		ol.add_child(ranges)
+		ol.move_child(ranges, 0)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shots="): shots_dir = a.substr(8)
 	gen_map()

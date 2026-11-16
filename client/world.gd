@@ -109,3 +109,26 @@ func set_selected_unit(uid: int) -> void:
 		if int(ws.get("uid", 0)) == uid and int(ws.o) == int(g.PLAYER):
 			g.sel_ws = ws
 			return
+
+
+# ---- range rings (client/map/range_layer.gd) ----
+func set_range_mode(m: String) -> void:
+	if g.ranges != null:
+		g.ranges.set_mode(m)
+
+
+func set_range_owner(id: int) -> void:
+	if g.ranges != null:
+		g.ranges.set_range_owner(id)
+
+
+func set_range_focus(tile: int) -> void:
+	if g.ranges != null:
+		g.ranges.set_focus_tile(tile, 12.0 / maxf(0.01, g.cam.zoom.x * g.TS))
+
+
+func set_hover_owner(id: int) -> void:
+	if g.ranges != null:
+		g.ranges.set_hover_owner(id)
+	if g.names != null:
+		g.names.hover_owner = id

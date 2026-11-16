@@ -616,6 +616,32 @@ func on_click() -> void:
 	interact.on_click(ctx.tile_at(root.get_viewport().get_mouse_position()))
 
 
+## What the range rings show follows the pointer, the aim and the selected warship (upstream:
+## UIInteract.on_hover / _show_aim and MapView's unit rings).
+func _feed_ranges() -> void:
+	var rl: RangeLayer = g.ranges
+	rl.visible = g.state != "menu"
+	if not rl.visible:
+		return
+	var px_tiles := 12.0 / maxf(0.01, g.cam.zoom.x * g.TS)
+	var ht: int = interact.hover_tile if interact.enabled else -1
+	rl.set_hover_tile(ht, px_tiles)
+	if interact.aim_kind != "":
+		var at: int = interact._confirm_tile if interact._confirm_tile >= 0 else (interact._ghost_tile if interact._ghost_tile >= 0 else ht)
+		var detail: String = interact._aim_for(at) if at >= 0 else interact.aim_kind
+		rl.set_aim("nuke" if UIRules.is_nuke(detail) else "build", at, detail, 1)
+	elif rl._aim_kind != "":
+		rl.set_aim("", -1)
+	var u = ctx.state.unit(unit_card.uid) if unit_card.is_open else null
+	if u != null:
+		var raw: Dictionary = u.raw
+		var pos: Vector2 = raw.pos
+		var pat: Vector2 = raw.get("patrol", pos)
+		rl.set_unit_rings(pat.x, pat.y, ViewRules.warship_patrol_range() if unit_card.own else 0.0, pos.x, pos.y, ViewRules.warship_target_range(), ctx.state.owner_color(int(u.owner)))
+	else:
+		rl.clear_unit_rings()
+
+
 ## MapInput.tile_clicked.
 func on_click_tile(tile: int) -> void:
 	if interact.enabled:
@@ -694,6 +720,8 @@ func process(dt: float) -> void:
 			ctx.troop_floor = NAN  # (a new player's floor arms again in this match)
 			if g.names != null:
 				g.names.unbind()
+			if g.ranges != null:
+				g.ranges.unbind()
 			coach.clear()
 			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:
@@ -719,6 +747,8 @@ func process(dt: float) -> void:
 		g.names.visible = g.state != "menu"
 		var ht: int = interact.hover_tile
 		g.names.hover_owner = maxi(0, int(ctx.state.tile_owner(ht))) if (ht >= 0 and interact.enabled) else 0
+	if g.ranges != null:
+		_feed_ranges()
 	# Coach marks: hidden outside a match, and they step aside while placing or using the ring.
 	coach.visible = (play or g.state == "pick") and not over.is_open
 	var want_a := 0.0 if (radial.is_open or interact.aim_kind != "") else 1.0

@@ -1014,12 +1014,12 @@ func _draw_overlay_inner() -> void:
 			if build_sel in NUKES: rr = float(NUKE_R[build_sel]) if build_sel != 12 else sim_rules.scatter_far()
 			var strike_aim := _is_strike_click(build_sel, mt, PLAYER)
 			if strike_aim: rr = sim_rules.strike_radius(SimRules.N_AIRSTRIKE if build_sel == 14 else SimRules.N_SLUG)
-			if build_sel == 14:
+			if build_sel == 14 and ranges == null:
 				for st in structs:
 					if st.o == PLAYER and st.k == 14 and st.get("bt", 0.0) <= 0.0:
 						var spa := _screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)
 						overlay.draw_arc(spa, sim_rules.airfield_range() * TS * z, 0, TAU, 96, Color(0.4, 0.8, 1.0, 0.7), 1.6, true)
-			if rr > 0:
+			if rr > 0 and not (ranges != null and build_sel in [3, 4, 10] and not strike_aim):  # (RangeLayer draws the build ring)
 				var cc := Color(1, 0.3, 0.25) if (build_sel in NUKES or strike_aim) else Color(0.3, 0.6, 1)
 				overlay.draw_circle(mp, rr * TS * z, Color(cc, 0.12))
 				overlay.draw_arc(mp, rr * TS * z, 0, TAU, 64, Color(cc, 0.85), 2.0)
@@ -1044,7 +1044,7 @@ func _draw_overlay_inner() -> void:
 						overlay.draw_circle(sp1, FACTORY_RANGE * TS * z, Color(0.95, 0.85, 0.4, 0.06))
 						overlay.draw_arc(sp1, FACTORY_RANGE * TS * z, 0, TAU, 96, Color(0.95, 0.85, 0.4, 0.8), 2.0, true)
 				var spm := FACTORY_RANGE * TS * z
-				overlay.draw_arc(mp, spm, 0, TAU, 96, Color(0.95, 0.85, 0.4, 0.55), 1.5, true)
+				if ranges == null: overlay.draw_arc(mp, spm, 0, TAU, 96, Color(0.95, 0.85, 0.4, 0.55), 1.5, true)
 			if build_sel in NUKES or strike_aim:
 				overlay.draw_line(mp + Vector2(-10, 0), mp + Vector2(10, 0), Color(1, 0.3, 0.25), 2)
 				overlay.draw_line(mp + Vector2(0, -10), mp + Vector2(0, 10), Color(1, 0.3, 0.25), 2)

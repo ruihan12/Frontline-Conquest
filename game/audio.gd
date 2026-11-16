@@ -729,6 +729,22 @@ func _uishot() -> void:
 				for _f in 20: await get_tree().process_frame
 				_shot("2g_unit_card.png")
 				client.interact.deselect_unit()
+			# range rings: an own SAM, and the ring of the Defense Post being placed
+			var own_t := -1
+			for ti in range(0, W * H, 3):
+				if owner_map[ti] == PLAYER and build_req(4, ti) == "": own_t = ti; break
+			if own_t >= 0:
+				nations[PLAYER].gold = 1.0e9
+				try_build(4, own_t)
+				for s2 in structs: s2["bt"] = 0.0
+				var zc := cam.zoom; var pc := cam.position
+				cam.zoom = Vector2(2.6, 2.6); cam.position = Vector2(own_t % W, own_t / W) * TS
+				build_sel = 3
+				_uishot_mouse_at_tile(own_t + 14)
+				for _f in 8: await get_tree().process_frame
+				_shot("2i_ranges.png")
+				build_sel = -1; cam.zoom = zc; cam.position = pc
+				for _f in 3: await get_tree().process_frame
 			client.advisor.war_begins()
 			for _f in 4: await get_tree().process_frame
 			_shot("2h_banner.png")

@@ -84,6 +84,8 @@ var mcam: MapCamera
 var minput: MapInput
 ## the ported owner names (client/map/name_layer.gd), drawn over the map overlay
 var names: NameLayer
+## the ported range rings (client/map/range_layer.gd), drawn under the map overlay
+var ranges: RangeLayer
 var _mc_pos := Vector2.INF
 var _mc_zoom := Vector2.ZERO
 var _mc_off := false
