@@ -95,7 +95,7 @@ func _draw_meta_fx(z: float) -> void:
 
 # shells / air strikes / slugs (SimArsenal munitions) and SAM missiles, interpolated between sim ticks
 func _draw_port_munitions(z: float) -> void:
-	if sim_ars == null: return
+	if sim_ars == null or client != null: return
 	var tf: float = float(sim_atk.tick) + tick_acc * 10.0
 	for m in sim_ars.munitions:
 		var f: float = clampf((tf - float(m.t0)) / maxf(1.0, float(m.t1 - m.t0)), 0.0, 1.0)

@@ -666,9 +666,9 @@ func _autoshot(dt: float) -> void:
 			print("player boat ", ok, " route pts ", (_pboat.pts.size() if _pboat else 0))
 		6:
 			if _pboat and _pboat in boats:
+				_pboat.d = maxf(float(_pboat.d), 0.4 * float(_pboat.cum[_pboat.cum.size() - 1]))  # well out to sea: the wake shows
 				var bp := _boat_pos(_pboat)
-				var pts: PackedVector2Array = _pboat.pts
-				cam.position = (bp[0] + pts[pts.size() - 1]) / 2; cam.zoom = Vector2(2.0, 2.0); _clamp_cam()
+				cam.position = bp[0]; cam.zoom = Vector2(3.0, 3.0); _clamp_cam()
 				print("boat progress ", int(_pboat.d), "/", int(_pboat.cum[_pboat.cum.size() - 1]))
 		7: _shot("06_boat_curve.png")
 		8:
@@ -1058,7 +1058,7 @@ func _draw_overlay_inner() -> void:
 	# attack fronts: upstream FrontLayer.luau (plain stroked troop text on the local player's fronts)
 	# (attack-front troop labels: client/map/front_layer.gd)
 	# boats with curved routes
-	for bt in boats:
+	for bt in ([] if client != null else boats):
 		var bp := _boat_pos(bt)
 		var pts: PackedVector2Array = bt.pts
 		var col: Color = nations[bt.a].color

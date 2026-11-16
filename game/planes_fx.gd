@@ -118,7 +118,7 @@ func _draw_world_fx(z: float) -> void:
 			_draw_railway(st, c, rcol)
 	_pf_add("w_rail", Time.get_ticks_usec() - _c0)
 	# moving gold trains strictly following the drawn canonical railway tracks
-	for tr in trains:
+	for tr in ([] if client != null else trains):
 		if not _has_rail_link(tr.src, tr.dst): continue
 		var f: float = clampf((tr.t + tick_acc * 10.0) / maxf(0.01, tr.dur), 0.0, 1.0)
 		var rp := _rail_pos(tr.src, tr.dst, f)
@@ -160,6 +160,9 @@ func _draw_world_fx(z: float) -> void:
 		# structure plates, level numbers and progress bars: client/map/structure_layer.gd
 		if struct_layer == null: struct_layer = StructureLayer.new(self)
 		struct_layer.draw(overlay)
+		# ships, wakes, trains, shells and SAM missiles: client/map/unit_layer.gd
+		if unit_layer == null: unit_layer = UnitLayer.new(self)
+		unit_layer.draw(overlay)
 	for st in ([] if client != null else structs):
 		var t: int = st.tile
 		var sp := _screen_of(Vector2(t % W + 0.5, t / W + 0.5) * TS)
@@ -183,7 +186,7 @@ func _draw_world_fx(z: float) -> void:
 			overlay.draw_rect(Rect2(badge_p, Vector2(22, 12)), GOLD_C, false, 1.0)
 			f_bold.draw_string(overlay.get_canvas_item(), badge_p + Vector2(2, 10), "Lv%d" % lvl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD_C)
 	# trade ships: clear gold-hulled cargo ships with wake and sea-lane line (with smooth heading interpolation)
-	for tr in traders:
+	for tr in ([] if client != null else traders):
 		var bp := _boat_pos(tr)
 		var p0 := _screen_of(bp[0])
 		if p0.x < -40 or p0.y < -40 or p0.x > 1640 or p0.y > 940: continue
@@ -210,7 +213,7 @@ func _draw_world_fx(z: float) -> void:
 		overlay.draw_circle(p0 + dir * 1.5, 2.3, GOLD_C.lightened(0.25))
 		overlay.draw_circle(p0 - dir * 2.8, 2.0, ocol.lightened(0.15))
 	# warships
-	for ws in warships:
+	for ws in ([] if client != null else warships):
 		var dp: Vector2 = ws.get("dp", ws.pos)
 		var mv: Vector2 = ws.pos - dp
 		dp = ws.pos if _q() == 0 or mv.length() > 6.0 else dp + mv * clampf(1.0 - exp(-8.0 * get_process_delta_time()), 0.0, 1.0)
