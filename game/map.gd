@@ -46,6 +46,9 @@ func _ready() -> void:
 		ranges = RangeLayer.new(self, client.ctx.state)
 		ol.add_child(ranges)
 		ol.move_child(ranges, 0)
+		fallout_glow = FalloutGlow.new(self)
+		ol.add_child(fallout_glow)
+		ol.move_child(fallout_glow, 0)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shots="): shots_dir = a.substr(8)
 	gen_map()
@@ -236,6 +239,7 @@ func gen_map() -> void:
 	mtn.resize(W * H); mtn.fill(0)
 	fallout.resize(W * H); fallout.fill(0); fallout_list.clear()
 	fallout_t.resize(W * H); fallout_t.fill(0.0)
+	if fallout_glow != null: fallout_glow.reset()
 	var elev := PackedFloat32Array(); elev.resize(W * H)
 	land_total = 0; _land_w = -1.0
 	var raw_bytes := _get_handcrafted_map_bytes(map_i) if map_tab != 1 else PackedByteArray()

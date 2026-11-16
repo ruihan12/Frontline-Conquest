@@ -809,6 +809,8 @@ func process(dt: float) -> void:
 				g.ranges.unbind()
 			if g.fx_layer != null:
 				g.fx_layer.unbind()
+			if g.fallout_glow != null:
+				g.fallout_glow.reset()
 			coach.clear()
 			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:

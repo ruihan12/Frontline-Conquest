@@ -505,6 +505,8 @@ var fx_layer: FxLayer
 var unit_layer: UnitLayer
 ## railroads (client/map/road_layer.gd)
 var road_layer: RoadLayer
+## the glow of fresh fallout (client/map/fallout_glow.gd)
+var fallout_glow: FalloutGlow
 ## the player's nation fell and they chose to keep watching (UIRoot's spectate pill)
 var spectating := false
 

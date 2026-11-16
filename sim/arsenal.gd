@@ -313,6 +313,7 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 			g._set_owner(tt, g.NEUTRAL)
 		g.fallout[tt] = 1; g.fallout_list[tt] = true
 		g.fallout_t[tt] = 60.0
+		if g.fallout_glow != null: g.fallout_glow.on_fallout(tt)
 		fallout_n += 1
 		g._repaint(tt)
 	for ow in lost:
