@@ -13,7 +13,7 @@ Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see as
 Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
 suffixes, click-sound rule, Tab console and settings.
 
-Progress: 36465 of 52913 upstream lines accounted for (70 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. The Arsenal window, the tutorial and the coach tips are ported and live. Not yet ported: map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
+Progress: 37227 of 52913 upstream lines accounted for (71 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. The Arsenal window, the tutorial and the coach tips are ported and live. Not yet ported: map layers, the Arsenal window, tutorial and coach marks. The help window is ported.
 
 Order: UITheme, GlassPanel -> UICtx, UIRules, widgets (CountLabel, RatioSlider, ShopSlot...) -> HUD (TopStatus,
 Leaderboard, CommandBar, EventFeed, AttackPanel) -> map layers (MapSurface, StructureLayer, UnitLayer, FxLayer,
@@ -96,7 +96,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/Map/MapInput.luau | 731 | client/map/map_input.gd | done, live (click / drag / long press / pinch / wheel; fed from main.gd's _unhandled_input; drives the HoldRing) |
 | src/client/Map/MapSurface.luau | 1517 | client/map/map_surface.gd | todo |
 | src/client/Map/MapView.luau | 985 | client/map/map_view.gd | todo |
-| src/client/Map/NameLayer.luau | 762 | client/map/name_layer.gd | todo |
+| src/client/Map/NameLayer.luau | 762 | client/map/name_layer.gd | done, live (largest-rectangle placement on the nation's box, upstream sizing / cull / glide, owner-colour outline, crown; flags, faces and HUMAN badge not applicable) |
 | src/client/Map/RangeLayer.luau | 717 | client/map/range_layer.gd | todo |
 | src/client/Map/RoadLayer.luau | 672 | client/map/road_layer.gd | todo |
 | src/client/Map/StructureLayer.luau | 633 | client/map/structure_layer.gd | todo |

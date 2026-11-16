@@ -36,6 +36,9 @@ func _ready() -> void:
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ol.add_child(overlay)
 	overlay.draw.connect(_draw_overlay)
+	if client != null:
+		names = NameLayer.new(self, client.ctx.state)
+		ol.add_child(names)
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--shots="): shots_dir = a.substr(8)
 	gen_map()

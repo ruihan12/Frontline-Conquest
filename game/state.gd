@@ -82,6 +82,8 @@ var cam: Camera2D
 var mcam: MapCamera
 ## the ported pointer input (client/map/map_input.gd), fed from main.gd's _unhandled_input
 var minput: MapInput
+## the ported owner names (client/map/name_layer.gd), drawn over the map overlay
+var names: NameLayer
 var _mc_pos := Vector2.INF
 var _mc_zoom := Vector2.ZERO
 var _mc_off := false

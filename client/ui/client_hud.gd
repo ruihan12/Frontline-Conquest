@@ -194,6 +194,9 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 				out.append(c.get_global_rect())
 		out.append(feed.stack_rect())
 		return out
+	coach.keepout = func() -> Array:
+		var r = g.names.local_label_rect() if g.names != null else null
+		return [r] if r is Rect2 else []
 	advisor = UIAdvisor.new(self)
 	ctx.floor_held.connect(advisor.on_floor_held)
 	ctx.ratio_changed.connect(func(_r) -> void:
@@ -689,6 +692,8 @@ func process(dt: float) -> void:
 			ctx.play_start_tick = -1.0
 			ctx.alive_from_tick = NAN
 			ctx.troop_floor = NAN  # (a new player's floor arms again in this match)
+			if g.names != null:
+				g.names.unbind()
 			coach.clear()
 			advisor.reset()
 		if ph == Defs.PHASE_PLAYING and before == Defs.PHASE_SPAWN:
@@ -710,6 +715,10 @@ func process(dt: float) -> void:
 			on_share_changed()
 			bar.refresh(false)
 			layout()
+	if g.names != null:
+		g.names.visible = g.state != "menu"
+		var ht: int = interact.hover_tile
+		g.names.hover_owner = maxi(0, int(ctx.state.tile_owner(ht))) if (ht >= 0 and interact.enabled) else 0
 	# Coach marks: hidden outside a match, and they step aside while placing or using the ring.
 	coach.visible = (play or g.state == "pick") and not over.is_open
 	var want_a := 0.0 if (radial.is_open or interact.aim_kind != "") else 1.0

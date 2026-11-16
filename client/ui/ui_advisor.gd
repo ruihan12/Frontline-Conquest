@@ -182,4 +182,7 @@ func war_begins() -> void:
 	var banner := Banner.make(ctx, "THE WAR BEGINS", "Expand, build and outlast %d nations" % nations, UITheme.AMBER, 1.6, top_y, h, small)
 	banner.min_top = band.position.y - 12.0
 	banner.max_bottom = band.end.y
+	# the banner's text steps off the player's own label while the camera pushes in
+	banner.avoid = func():
+		return ui.g.names.local_label_rect() if ui.g.names != null else null
 	ui.float_layer.add_child(banner)

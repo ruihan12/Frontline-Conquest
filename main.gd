@@ -987,6 +987,7 @@ func _draw_overlay_inner() -> void:
 	var f := ThemeDB.fallback_font
 	var z := cam.zoom.x
 	for id in range(1, nations.size()):
+		if names != null: break  # (client/map/name_layer.gd draws the names)
 		var n = nations[id]
 		if not n.alive or n.land < 4: continue
 		var c: Vector2 = n.get("lp", Vector2(n.sx / n.land + 0.5, n.sy / n.land + 0.5) * TS)
