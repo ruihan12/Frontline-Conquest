@@ -80,6 +80,8 @@ var uploads := 0
 var cam: Camera2D
 ## the ported map camera (client/map/map_camera.gd); main.gd copies it to `cam` every frame
 var mcam: MapCamera
+## the ported pointer input (client/map/map_input.gd), fed from main.gd's _unhandled_input
+var minput: MapInput
 var _mc_pos := Vector2.INF
 var _mc_zoom := Vector2.ZERO
 var _mc_off := false

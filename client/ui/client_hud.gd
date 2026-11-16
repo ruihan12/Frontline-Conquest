@@ -613,6 +613,18 @@ func on_click() -> void:
 	interact.on_click(ctx.tile_at(root.get_viewport().get_mouse_position()))
 
 
+## MapInput.tile_clicked.
+func on_click_tile(tile: int) -> void:
+	if interact.enabled:
+		interact.on_click(tile)
+
+
+## MapInput.tile_context (right click, or a finger held on the map).
+func on_context_at(tile: int, pos: Vector2) -> void:
+	if interact.enabled:
+		interact.on_context(tile, pos)
+
+
 ## main.gd: the Space key.
 func on_primary_key() -> void:
 	if interact.enabled:

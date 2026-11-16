@@ -1303,6 +1303,7 @@ func _pan(dt: float) -> void:
 	if Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT): v.x += 1
 	if Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP): v.y -= 1
 	if Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN): v.y += 1
+	if _minput_on(): return  # (MapInput pans)
 	if _mcam_on():
 		if v != Vector2.ZERO: mcam.pan(v, dt)
 		return
@@ -1330,6 +1331,11 @@ func _cam_tick(dt: float) -> void:
 		mcam.scale = mcam.clamp_scale(cam.zoom.x * TS); mcam.target_scale = mcam.scale
 		mcam.look_at(cam.position.x / TS, cam.position.y / TS)
 	mcam.attract = state == "menu"
+	if _minput_on():
+		minput.tick(dt)
+		dragging = minput.is_dragging()
+		var hs := minput.hold_state()
+		client.hold_ring.set_hold(hs[0], hs[1])
 	mcam.tick(FrameClock.dt(dt))
 	cam.zoom = Vector2.ONE * (mcam.scale / TS)
 	cam.position = Vector2(mcam.cu, mcam.cv) * TS
@@ -1382,7 +1388,34 @@ func _attack_at_cursor() -> void:
 		else:
 			launch_boat(PLAYER, t, SHARES[share_i])
 
+# ---- the ported pointer input (clicks, drags, long press, pinch, wheel) ----
+func _minput_on() -> bool:
+	return minput != null and _mcam_on() and client != null
+
+func _make_minput() -> void:
+	minput = MapInput.new(mcam)
+	minput.active = func() -> bool:
+		return state != "menu" and client.ctx.world.input_enabled and not (console_panel != null and console_panel.visible)
+	minput.tile_at = func(pos: Vector2) -> int: return client.ctx.tile_at(pos)
+	minput.over_gui = func(_pos: Vector2) -> bool: return get_viewport().gui_get_hovered_control() != null
+	minput.tile_clicked.connect(_map_click)
+	minput.tile_context.connect(_map_context)
+
+func _map_click(tile: int) -> void:
+	if state == "play" and build_sel >= 0 and client.interact.aim_kind == "": try_build(build_sel, tile)
+	elif state == "pick" or state == "play": client.on_click_tile(tile)
+
+func _map_context(tile: int, pos: Vector2) -> void:
+	if build_sel >= 0: build_sel = -1
+	elif client.cancel_selection(): pass
+	elif sel_ws != null: sel_ws = null
+	elif state == "play": client.on_context_at(tile, pos)
+
 func _unhandled_input(e: InputEvent) -> void:
+	if _mcam_on() and client != null and minput == null: _make_minput()
+	if _minput_on() and not (e is InputEventKey):
+		minput.input(e)
+		return
 	if e is InputEventMouseButton:
 		if e.pressed and e.button_index == MOUSE_BUTTON_WHEEL_UP:
 			_zoom_at(1.15, e.position)

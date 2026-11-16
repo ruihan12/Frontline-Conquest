@@ -73,5 +73,72 @@ func _initialize() -> void:
 	m.client.ctx.world.focus_tile(t, -1.0, 0.3)
 	for _f in 60: await process_frame
 	_check(absf(m.cam.position.x / m.TS - (m.W / 3 + 0.5)) < 1.0, "focus_tile glides the Camera2D there")
+	# MapInput: click, drag, stop press, long press, wheel, pinch
+	for _f in 30: await process_frame
+	m.mcam.halt()
+	var mi = m.minput
+	if mi == null:
+		m._make_minput()
+		mi = m.minput
+	var clicks := []
+	var ctxs := []
+	mi.tile_clicked.connect(func(tl): clicks.append(tl))
+	mi.tile_context.connect(func(tl, _p): ctxs.append(tl))
+	mi._mouse_pos = Vector2(700, 400)
+	mi.debug_pointer("down", Vector2(700, 400))
+	mi.debug_pointer("move", Vector2(703, 401))
+	mi.debug_pointer("up", Vector2(703, 401))
+	_check(clicks.size() == 1 and clicks[0] == m.mcam.tile_at_screen(Vector2(703, 401)), "a press within the slop is a click on that tile")
+	var cu0: float = m.mcam.cu
+	mi.debug_pointer("down", Vector2(700, 400))
+	mi.debug_pointer("move", Vector2(760, 400))
+	_check(mi.is_dragging() and m.mcam.cu < cu0, "a press that moves drags the map")
+	mi.debug_pointer("up", Vector2(760, 400))
+	_check(clicks.size() == 1 and not mi.is_dragging(), "a drag is not a click")
+	m.mcam._vel = Vector2(400, 0)
+	mi.debug_pointer("down", Vector2(700, 400))
+	mi.debug_pointer("up", Vector2(700, 400))
+	_check(clicks.size() == 1 and not m.mcam.is_moving(1.0), "a press on a gliding map only stops it")
+	mi.debug_pointer("down", Vector2(700, 400))
+	mi._press_ms -= 600.0
+	mi.tick(0.016)
+	mi.debug_pointer("up", Vector2(700, 400))
+	_check(ctxs.size() == 1 and clicks.size() == 1, "a held press opens the context menu instead of clicking")
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_WHEEL_UP
+	ev.pressed = true
+	ev.position = Vector2(500, 500)
+	var ts0: float = m.mcam.target_scale
+	mi.input(ev)
+	_check(is_equal_approx(m.mcam.target_scale, m.mcam.clamp_scale(ts0 * 1.16)), "one wheel notch zooms by 1.16")
+	m.mcam.set_scale_immediate(4.0)
+	mi._touch_down(0, Vector2(600, 400))
+	mi._touch_down(1, Vector2(800, 400))
+	mi._touch_drag(1, Vector2(1000, 400))
+	_check(mi.stats.pinches == 1 and is_equal_approx(m.mcam.target_scale, 8.0), "two fingers spreading to twice the distance double the zoom")
+	mi._touch_up(1, Vector2(1000, 400))
+	mi._touch_up(0, Vector2(600, 400))
+	_check(clicks.size() == 1, "a pinch never clicks")
+	mi._touch_down(0, Vector2(650, 420))
+	var hs: Array = mi.hold_state()
+	_check(hs[0] == Vector2(650, 420), "a resting finger reports its hold (for the ring)")
+	mi._touch_up(0, Vector2(650, 420))
+	_check(clicks.size() == 2, "a finger tap is a click")
+	# the real event path: a left press and release on the map reaches UIInteract
+	m.client.interact.enabled = true
+	m.client.interact.last_pick = -1
+	m.client.interact._last_click_tile = -1
+	m.mcam.halt()
+	m.mcam.look_at(m.W * 0.5, m.H * 0.5)
+	await process_frame
+	var at := Vector2(805, 455)
+	for down in [true, false]:
+		var b := InputEventMouseButton.new()
+		b.button_index = MOUSE_BUTTON_LEFT
+		b.pressed = down
+		b.position = at
+		b.global_position = at
+		m._unhandled_input(b)
+	_check(m.client.interact._last_click_tile >= 0, "a mouse click event reaches UIInteract.on_click (state %s)" % m.state)
 	print("MAP_CAMERA_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(0 if fails == 0 else 1)
