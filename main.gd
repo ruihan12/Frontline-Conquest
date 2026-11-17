@@ -174,7 +174,7 @@ func _process_inner(dt: float) -> void:
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
-		_tick_missiles(dt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
+		_tick_missiles(tdt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
 		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_tick_fx(dt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
