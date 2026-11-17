@@ -189,7 +189,7 @@ var speed_btns := []
 const SPEEDS := [1.0, 2.0, 5.0, 10.0]
 const SPEED_BASE := 0.2  # new 1x == old 0.2x
 var boat_speed := 0.35  # multiplier on RoWorld ship speed (1 full-size tile/tick) for transports and trade ships; user: 0.35x
-var warship_speed := 0.35  # same multiplier for warships (sim/warships.gd _move)
+var warship_speed := 0.7  # same multiplier for warships (sim/warships.gd _move)
 const AI_BOAT_CAP := 12
 const MAX_TICKS_PER_FRAME := 12
 const SIM_BUDGET_US := 12000   # sim time per frame (perf cap); was 28 ms with whole ticks only

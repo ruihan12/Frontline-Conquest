@@ -15,46 +15,37 @@ func _find_water_near(tile: int, max_r := 12) -> int:
 					return y * W + x
 	return -1
 
+## Deploys a warship from one of `o`'s finished ports: it appears in the water beside the port nearest the
+## clicked water and sails to that spot. No finished port, no warship.
 func spawn_warship(o: int, target_tile: int = -1) -> bool:
 	var ports := []
 	for st in structs:
-		if st.o == o and st.k == 1: ports.append(st)
-	if ports.is_empty() and not (o == PLAYER and god_mode): return false
-	var home_tile := -1
+		if st.o == o and st.k == 1 and float(st.get("bt", 0.0)) <= 0.0: ports.append(st)
+	if ports.is_empty(): return false
+	var t_pos := Vector2(-1, -1)
+	if target_tile >= 0 and target_tile < W * H and owner_map[target_tile] == WATER:
+		t_pos = Vector2(target_tile % W + 0.5, target_tile / W + 0.5)
+	if t_pos.x >= 0:
+		ports.sort_custom(func(a, b): return Vector2(a.tile % W, a.tile / W).distance_to(t_pos) < Vector2(b.tile % W, b.tile / W).distance_to(t_pos))
+	else:
+		ports.shuffle()
 	var w_tile := -1
-	var tgt_pos := Vector2(-1, -1)
-	if target_tile >= 0 and target_tile < W * H:
-		var t_pos := Vector2(target_tile % W + 0.5, target_tile / W + 0.5)
-		# Pick the owned Port closest to the clicked tile
-		var best_d := 1e18
-		for pt in ports:
-			var d := Vector2(pt.tile % W + 0.5, pt.tile / W + 0.5).distance_to(t_pos)
-			if d < best_d: best_d = d; home_tile = pt.tile
-		if owner_map[target_tile] == WATER:
-			tgt_pos = t_pos
-			# If clicked water is reasonably close to player's port/coast, spawn directly at clicked water tile!
-			if best_d <= 65.0 or _find_water_near(target_tile, 0) >= 0:
-				w_tile = target_tile
-				if home_tile < 0: home_tile = target_tile
-	if w_tile < 0 and not ports.is_empty():
-		var pt = ports[rng.randi() % ports.size()]
-		if home_tile < 0: home_tile = pt.tile
-		w_tile = _find_water_near(home_tile, 12)
-	if w_tile < 0 and o > 0 and o < nations.size() and nations[o].land > 0:
-		var bb: Rect2i = nations[o].bb
-		for _t in 80:
-			var ti := (bb.position.y + rng.randi() % maxi(1, bb.size.y)) * W + bb.position.x + rng.randi() % maxi(1, bb.size.x)
-			if owner_map[ti] == o:
-				var wn := _find_water_near(ti, 4)
-				if wn >= 0:
-					w_tile = wn
-					if home_tile < 0: home_tile = ti
-					break
-	if w_tile < 0: return false
+	var home_tile := -1
+	for pt in ports:
+		var wn := _find_water_near(pt.tile, 12)
+		if wn < 0: continue
+		var wp := Vector2(wn % W + 0.5, wn / W + 0.5)
+		if t_pos.x >= 0 and sim_ws._body_at(wp) != sim_ws._body_at(t_pos): continue
+		w_tile = wn; home_tile = pt.tile
+		break
+	if w_tile < 0:
+		if o == PLAYER and t_pos.x >= 0: notify("None of your ports reach that water", "bad")
+		return false
 	var spawn_pos := Vector2(w_tile % W + 0.5, w_tile / W + 0.5)
-	if tgt_pos.x < 0: tgt_pos = spawn_pos
-	var ws := {"o": o, "pos": spawn_pos, "home": w_tile if home_tile < 0 else home_tile, "hp": 1000.0, "vet": 0, "kills": 0, "tgt": tgt_pos, "cd": 0.0}
+	var tgt_pos := t_pos if t_pos.x >= 0 else spawn_pos
+	var ws := {"o": o, "pos": spawn_pos, "home": home_tile, "hp": 1000.0, "vet": 0, "kills": 0, "tgt": tgt_pos, "cd": 0.0}
 	sim_ws.init_ship(ws)
+	ws["patrol"] = tgt_pos
 	if o == PLAYER: ws["manual"] = sim_atk.tick
 	warships.append(ws)
 	return true

@@ -381,16 +381,19 @@ func _trains_tick() -> void:
 func _tick_artillery(_dt: float) -> void:
 	pass
 
-func _tick_fx(dt: float) -> void:
+## `dt` is game time (sim_speed scaled: fallout wear, nuke blasts); `adt` is the animation clock, real time
+## times the speed setting, so shell bursts, SAM blasts and floating text play at the pace of the 10 ticks/s sim.
+func _tick_fx(dt: float, adt := -1.0) -> void:
+	if adt < 0.0: adt = dt
 	for b in ([] if fx_freeze else blasts.duplicate()):
-		b.t += dt
+		b.t += dt if b.get("kind", "") == "nuke" else adt
 		var bdur: float = float(b.get("dur", 1.35))
 		if b.t >= bdur: blasts.erase(b)
 	for s2 in shells.duplicate():
-		s2.t += dt
+		s2.t += adt
 		if s2.t > 0.5: shells.erase(s2)
 	for fl in floats.duplicate():
-		fl.t += dt
+		fl.t += adt
 		if fl.t > 1.4: floats.erase(fl)
 	fallout_tick_t += dt
 	if fallout_tick_t >= 2.0:

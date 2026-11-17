@@ -133,11 +133,12 @@ func _draw_port_munitions(z: float) -> void:
 		overlay.draw_line(q0, q1, Color(1, 1, 1, 0.35), 1.4, true)
 		overlay.draw_circle(q1, 2.6, Color(0.75, 0.95, 1.0))
 
-func _tick_meta(dt: float) -> void:
-	_tick_air(dt)
+func _tick_meta(dt: float, adt := -1.0) -> void:
+	if adt < 0.0: adt = dt
+	_tick_air(adt)
 	rail_cd = maxf(0.0, rail_cd - dt)
 	for bm in beams.duplicate():
-		bm.t += dt
+		bm.t += adt
 		if bm.t > 0.6: beams.erase(bm)
 
 	var pl = nations[PLAYER]

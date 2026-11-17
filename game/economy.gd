@@ -115,7 +115,14 @@ func build_req(k: int, tile: int, o := PLAYER) -> String:
 				min_cd = minf(min_cd, float(st.get("cd", 9.0)))
 		if not ready: return "Silo reloading (%ds)" % maxi(1, ceili(min_cd if min_cd < 900.0 else 9.0))
 		return ""
-	if k == 6 and owned(o, 1) == 0: return "Requires a Port"
+	if k == 6:
+		var have_port := false
+		var port_wait := false
+		for st in structs:
+			if st.o == o and st.k == 1:
+				if float(st.get("bt", 0.0)) <= 0.0: have_port = true; break
+				port_wait = true
+		if not have_port: return "Port under construction" if port_wait else "Requires a Port"
 	if k == 13:
 		var cd: float = nations[o].get("reinf_cd", 0.0)
 		return ("Cooldown %ds" % ceili(cd)) if cd > 0 else ""

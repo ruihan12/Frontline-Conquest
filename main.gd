@@ -177,8 +177,8 @@ func _process_inner(dt: float) -> void:
 		_tick_missiles(dt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
 		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
-		_tick_fx(dt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
-		_tick_meta(dt); _fp["meta"] = Time.get_ticks_usec() - u0
+		_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
+		_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
 		donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
 		donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
 		if ai_timer == 0.0 or rng.randf() < 0.2: _tick_alliances()
@@ -1054,7 +1054,10 @@ func _draw_overlay_inner() -> void:
 				overlay.draw_line(mp + Vector2(-10, 0), mp + Vector2(10, 0), Color(1, 0.3, 0.25), 2)
 				overlay.draw_line(mp + Vector2(0, -10), mp + Vector2(0, 10), Color(1, 0.3, 0.25), 2)
 			else:
-				if not (struct_layer != null and struct_layer.draw_ghost(overlay, build_sel, mp, ok)):
+				if build_sel == 6 and unit_layer != null:
+					var gc: Color = nations[PLAYER].color if ok else Color(0.9, 0.2, 0.2)
+					unit_layer.sprite(overlay, UnitLayer.COL_WARSHIP, Color(gc, 0.7), mp, unit_layer.sprite_px(), true)
+				elif not (struct_layer != null and struct_layer.draw_ghost(overlay, build_sel, mp, ok)):
 					_map_icon(mp, build_sel, Color(0.3, 0.9, 0.4) if ok else Color(0.95, 0.3, 0.3), 0.8)
 	# attack fronts: upstream FrontLayer.luau (plain stroked troop text on the local player's fronts)
 	# (attack-front troop labels: client/map/front_layer.gd)
