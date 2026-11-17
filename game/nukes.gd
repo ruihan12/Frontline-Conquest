@@ -21,7 +21,7 @@ func nuke_range_label(k: int) -> String:
 const UPSTREAM_NUKE_TILES_PER_S := 100.0
 # This game's own speed-up on top of upstream's: bombs fly NUKE_SPEED_X times as fast. It is applied to the
 # flight duration at launch, so the missile clock (SAM timing, the countdown pill) stays exact.
-const NUKE_SPEED_X := 2.5
+const NUKE_SPEED_X := 0.5
 func nuke_speed_mult(_dist: float) -> float:
 	var kl: float = sim_rules.k_lin if sim_rules != null else 1.0
 	return UPSTREAM_NUKE_TILES_PER_S * NUKE_SPEED_X / (maxf(kl, 0.01) * 43.2 * SimArsenal.DT_TICK * 10.0)
