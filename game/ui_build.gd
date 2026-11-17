@@ -29,7 +29,8 @@ func _flat(c: Color, r: int, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFl
 	st.bg_color = c
 	# buttons 8-10 px, small bars/toggles become pills (Godot clamps radius to half the height)
 	st.set_corner_radius_all(r if r < 4 else (clampi(r + 4, 8, 10) if r <= 8 else mini(r + 2, 16)))
-	st.corner_detail = 8
+	st.corner_detail = 16
+	st.anti_aliasing_size = 1.2
 	st.border_color = _clean_border_col(c, border, bw)
 	st.set_border_width_all(bw)
 	st.set_content_margin_all(2)

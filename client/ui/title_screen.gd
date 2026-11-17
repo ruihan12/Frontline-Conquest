@@ -513,7 +513,7 @@ func _refresh_diff() -> void:
 	var txt: String = DIFF_BLURB[difficulty]
 	var secs: float = float(g.sim_rules.human_grace_ticks(difficulty)) / 10.0 if g.sim_rules != null else float(g.DIFFS[difficulty][1])
 	if secs > 0.0:
-		txt += "  Nations leave you alone for " + UITheme.fmt_time(secs) + "."
+		txt += "\nNations leave you alone for " + UITheme.fmt_time(secs) + "."
 	_diff_desc.text = txt
 
 

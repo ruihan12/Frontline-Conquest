@@ -261,6 +261,8 @@ static func flat(bg: Color, radius: float = R_MD, border: Variant = null, bw: in
 	s.content_margin_top = mv
 	s.content_margin_bottom = mv
 	s.anti_aliasing = true
+	s.anti_aliasing_size = 1.2
+	s.corner_detail = 16
 	return s
 
 static func empty_box(mh: float = 0.0, mv: float = 0.0) -> StyleBoxEmpty:
