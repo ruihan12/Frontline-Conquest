@@ -229,7 +229,7 @@ func _build_ui() -> void:
 # (the main menu and the PLAY SOLO window are client/ui/title_screen.gd and map_picker.gd)
 
 func _set_map_tab(t_idx: int) -> void:
-	map_tab = clampi(t_idx, 0, 2)
+	map_tab = clampi(t_idx, 0, 1)
 	map_i = clampi(map_i, 0, (UpstreamMaps.count() if map_tab == 2 else MAPS.size()) - 1)
 	if map_tab == 1 and rand_seed_off == 0:
 		rand_seed_off = rng.randi_range(100, 999999)

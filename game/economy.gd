@@ -164,7 +164,7 @@ func try_build(k: int, tile: int, o := PLAYER) -> bool:
 			notify(req if req != "" else ("Need %s gold for Warship" % _fmt(cost)), "bad")
 		return false
 	if k in NUKES:
-		if tile < 0 or owner_map[tile] == WATER: return false
+		if tile < 0 or tile >= W * H: return false  # open water may be bombed (upstream allows it)
 		var okn := launch_nuke(o, k, tile)
 		if okn and o == PLAYER: build_sel = -1
 		return okn

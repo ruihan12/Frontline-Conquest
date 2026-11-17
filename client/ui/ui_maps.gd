@@ -7,8 +7,8 @@ class_name UIMaps
 extends RefCounted
 
 const DEFAULT_ID := "0:0"
-const TAB_NAMES := ["Real-world", "Random", "RoWorld maps"]
-const TAB_KEYS := ["real", "random", "roworld"]
+const TAB_NAMES := ["Real-world", "Random"]
+const TAB_KEYS := ["real", "random"]
 
 
 static func make_id(tab: int, k: int) -> String:

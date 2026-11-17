@@ -190,7 +190,7 @@ func _card(e: Dictionary) -> Button:
 
 ## Rebuilds the grid for the game's current tab (the game calls this when the tab or the seeds change).
 func rebuild() -> void:
-	_tab = clampi(int(g.map_tab), 0, 2)
+	_tab = clampi(int(g.map_tab), 0, 1)
 	selected = UIMaps.selected(g)
 	for j in _tabs.size():
 		_tabs[j].text = _tab_label(j)
