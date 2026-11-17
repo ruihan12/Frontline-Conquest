@@ -522,6 +522,9 @@ static func _round(x: float) -> int:
 static func _format_troops(value: float) -> String:
 	var v := absf(value)
 	var s: String
+	if is_nan(v): return "0"
+	if v >= 1000000000.0:
+		return big(value)
 	if v >= 1000000.0:
 		s = ("%.2fM" % (v / 1000000.0)) if v < 10000000.0 else ("%.1fM" % (v / 1000000.0))
 	elif v >= 1000.0:
@@ -533,12 +536,42 @@ static func _format_troops(value: float) -> String:
 static func fmt_num(v: float) -> String:
 	return _format_troops(v)
 
+## Suffixes past the thousands, so a number never runs out of names (floats carry it to 1e308).
+const BIG_SUFFIX := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+
+## 1.23e45 (GDScript's format has no %e).
+static func sci(a: float) -> String:
+	var ex := int(floorf(log(a) / log(10.0)))
+	var m := a / pow(10.0, float(ex))
+	if m >= 10.0:
+		m /= 10.0
+		ex += 1
+	return "%.2fe%d" % [m, ex]
+
+
+## v scaled by powers of 1000 to a suffix: "1.25B", "12.5T", "159.3Qa"; floored, never rounded. Past the last
+## suffix it falls back to scientific ("1.2e45"). NaN reads 0 and infinity "∞".
+static func big(v: float) -> String:
+	if is_nan(v): return "0"
+	if is_inf(v): return "∞" if v > 0 else "-∞"
+	var a := absf(v)
+	var neg := "-" if v < 0 else ""
+	if a < 1000.0: return neg + str(int(floorf(a)))
+	var e := 0
+	var x := a
+	while x >= 1000.0 and e < BIG_SUFFIX.size() - 1:
+		x /= 1000.0
+		e += 1
+	if x >= 1000.0: return neg + sci(a)
+	var t := ("%.2f" % (floorf(x * 100.0) / 100.0)) if x < 10.0 else ("%.1f" % (floorf(x * 10.0) / 10.0))
+	if x >= 100.0 and e <= 1: t = "%d" % int(floorf(x))
+	return neg + t + BIG_SUFFIX[e]
+
 # Core/NumberFormat.render_number: floored, never rounded; negatives show as 0.
 static func render_number(num: float) -> String:
 	if is_nan(num): num = 0.0
 	num = maxf(num, 0.0)
-	if num >= 10_000_000_000.0: return "%.1fB" % (floorf(num / 100000000.0) / 10.0)
-	if num >= 1_000_000_000.0: return "%.2fB" % (floorf(num / 10000000.0) / 100.0)
+	if num >= 1_000_000_000.0: return big(num)
 	if num >= 10_000_000.0: return "%.1fM" % (floorf(num / 100000.0) / 10.0)
 	if num >= 1_000_000.0: return "%.2fM" % (floorf(num / 10000.0) / 100.0)
 	if num >= 100000.0: return "%dK" % int(floorf(num / 1000.0))

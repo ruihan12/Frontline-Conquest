@@ -19,9 +19,12 @@ func nuke_range_label(k: int) -> String:
 # The base speeds below (43.2 tiles per missile-clock second, 0.2 clock seconds per game second) are
 # scaled so a bomb covers the same ground per game second as upstream on every map size.
 const UPSTREAM_NUKE_TILES_PER_S := 100.0
+# This game's own speed-up on top of upstream's: bombs fly NUKE_SPEED_X times as fast. It is applied to the
+# flight duration at launch, so the missile clock (SAM timing, the countdown pill) stays exact.
+const NUKE_SPEED_X := 2.5
 func nuke_speed_mult(_dist: float) -> float:
 	var kl: float = sim_rules.k_lin if sim_rules != null else 1.0
-	return UPSTREAM_NUKE_TILES_PER_S / (maxf(kl, 0.01) * 43.2 * SimArsenal.DT_TICK * 10.0)
+	return UPSTREAM_NUKE_TILES_PER_S * NUKE_SPEED_X / (maxf(kl, 0.01) * 43.2 * SimArsenal.DT_TICK * 10.0)
 
 func nuke_cost(k: int) -> float:
 	var base := float(build_data[k][2]) + (SimRules.MIRV_COST_STEP * mirvs_launched if k == 9 else 0.0)

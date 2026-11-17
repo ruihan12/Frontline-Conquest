@@ -114,7 +114,7 @@ func _init() -> void:
 
 
 static func commas(n: float) -> String:
-	var s := str(int(floor(absf(n) + 0.5)))
+	var s := String.num(floorf(absf(n) + 0.5), 0)
 	var out := ""
 	var c := 0
 	for i in range(s.length() - 1, -1, -1):

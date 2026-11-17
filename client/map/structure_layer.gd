@@ -136,6 +136,32 @@ func progress(st: Dictionary, tick: int) -> float:
 	return -1.0
 
 
+## The placement preview: structure kind `k`'s current plate and glyph at screen point `sp`, in the
+## player's colours (translucent), or red when it can't be built there.
+func draw_ghost(ci: CanvasItem, k: int, sp: Vector2, ok: bool) -> bool:
+	if _plates == null or _glyphs == null:
+		return false
+	var col: int = g.ST_COL.get(k, -1)
+	if col < 0:
+		return false
+	var scale_px: float = g.cam.zoom.x * g.TS
+	var kl: float = maxf(0.01, float(g.sim_rules.k_lin))
+	var base := ICON_SIZE * icon_scale(scale_px / kl * DEVICE_RATIO)
+	var px := roundf(base * SHAPE_SCALE[col])
+	var c := Vector2(roundf(sp.x), roundf(sp.y))
+	var oc: Color = g.nations[g.PLAYER].color
+	var fill_col := value_scale(oc, FILL_V) if ok else Color(0.85, 0.2, 0.2)
+	var rim_col := value_scale(oc, BORDER_V) if ok else Color(0.35, 0.05, 0.05)
+	fill_col.a = 0.75
+	rim_col.a = 0.75
+	var dst := Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px))
+	ci.draw_texture_rect_region(_plates, dst, Rect2(col * SHAPE_CELL, 0, SHAPE_CELL, SHAPE_CELL), rim_col)
+	ci.draw_texture_rect_region(_plates, dst, Rect2(col * SHAPE_CELL, SHAPE_CELL, SHAPE_CELL, SHAPE_CELL), fill_col)
+	var gs: float = px * ICON_FILL[col] / SHAPE_SCALE[col]
+	ci.draw_texture_rect_region(_glyphs, Rect2(c - Vector2(gs, gs) * 0.5, Vector2(gs, gs)), Rect2(col * GLYPH_CELL, 0, GLYPH_CELL, GLYPH_CELL), Color(1, 1, 1, 0.85))
+	return true
+
+
 func draw(ci: CanvasItem) -> void:
 	if _plates == null or _glyphs == null:
 		return

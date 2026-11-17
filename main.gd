@@ -174,7 +174,7 @@ func _process_inner(dt: float) -> void:
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
-		_tick_missiles(tdt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
+		_tick_missiles(dt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
 		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_tick_fx(dt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
@@ -1054,7 +1054,8 @@ func _draw_overlay_inner() -> void:
 				overlay.draw_line(mp + Vector2(-10, 0), mp + Vector2(10, 0), Color(1, 0.3, 0.25), 2)
 				overlay.draw_line(mp + Vector2(0, -10), mp + Vector2(0, 10), Color(1, 0.3, 0.25), 2)
 			else:
-				_map_icon(mp, build_sel, Color(0.3, 0.9, 0.4) if ok else Color(0.95, 0.3, 0.3), 0.8)
+				if not (struct_layer != null and struct_layer.draw_ghost(overlay, build_sel, mp, ok)):
+					_map_icon(mp, build_sel, Color(0.3, 0.9, 0.4) if ok else Color(0.95, 0.3, 0.3), 0.8)
 	# attack fronts: upstream FrontLayer.luau (plain stroked troop text on the local player's fronts)
 	# (attack-front troop labels: client/map/front_layer.gd)
 	# boats with curved routes

@@ -551,7 +551,7 @@ var over_panel_p: Panel
 # follows the cursor (+20, +22), 220 when anchored (10 px above the anchor).
 const TIP_PAD := Vector2(12, 10)
 # One shared number formatter: K M B T Qd Qt, ~4 significant digits (159.3B, 25.5M, 62.1K, 9.87M).
-const _FMT_U := ["", "K", "M", "B", "T", "Qd", "Qt"]
+const _FMT_U := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
 # ================= v6: stars, arsenal, air strike, railgun, end screen =================
 const ARSENAL := [
 	{"id": "mega", "k": 11, "name": "Mega Nuke", "desc": "An atom bomb with double the blast.", "b": ["Twice the atom blast radius", "2.5M gold per launch"], "cost": 0},

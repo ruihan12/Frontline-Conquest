@@ -1015,6 +1015,7 @@ func _fmt(n: float) -> String:
 	var v := a
 	while v >= 999.95 and e < _FMT_U.size() - 1:
 		v /= 1000.0; e += 1
+	if v >= 1000.0: return ("-" if n < 0 else "") + UITheme.sci(a)  # past the last suffix
 	var t := ("%.2f" % v) if v < 10.0 else ("%.1f" % v)
 	return ("-" if n < 0 else "") + t + _FMT_U[e]
 

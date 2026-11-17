@@ -670,6 +670,14 @@ func _tile_distance(a: int, b: int) -> float:
 	return Vector2(a % w - b % w, a / w - b / w).length()
 
 
+## How far the second click may land from the locked target: 6 tiles, or 14 screen px when the map is
+## zoomed out far enough that a hand's jitter spans more tiles than that.
+func _confirm_radius() -> float:
+	var g = ctx.session.g
+	var ppt: float = maxf(0.01, g.cam.zoom.x * float(g.TS))
+	return maxf(6.0, 14.0 / ppt)
+
+
 ## A click while placing: build / upgrade here, or lock and then launch a nuke.
 func _place(tile: int, pos: Vector2) -> void:
 	var kind := _aim_for(tile)
@@ -691,7 +699,7 @@ func _place(tile: int, pos: Vector2) -> void:
 		tile = int(pl.tile)  # the snapped site / the structure an upgrade applies to
 	if UIRules.is_nuke(kind):
 		var now := UICtx.msec()
-		var confirmed: bool = _confirm_tile >= 0 and now - _confirm_msec < 6000.0 and _tile_distance(_confirm_tile, tile) <= 6.0
+		var confirmed: bool = _confirm_tile >= 0 and now - _confirm_msec < 6000.0 and _tile_distance(_confirm_tile, tile) <= _confirm_radius()
 		if UIRules.is_strike(kind):
 			confirmed = true
 			_confirm_tile = tile

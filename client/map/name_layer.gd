@@ -1,7 +1,7 @@
 # Port of src/client/Map/NameLayer.luau: owner names and troop counts on the map.
 #   * placement (_place): a coarse grid over the owner's box (scaling factor 1..32 by the box's
-#     size) where a cell is usable if it is the owner's tile, a shoreline tile, shallow sea or
-#     fallout; the largest inscribed rectangle of that grid; the name sits at its centre, raised
+#     size) where a cell is usable if it is the owner's tile (this game: upstream also allows a
+#     shoreline tile, shallow sea or fallout, so names spilled over the water and nuked ground); the largest inscribed rectangle of that grid; the name sits at its centre, raised
 #     by fontSize / 3, with fontSize = min(rect.width / name length * 2, rect.height / 3).
 #     Recomputed every 30 ticks and at once for new owners; spawn-phase names use an 8-tile box on
 #     the spawn;
@@ -152,15 +152,9 @@ func _place(id: int):
 		for gx in gw:
 			var t := ty * W + (gx0 + gx) * sf
 			var o := own[t]
+			# (this game: only the owner's own land; upstream also lets a name spill over shoreline, shallow
+			# sea and fallout)
 			var usable := o == id
-			if not usable:
-				# a shoreline tile or shallow sea (upstream: terrain magnitude < 10), or fallout
-				if o == water:
-					usable = has_cd and cd[t] < 10
-				elif has_cd and cd[t] <= 1 and o < 0:
-					usable = true
-				if not usable and has_fall and fall[t] == 1:
-					usable = true
 			heights[gx] = heights[gx] + 1 if usable else 0
 		var r := largest_in_histogram(heights, gw)
 		if int(r[1]) * int(r[2]) > best:

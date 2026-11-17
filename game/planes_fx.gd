@@ -252,12 +252,18 @@ func _draw_world_fx(z: float) -> void:
 			for v in ws.vet: overlay.draw_circle(p + Vector2(-8 + v * 4, -12), 1.6, GOLD_C)
 	# missiles: smooth rounded contrails with rounded end-caps, soft glow, and hot inner core
 	var q_lvl := int(save.get("settings", {}).get("qual_i", 3))
+	var nuke_heads := {}
+	if client != null and unit_layer != null: nuke_heads = unit_layer.draw_nukes(overlay)
 	for ms in missiles:
 		if ms.t < 0: continue
 		var f: float = clampf(ms.t / maxf(0.01, ms.dur), 0.0, 1.0)
 		var hcol: Color = nations[ms.o].color if (ms.o > 0 and ms.o < nations.size()) else Color(1, 0.4, 0.3)
 		var is_br: bool = ms.get("branched", false) or (ms.get("mirv", false) and not ms.get("mirv_bus", false))
 		var w_scale: float = 0.5 if is_br else 1.0
+		if nuke_heads.has(ms):
+			# the ported layer drew the trail, the bomb and its target ring; the countdown pill stays
+			_nuke_pill(nuke_heads[ms], ms, hcol, is_br)
+			continue
 		# Subtle ground-track shadow line from launch pad to current ground shadow point
 		var g0 := _screen_of(ms.from * TS)
 		var g_cur := _screen_of(ms.from.lerp(ms.to, f) * TS)
@@ -270,15 +276,7 @@ func _draw_world_fx(z: float) -> void:
 			var s_i: float = f * float(m) / float(n_seg)
 			trail_pts.append(_missile_screen_pos(ms, s_i, z))
 		var sp := trail_pts[trail_pts.size() - 1]
-		# seconds-to-impact countdown pill following the missile (bus, each warhead, every owner)
-		# whole game-seconds (10 ticks) until the bomb detonates; the missile clock runs DT_TICK per sim tick
-		var ticks_left := maxi(0, ceili((ms.dur - ms.t) / SimArsenal.DT_TICK - 0.001))
-		var etxt := "%ds" % ceili(ticks_left / 10.0)
-		var efs := 11 if is_br else 13
-		var esz := f_bold.get_string_size(etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs)
-		var er := Rect2(sp + Vector2(8, -10 - esz.y), esz + Vector2(10, 4))
-		overlay.draw_style_box(_flat(Color(0.07, 0.085, 0.15, 0.85), int(er.size.y / 2), Color(hcol, 0.7), 1), er)
-		overlay.draw_string(f_bold, er.position + Vector2(5, esz.y - 1), etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs, Color(1, 0.92, 0.75))
+		_nuke_pill(sp, ms, hcol, is_br)
 		if trail_pts.size() >= 2:
 			var w_outer: float = 6.6 * w_scale
 			var w_main: float = 4.5 * w_scale
@@ -474,3 +472,14 @@ func _draw_notes() -> void:
 			f_bold.draw_string(note_box.get_canvas_item(), Vector2(56, ly), ln, HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(TEXT, a))
 			ly += 20
 		y += h + 8
+
+func _nuke_pill(sp: Vector2, ms, hcol: Color, is_br: bool) -> void:
+	# seconds-to-impact countdown pill following the missile (bus, each warhead, every owner)
+	# whole game-seconds (10 ticks) until the bomb detonates; the missile clock runs DT_TICK per sim tick
+	var ticks_left := maxi(0, ceili((ms.dur - ms.t) / SimArsenal.DT_TICK - 0.001))
+	var etxt := "%ds" % ceili(ticks_left / 10.0)
+	var efs := 11 if is_br else 13
+	var esz := f_bold.get_string_size(etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs)
+	var er := Rect2(sp + Vector2(8, -10 - esz.y), esz + Vector2(10, 4))
+	overlay.draw_style_box(_flat(Color(0.07, 0.085, 0.15, 0.85), int(er.size.y / 2), Color(hcol, 0.7), 1), er)
+	overlay.draw_string(f_bold, er.position + Vector2(5, esz.y - 1), etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs, Color(1, 0.92, 0.75))

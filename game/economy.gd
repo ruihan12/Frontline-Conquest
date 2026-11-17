@@ -623,6 +623,9 @@ func _economy(dt: float) -> void:
 			if id != PLAYER and n.get("last_by", 0) == PLAYER: stats.elims += 1; sfx("conquered")
 			if id != PLAYER and (is_prot(id) or rng.randf() < 0.15): notify("%s has been eliminated" % n.name, "info")
 			continue
+		# floats run to 1e308: keep a runaway number finite (NaN reads 0, infinity stops at the largest value)
+		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0 if is_nan(n.troops) else 1.0e300
+		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0 if is_nan(n.gold) else 1.0e300
 		var kd := kind_of(id)
 		var tk := troop_kind(id); var tdf := troop_diff(id)  # novice bot players: Easy nation numbers
 		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf)

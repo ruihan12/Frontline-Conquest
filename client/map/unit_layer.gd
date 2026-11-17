@@ -12,6 +12,7 @@
 #   * shells, air strikes and slugs (the Arsenal's munitions) and SAM missiles are small sprites
 #     flying straight to their target;
 #   * a selected warship wears a white ring two sprites wide.
+# (nukes: draw_nukes; the countdown pill and the contrail-free extras stay in game/planes_fx.gd)
 # (The sim here moves ships, trains and warships itself: main.gd's lists. This layer draws them; the
 # bomb missiles keep the game's own contrail drawing in game/planes_fx.gd.)
 class_name UnitLayer
@@ -30,6 +31,14 @@ const COL_TRANSPORT := 0
 const COL_TRADE := 1
 const COL_WARSHIP := 2
 const COL_SAM := 6
+const COL_ATOM := 3
+const COL_HYDROGEN := 4
+const COL_MIRV := 5
+const COL_WARHEAD := 8
+const TRAIL_STEP := 2.0
+const TRAIL_WIDTH := 0.9
+const TRAIL_MAX := 90
+const MEGA_SCALE := 1.5
 const COL_SHELL := 7
 const COL_TRAIN := 9
 const COL_CARRIAGE := 10
@@ -178,6 +187,59 @@ func draw(ci: CanvasItem) -> void:
 			for v in int(ws.vet):
 				ci.draw_circle(p + Vector2(-8 + v * 4, -px * 0.5 - 3), 1.6, g.GOLD_C)
 	_draw_munitions(ci, px, vp)
+
+
+
+## Upstream's nukes: the curve flown so far as a solid trail (a line through points every TRAIL_STEP
+## full-size tiles, TRAIL_WIDTH tiles thick, at least 2 px, in the owner's colour), the bomb's sprite at its
+## head and, for the atom, hydrogen bomb and warhead, the blast ring on the target, pulsing (red when it
+## falls on the local player). Returns each missile's head position by index for the countdown pill.
+func draw_nukes(ci: CanvasItem) -> Dictionary:
+	var heads := {}
+	var vp: Vector2 = g.get_viewport_rect().size
+	var px: float = sprite_px()
+	var k: float = maxf(0.01, float(g.sim_rules.k_lin))
+	var ppt: float = g.cam.zoom.x * g.TS
+	var thick := maxf(2.0, roundf(ppt / k * TRAIL_WIDTH))
+	var now := FrameClock.now()
+	for ms in g.missiles:
+		if ms.t < 0.0:
+			continue
+		var f: float = clampf(ms.t / maxf(0.01, ms.dur), 0.0, 1.0)
+		var nk := int(ms.get("nk", SimRules.N_ATOM))
+		var col_i := COL_ATOM
+		match nk:
+			SimRules.N_HYDROGEN, SimRules.N_MEGA: col_i = COL_HYDROGEN
+			SimRules.N_MIRV, SimRules.N_SCATTER: col_i = COL_MIRV
+			SimRules.N_WARHEAD: col_i = COL_WARHEAD
+		var c: Color = _owner_col(int(ms.o)) if ms.o > 0 and ms.o < g.nations.size() else Color(1, 0.4, 0.3)
+		var dist: float = (ms.from as Vector2).distance_to(ms.to)
+		var steps := clampi(int(floor((dist * 1.4 + 1.0) * k / TRAIL_STEP)), 2, TRAIL_MAX)
+		var newest := int(floor(float(steps) * f))
+		var pts := PackedVector2Array()
+		for i in range(0, newest + 1):
+			pts.append(g._missile_screen_pos(ms, float(i) / float(steps), 1.0))
+		var head: Vector2 = g._missile_screen_pos(ms, f, 1.0)
+		pts.append(head)
+		if pts.size() >= 2:
+			ci.draw_polyline(pts, Color(c.r, c.g, c.b, TRAIL_ALPHA), thick, false)
+		var spx: float = px * (MEGA_SCALE if nk == SimRules.N_MEGA else 1.0)
+		if _on_screen(head, spx, vp):
+			sprite(ci, col_i, c, head, spx)
+		heads[ms] = head
+		if nk == SimRules.N_MIRV or ms.get("mirv_bus", false):
+			continue
+		var tgt: Vector2 = g._screen_of((ms.to as Vector2) * g.TS)
+		var rad := maxf(4.0, float(ms.r) * g.TS * g.cam.zoom.x)
+		if tgt.x < -rad or tgt.y < -rad or tgt.x > vp.x + rad or tgt.y > vp.y + rad:
+			continue
+		var tile: int = int(ms.to.y) * int(g.W) + int(ms.to.x)
+		var mine: bool = g.PLAYER > 0 and tile >= 0 and tile < g.owner_map.size() and g.owner_map[tile] == g.PLAYER
+		var rc := Color(1, 0.16, 0.12) if mine else c
+		var pulse := 0.2 + 0.3 * (0.5 + 0.5 * sin(now * 6.0))
+		ci.draw_circle(tgt, rad, Color(rc.r, rc.g, rc.b, 0.15))
+		ci.draw_arc(tgt, rad, 0.0, TAU, 64, Color(rc.r, rc.g, rc.b, 1.0 - pulse), 2.0, true)
+	return heads
 
 
 ## Shells, air strikes, slugs and SAM missiles: sprites flying straight to their target.

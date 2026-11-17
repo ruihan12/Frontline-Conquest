@@ -26,7 +26,17 @@ func _tex(rel: String, up := 1) -> Texture2D:
 	if _tex_cache.has(key): return _tex_cache[key]
 	var t: Texture2D = null
 	var path := "res://assets/" + rel
-	if FileAccess.file_exists(path):
+	# (an exported build keeps only the imported copy of a png: load() it, then upscale its image)
+	if ResourceLoader.exists(path):
+		var res = load(path)
+		if res is Texture2D:
+			var im: Image = (res as Texture2D).get_image()
+			if im != null:
+				if im.is_compressed(): im.decompress()
+				if im.get_format() != Image.FORMAT_RGBA8: im.convert(Image.FORMAT_RGBA8)
+				if up > 1: im.resize(im.get_width() * up, im.get_height() * up, Image.INTERPOLATE_NEAREST)
+				t = ImageTexture.create_from_image(im)
+	if t == null and FileAccess.file_exists(path):
 		var img := Image.new()
 		if img.load_png_from_buffer(FileAccess.get_file_as_bytes(path)) == OK:
 			if up > 1: img.resize(img.get_width() * up, img.get_height() * up, Image.INTERPOLATE_NEAREST)

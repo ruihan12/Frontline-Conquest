@@ -210,6 +210,8 @@ func on_structure_removed(kind: int, tile: int) -> void:
 
 
 static func format_gold(gold: float) -> String:
+	if gold >= 1000000000.0:
+		return UITheme.big(gold)
 	if gold >= 1000000.0:
 		return "%.1fM" % (floorf(gold / 1000000.0 * 10.0 + 0.5) / 10.0)
 	if gold >= 1000.0:

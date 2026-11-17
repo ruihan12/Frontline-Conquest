@@ -46,5 +46,5 @@ func _refresh() -> void:
 		t = formatter.call(_shown)
 	else:
 		var r := _shown
-		t = str(int(floor(r + 0.5)) if r >= 0 else -int(floor(-r + 0.5)))
+		t = UITheme.big(floorf(r + 0.5) if r >= 0 else -floorf(-r + 0.5))
 	text = t

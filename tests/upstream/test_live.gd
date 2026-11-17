@@ -750,7 +750,7 @@ func _naval_and_warships() -> void:
 				H.expect(not m.boats.has(pl), "transport plane arrives", "secs=%.1f" % secs)
 	# nuke speed: matches upstream Rules.NUKE_SPEED_FULL atom (10 full-size tiles per tick = 100 / k_lin of our tiles per second)
 	var tiles_per_s: float = 43.2 * m.nuke_speed_mult(100.0) * SimArsenal.DT_TICK * 10.0
-	H.expect(absf(tiles_per_s - 100.0 / m.sim_rules.k_lin) < 0.01, "atom bomb flies at the upstream speed", "%.1f tiles/s (k_lin %.3f)" % [tiles_per_s, m.sim_rules.k_lin])
+	H.expect(absf(tiles_per_s - 100.0 * m.NUKE_SPEED_X / m.sim_rules.k_lin) < 0.01, "atom bomb flies at the upstream speed x NUKE_SPEED_X (custom)", "%.1f tiles/s (k_lin %.3f)" % [tiles_per_s, m.sim_rules.k_lin])
 	# vet helpers already unit-tested; peek at init fields
 	if m.warships.size() > 0:
 		var w = m.warships[0]
