@@ -2,7 +2,7 @@
 #   terrain    the game's own terrain colours (g.base_col, generated per map);
 #   territory  owned tiles blend the owner's colour at 150/255 (saturation 0.85) over the terrain,
 #              border tiles are opaque in the border colour (HSL lightness - 0.125), fallout ground
-#              is opaque green noise (glowing lime while fresh: FalloutGlow's heat).
+#              is opaque green noise (FalloutGlow lays the glow of fresh fallout over it).
 # The rules:
 #   * border tile = a 4-neighbour has another owner (off the map counts as another owner);
 #   * hovered owner: fill contrast x1.25 about mid-grey, border mixed 25% to white, border thickened
@@ -134,15 +134,11 @@ func tile_color(i: int) -> Color:
 	var o: int = own[i]
 	var x := i % W
 	if g.fallout.size() > i and g.fallout[i] == 1 and o != g.WATER:
-		# stale-nuke ground: (0.05, 0.55, 0.07) + hash noise * 0.05, opaque; lime while fresh
+		# stale-nuke ground: (0.05, 0.55, 0.07) + hash noise * 0.05, opaque (the glow of fresh fallout
+		# is FalloutGlow's overlay, not the ground's)
 		var y := i / W
 		var h := fmod(absf(sin(x * 12.9898 + y * 78.233) * 43758.5453), 1.0) * 0.05
-		var gc := Color(0.05 + h, 0.55 + h, 0.07 + h)
-		var heat := clampf((g.fallout_t[i] - 34.5) / 25.5, 0.0, 1.0)
-		var bx := (x / 4 + (y / 4) * 7) % 5
-		if heat > 0.0:
-			gc = gc.lerp(Color8(150, 236, 90), heat * (0.75 + 0.05 * bx))
-		return gc
+		return Color(0.05 + h, 0.55 + h, 0.07 + h)
 	var tc: Color = g.base_col[i]
 	if o <= 0:
 		return tc

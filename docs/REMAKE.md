@@ -101,7 +101,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/Map/RoadLayer.luau | 672 | client/map/road_layer.gd | done, live (fade-in lines, detailed track from zoom 6, coloured by the land under them; the game's own Manhattan rail paths are expanded to tiles) |
 | src/client/Map/StructureLayer.luau | 633 | client/map/structure_layer.gd | done, live (plate colours, zoom sizing and dots, level number, progress bar; drawn onto the overlay in place of the old loop) |
 | src/client/Map/TrailBudget.luau | 34 | client/map/trail_budget.gd | done (library; the game's own unit drawing does not use it yet) |
-| src/client/Map/UnitLayer.luau | 742 | client/map/unit_layer.gd | done, live (ships on the old atlas, transport wakes, trains with cars from zoom 3, shell / air strike / slug / SAM sprites, warship ring; bomb missiles and their contrails still drawn by game/planes_fx.gd, the game's own sim moves the units) |
+| src/client/Map/UnitLayer.luau | 742 | client/map/unit_layer.gd | done, live (all sprites from units_one, transport wakes, trains with cars from zoom 3, shell / air strike / slug / SAM sprites, warship ring; bomb missiles and their contrails still drawn by game/planes_fx.gd, the game's own sim moves the units) |
 | src/client/Map/ViewRules.luau | 145 | client/map/view_rules.gd | done (library over this port's SimRules) |
 | src/client/Map/WakeRoute.luau | 211 | client/map/wake_route.gd | done (library; the game's own boat curve still draws the wakes) |
 | src/client/Audio/AudioDirector.luau | 1376 | audio_upstream/audio_director.gd | done earlier (one file holds AudioDirector, MusicMood, Playlist) |

@@ -61,7 +61,7 @@ const KEYS_TOUCH := [
 	["Long-press", "Action menu"],
 	["Drag", "Pan the map"],
 	["Pinch", "Zoom"],
-	["Tap a slot", "Tap the map, then ✓"],
+	["Tap a slot", "Tap the map, then confirm"],
 	["Tap your land", "Inspect"],
 	["Tap a warship", "Then tap the sea to move it"],
 	["Tap an ally", "Donate or break the alliance"],

@@ -229,7 +229,7 @@ func _rw_spawn_all() -> void:
 		nations[id]["authored_color"] = hex != ""
 	_nudge_nation_colors()
 	for k in SimRules.DEFAULT_TRIBES:
-		var grey_v := rng.randf_range(0.40, 0.58)
+		var grey_v := rng.randf_range(0.58, 0.74)
 		var id := _new_nation(_name(), Color.from_hsv(0.60, rng.randf_range(0.02, 0.07), grey_v), true)
 		nations[id].troops = SimRules.START_TROOPS_TRIBE
 		var t := _random_start()

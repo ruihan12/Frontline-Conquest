@@ -658,9 +658,9 @@ func _autoshot(dt: float) -> void:
 		5:
 			var ok := false
 			var pc: Vector2i = nations[PLAYER].bb.get_center()
-			for k in 600:
+			for k in 6000:
 				var i := rng.randi() % (W * H)
-				if owner_map[i] >= 0 and owner_map[i] != PLAYER and _coastal(i) and absi(i % W - pc.x) > 50 and absi(i % W - pc.x) < 160:
+				if owner_map[i] >= 0 and owner_map[i] != PLAYER and _coastal(i) and absi(i % W - pc.x) > 30 and absi(i % W - pc.x) < 260:
 					ok = launch_boat(PLAYER, i, 0.25)
 					if ok: _pboat = boats[boats.size() - 1]; break
 			print("player boat ", ok, " route pts ", (_pboat.pts.size() if _pboat else 0))

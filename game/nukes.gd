@@ -58,17 +58,54 @@ func nearest_silo(o: int, target: Vector2) -> Dictionary:
 			if d < bd: bd = d; best = st
 	return best
 
+const ARC_SAMPLES := 96
+const ARC_MIN_HEIGHT_FULL := 50.0
+
+# Rules.nuke_arc: a cubic Bezier from the silo to the target, its control points a quarter and three
+# quarters along, raised by max(dist / 3, 50 full-size tiles) toward the top of the map (clamped to it),
+# flown at constant speed along the curve. Cached on the missile as {pts (tile units), lens}.
+func _missile_arc(ms) -> Dictionary:
+	var arc = ms.get("_arc")
+	if arc != null: return arc
+	var sp: Vector2 = ms.from
+	var dp: Vector2 = ms.to
+	var dd := dp - sp
+	var kl: float = maxf(0.01, float(sim_rules.k_lin)) if sim_rules != null else 1.0
+	var hmax := maxf(dd.length() / 3.0, ARC_MIN_HEIGHT_FULL / kl)
+	var p1 := Vector2(sp.x + dd.x / 4.0, clampf(sp.y + dd.y / 4.0 - hmax, 0.0, float(H - 1)))
+	var p2 := Vector2(sp.x + dd.x * 3.0 / 4.0, clampf(sp.y + dd.y * 3.0 / 4.0 - hmax, 0.0, float(H - 1)))
+	var pts := PackedVector2Array()
+	var lens := PackedFloat32Array()
+	var total := 0.0
+	var prev := sp
+	for i in ARC_SAMPLES + 1:
+		var t := float(i) / float(ARC_SAMPLES)
+		var u := 1.0 - t
+		var pt: Vector2 = sp * (u * u * u) + p1 * (3.0 * u * u * t) + p2 * (3.0 * u * t * t) + dp * (t * t * t)
+		if i > 0: total += pt.distance_to(prev)
+		pts.append(pt)
+		lens.append(total)
+		prev = pt
+	arc = {"pts": pts, "lens": lens}
+	ms["_arc"] = arc
+	return arc
+
 func _missile_world_pos(ms, s: float) -> Vector2:
-	# Clean, realistic low-profile ICBM altitude arc (pure -Y altitude above ground track, no S-curve or sideways bend)
-	var sc := clampf(s, 0.0, 1.0)
-	var p0: Vector2 = ms.from * TS
-	var p1: Vector2 = ms.to * TS
-	var dist_px: float = p0.distance_to(p1)
-	var is_br: bool = ms.get("branched", false)
-	var ground_pos: Vector2 = p0.lerp(p1, sc)
-	var alt_profile: float = pow(sc, 0.72) * pow(1.0 - sc, 0.92) * 3.12
-	var apex_h: float = clampf(dist_px * (0.11 if is_br else 0.16), 8.0 if is_br else 16.0, 28.0 if is_br else 64.0)
-	return ground_pos + Vector2(0.0, -alt_profile * apex_h)
+	var arc := _missile_arc(ms)
+	var pts: PackedVector2Array = arc.pts
+	var lens: PackedFloat32Array = arc.lens
+	var total: float = lens[lens.size() - 1]
+	if total <= 0.0: return ms.from * TS
+	var want := clampf(s, 0.0, 1.0) * total
+	var lo := 0
+	var hi := lens.size() - 1
+	while hi - lo > 1:
+		var mid := (lo + hi) / 2
+		if lens[mid] < want: lo = mid
+		else: hi = mid
+	var seg: float = lens[hi] - lens[lo]
+	var f: float = (want - lens[lo]) / seg if seg > 0.0 else 0.0
+	return pts[lo].lerp(pts[hi], f) * TS
 
 func _missile_screen_pos(ms, s: float, _z: float) -> Vector2:
 	return _screen_of(_missile_world_pos(ms, s))

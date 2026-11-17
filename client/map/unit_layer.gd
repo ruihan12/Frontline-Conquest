@@ -2,9 +2,8 @@
 #   * sprites from the unit atlas (13 x 13 px cells, UNIT_SIZE = 13 full-size tiles wide so they scale
 #     with the map, at least MIN_PX device px, never rotated, snapped to whole device pixels): light
 #     pixels in the owner's territory colour, dark pixels in its border colour (HSV value - 0.16);
-#   * the ships use RoWorld's old atlas (assets/units_old.png, the look this game keeps: small diamond
-#     "specks"), every other sprite the current one (assets/rw/map_sprites/units_one.png, both of its
-#     colours in one tint);
+#   * every sprite, ships included, comes from the current atlas (assets/rw/map_sprites/units_one.png,
+#     both of its colours in one tint; the old diamond "specks" were invisible on the sea);
 #   * a transport leaves a wake: the way sailed so far along its route, one full-size tile wide
 #     (at least TRAIL_MIN_PX) in the owner's territory colour at alpha 0.588, gone with the ship;
 #   * a train is the engine, TRAIN_CARRIAGES carriages and a tail engine, TRAIN_SPACING full-size
@@ -38,13 +37,11 @@ const SHELL_SCALE := 0.75
 const SLUG_SCALE := 1.2
 
 var g  # main.gd
-var _old: Texture2D
 var _one: Texture2D
 
 
 func _init(main) -> void:
 	g = main
-	_old = g._tex("units_old.png", 4)
 	_one = g._tex("rw/map_sprites/units_one.png", 4)
 
 
@@ -62,10 +59,7 @@ func sprite(ci: CanvasItem, col: int, owner_col: Color, p: Vector2, px: float, s
 	var ds: float = g.hud._device_scale() if g.hud and g.hud.has_method("_device_scale") else 1.0
 	var c := Vector2(roundf(p.x * ds), roundf(p.y * ds)) / ds
 	var dst := Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px))
-	if ship and _old != null:
-		ci.draw_texture_rect_region(_old, dst, Rect2(col * CELL * 4.0, 0, CELL * 4.0, CELL * 4.0), owner_col)
-		ci.draw_texture_rect_region(_old, dst, Rect2(col * CELL * 4.0, CELL * 4.0, CELL * 4.0, CELL * 4.0), border_of(owner_col))
-	elif _one != null:
+	if _one != null:
 		ci.draw_texture_rect_region(_one, dst, Rect2(col * CELL * 4.0, 0, CELL * 4.0, CELL * 4.0), owner_col)
 
 

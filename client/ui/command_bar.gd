@@ -497,9 +497,9 @@ func set_placing(kind: String) -> void:
 	var show := kind != "" and ctx.touch
 	if show:
 		var t: String = UIRules.SHORT.get(kind, kind)
-		var txt := "Tap a target, then ✓ to launch" if UIRules.is_nuke(kind) else "Tap your land, then ✓ to build the %s" % t
+		var txt := "Tap a target, then confirm to launch" if UIRules.is_nuke(kind) else "Tap your land, then confirm to build the %s" % t
 		if kind == "warship":
-			txt = "Tap water near your port, then ✓"
+			txt = "Tap water near your port, then confirm"
 		_place_text.text = txt
 	var was := _place_chip.visible
 	_place_chip.visible = show
