@@ -805,6 +805,11 @@ func soundtrack_root() -> String:
 	return upstream_root + "music/"
 
 
+## True when the file is on disk or, in an exported build (only the imported copy ships), importable.
+func _asset_exists(path: String) -> bool:
+	return FileAccess.file_exists(ProjectSettings.globalize_path(path)) or FileAccess.file_exists(path) or ResourceLoader.exists(path)
+
+
 func soundtrack_count() -> int:
 	return 0 if _playlist == null else _playlist.tracks.size()
 
@@ -817,7 +822,7 @@ func _build_playlist() -> void:
 	var tracks := {}
 	for k in SOUNDTRACK_TRACKS:
 		var path := soundtrack_root() + str(k) + ".ogg"
-		if FileAccess.file_exists(ProjectSettings.globalize_path(path)) or FileAccess.file_exists(path):
+		if _asset_exists(path):
 			tracks[k] = {"id": path, "length": float(SOUNDTRACK_TRACKS[k][0]), "title": str(SOUNDTRACK_TRACKS[k][1])}
 	_playlist = Playlist.new({"tracks": tracks, "moods": SOUNDTRACK_MOODS}, _rng) if not tracks.is_empty() else null
 
@@ -1276,7 +1281,7 @@ func _load_streams() -> void:
 	for name in EVENT_FILES.keys():
 		var up_path := upstream_root + str(name) + ".wav"
 		var up: AudioStream = null
-		if FileAccess.file_exists(ProjectSettings.globalize_path(up_path)) or FileAccess.file_exists(up_path):
+		if _asset_exists(up_path):
 			up = _load_audio(up_path)
 		if up != null:
 			up.set_meta("sfx_file", "upstream/" + str(name) + ".wav")
