@@ -15,7 +15,7 @@ Map size is `W = 1792`, `H = 1600` (`main.gd`). `DEFAULT_K_LIN = 1.1161` scales 
 - Land cap (`max_troops`): `5000 + 6200 * (tiles * tile_norm)^0.41 + 25000 * city levels`. Tribes get one third. Nations multiply by 0.5 / 0.75 / 1.0. The comment in `rules.gd` says this replaced the source `2 * (fullTiles^0.6 * 1000 + 50000)`. It is the cap the port already ships. Console edits of `troops` write `nations[PLAYER].troops` directly (`main.gd` console) and are not clamped back by that formula on the write.
 - Starting troops: human 25000, tribe 10000, nations 12500 / 18750 / 25000 by difficulty.
 - Conquered gold: all of a bot's gold, half of a human's (`conquer_gold`).
-- Number format: `K M B T Qd Qt` in `_fmt` (`main.gd`).
+- Number format: `K M B T Qd` in `_fmt` (`game/ui_build.gd`) and `UITheme.big` (`client/ui/ui_theme.gd`). Past Qd (1e18 and above) uses scientific notation with 6 digits after the decimal (e.g. `1.343452e23`).
 
 Structure prices (`SimRules.build_cost`), `n` = how many you already own:
 

@@ -1,6 +1,6 @@
 # Port of RoWorld src/shared/Core/NumberFormat.luau (render_number / render_troops) and the UITheme
 # formatters (src/client/UI/UITheme.luau:1890-1953). Reference only: the live HUD keeps its own
-# K/M/B/T/Qd/Qt formatter. Upstream stops at B.
+# K/M/B/T/Qd formatter (scientific notation past Qd). Upstream stops at B.
 extends RefCounted
 
 static func _fixed(v: float, d: int) -> String:

@@ -550,8 +550,9 @@ var over_panel_p: Panel
 # 13/600 value; body 12/500 wrapped; hint 12/600 with a 14 px icon after a divider. Min width 236 when it
 # follows the cursor (+20, +22), 220 when anchored (10 px above the anchor).
 const TIP_PAD := Vector2(12, 10)
-# One shared number formatter: K M B T Qd Qt, ~4 significant digits (159.3B, 25.5M, 62.1K, 9.87M).
-const _FMT_U := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+# One shared number formatter: K M B T Qd, ~4 significant digits (159.3B, 25.5M, 62.1K, 9.87M).
+# Past Qd (1e18 and above) it uses scientific notation with 6 digits after the decimal (1.343452e23).
+const _FMT_U := ["", "K", "M", "B", "T", "Qd"]
 # ================= v6: stars, arsenal, air strike, railgun, end screen =================
 const ARSENAL := [
 	{"id": "mega", "k": 11, "name": "Mega Nuke", "desc": "An atom bomb with double the blast.", "b": ["Twice the atom blast radius", "2.5M gold per launch"], "cost": 0},

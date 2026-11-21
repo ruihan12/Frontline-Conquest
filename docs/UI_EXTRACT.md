@@ -114,7 +114,7 @@ The top-bar buttons (Main.luau header) are Music (M), Help, Leaderboard, Home (f
 - Troops (NumberFormat.luau:12-38) are floored, never rounded: 1234 → 1.23K, 24567 → 24.5K, 123456 → 123K, 1259999 → 1.25M, ≥1e10 → x.xB. Upstream stops at B and shows troops as internal / 10.
 - Gold and other numbers use fmt_num (UITheme.luau:1890-1911), which rounds printf-style.
 - fmt_cost gives 50K / 1.5M, fmt_pct gives `%.1f%%` (or `%.2f%%` under 1 %), fmt_time gives `m:ss` / `h:mm:ss`, and fmt_rate gives `+1.5K/s` or `±0/s` (:1918-1953).
-- Our live K/M/B/T/Qd/Qt formatter and smooth +/s rates stay as they are. The ui_upstream/number_format.gd port is for reference and is tested.
+- Our live formatter uses K/M/B/T/Qd, then scientific notation with 6 digits after the decimal past Qd (1e18+). Smooth +/s rates stay as they are. The ui_upstream/number_format.gd port is for reference and is tested (upstream stops at B).
 
 ## Icons and textures
 

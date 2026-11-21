@@ -536,21 +536,26 @@ static func _format_troops(value: float) -> String:
 static func fmt_num(v: float) -> String:
 	return _format_troops(v)
 
-## Suffixes past the thousands, so a number never runs out of names (floats carry it to 1e308).
-const BIG_SUFFIX := ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"]
+## Suffixes: K (1e3), M (1e6), B (1e9), T (1e12), Qd (1e15). At 1e18 and above (past Qd) we use scientific notation.
+const BIG_SUFFIX := ["", "K", "M", "B", "T", "Qd"]
 
-## 1.23e45 (GDScript's format has no %e).
+## 1.343452e23 (GDScript's format has no %e). Exactly 6 digits after the decimal.
 static func sci(a: float) -> String:
 	var ex := int(floorf(log(a) / log(10.0)))
 	var m := a / pow(10.0, float(ex))
 	if m >= 10.0:
 		m /= 10.0
 		ex += 1
-	return "%.2fe%d" % [m, ex]
+	# %.6f rounds; keep the mantissa in [1, 10) so we never print 10.000000eN.
+	var rounded := snappedf(m, 0.000001)
+	if rounded >= 10.0:
+		rounded = 1.0
+		ex += 1
+	return "%.6fe%d" % [rounded, ex]
 
 
-## v scaled by powers of 1000 to a suffix: "1.25B", "12.5T", "159.3Qa"; floored, never rounded. Past the last
-## suffix it falls back to scientific ("1.2e45"). NaN reads 0 and infinity "∞".
+## v scaled by powers of 1000 to a suffix: "1.25B", "12.5T", "159.3Qd"; floored, never rounded. Past Qd
+## (1e18 and above) it uses scientific notation with 6 decimal digits ("1.343452e23"). NaN reads 0 and infinity "∞".
 static func big(v: float) -> String:
 	if is_nan(v): return "0"
 	if is_inf(v): return "∞" if v > 0 else "-∞"
@@ -584,8 +589,10 @@ static func render_number(num: float) -> String:
 static func fmt_troops(v: float) -> String:
 	return render_number(v / 10.0)
 
-# Compact price: 50K, 125K, 1M, 1.5M, 25M.
+# Compact price: 50K, 125K, 1M, 1.5M, 25M. Past 1B it uses the shared big() formatter (Qd, then e-notation).
 static func fmt_cost(v: float) -> String:
+	if v >= 1_000_000_000.0:
+		return big(v)
 	if v >= 1000000.0:
 		var m := v / 1000000.0
 		return ("%dM" % _round(m)) if absf(m - _round(m)) < 0.05 else ("%.1fM" % m)
