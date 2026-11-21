@@ -27,410 +27,411 @@
   1673,
   798
  ],
- "scale": 1.07113,
+ "scale": 1.0,
  "placed": [
   0,
-  372,
-  1792,
-  855
+  0,
+  1673,
+  798
  ],
- "width": 1792,
- "height": 1600,
- "k_lin": 0.9336,
- "resample": "nearest (upstream WorldMap._resample, centre sampling)",
- "land_tiles": 972309,
+ "width": 1673,
+ "height": 798,
+ "k_lin": 1.0,
+ "resample": "none (native upstream grid, 1:1)",
+ "land_tiles": 847177,
  "code_counts": [
-  1894891,
-  354815,
-  515990,
-  101504,
-  0
+  487877,
+  309258,
+  449353,
+  88566
  ],
  "snow_tiles": 0,
- "lake_tiles": 1539,
- "water_bodies": 23,
+ "lake_tiles": 1342,
+ "first_land_row": 0,
+ "last_land_row": 797,
+ "default_tribes": 400,
  "nations": [
   {
    "name": "Egypt",
    "flag": "eg",
-   "x": 1405,
-   "y": 1132,
+   "x": 1312,
+   "y": 709,
    "src_x": 1312,
    "src_y": 709
   },
   {
    "name": "Türkiye",
    "flag": "tr",
-   "x": 1534,
-   "y": 716,
+   "x": 1432,
+   "y": 321,
    "src_x": 1432,
    "src_y": 321
   },
   {
    "name": "France",
    "flag": "fr",
-   "x": 431,
-   "y": 452,
+   "x": 402,
+   "y": 75,
    "src_x": 402,
    "src_y": 75
   },
   {
    "name": "Italy",
    "flag": "it",
-   "x": 726,
-   "y": 474,
+   "x": 678,
+   "y": 95,
    "src_x": 678,
    "src_y": 95
   },
   {
    "name": "Spain",
    "flag": "es",
-   "x": 225,
-   "y": 683,
+   "x": 210,
+   "y": 290,
    "src_x": 210,
    "src_y": 290
   },
   {
    "name": "Algeria",
    "flag": "dz",
-   "x": 448,
-   "y": 871,
+   "x": 418,
+   "y": 466,
    "src_x": 418,
    "src_y": 466
   },
   {
    "name": "Morocco",
    "flag": "ma",
-   "x": 96,
-   "y": 1062,
+   "x": 90,
+   "y": 644,
    "src_x": 90,
    "src_y": 644
   },
   {
    "name": "Romania",
    "flag": "ro",
-   "x": 1205,
-   "y": 429,
+   "x": 1125,
+   "y": 53,
    "src_x": 1125,
    "src_y": 53
   },
   {
    "name": "Syria",
    "flag": "sy",
-   "x": 1664,
-   "y": 911,
+   "x": 1553,
+   "y": 503,
    "src_x": 1553,
    "src_y": 503
   },
   {
    "name": "Tunisia",
    "flag": "tn",
-   "x": 654,
-   "y": 971,
+   "x": 611,
+   "y": 559,
    "src_x": 611,
    "src_y": 559
   },
   {
    "name": "Greece",
    "flag": "gr",
-   "x": 1093,
-   "y": 710,
+   "x": 1020,
+   "y": 315,
    "src_x": 1020,
    "src_y": 315
   },
   {
    "name": "Portugal",
    "flag": "pt",
-   "x": 59,
-   "y": 704,
+   "x": 55,
+   "y": 310,
    "src_x": 55,
    "src_y": 310
   },
   {
    "name": "Jordan",
    "flag": "jo",
-   "x": 1598,
-   "y": 1101,
+   "x": 1492,
+   "y": 680,
    "src_x": 1492,
    "src_y": 680
   },
   {
    "name": "Bulgaria",
    "flag": "bg",
-   "x": 1211,
-   "y": 573,
+   "x": 1131,
+   "y": 188,
    "src_x": 1131,
    "src_y": 188
   },
   {
    "name": "Serbia",
    "flag": "rs",
-   "x": 1060,
-   "y": 498,
+   "x": 990,
+   "y": 118,
    "src_x": 990,
    "src_y": 118
   },
   {
    "name": "Lebanon",
    "flag": "lb",
-   "x": 1584,
-   "y": 951,
+   "x": 1479,
+   "y": 540,
    "src_x": 1479,
    "src_y": 540
   },
   {
    "name": "Libya",
    "flag": "ly",
-   "x": 819,
-   "y": 1064,
+   "x": 765,
+   "y": 646,
    "src_x": 765,
    "src_y": 646
   },
   {
    "name": "Croatia",
    "flag": "hr",
-   "x": 908,
-   "y": 426,
+   "x": 848,
+   "y": 50,
    "src_x": 848,
    "src_y": 50
   },
   {
    "name": "Bosnia and Herzegovina",
    "flag": "ba",
-   "x": 967,
-   "y": 503,
+   "x": 903,
+   "y": 122,
    "src_x": 903,
    "src_y": 122
   },
   {
    "name": "Albania",
    "flag": "al",
-   "x": 1037,
-   "y": 657,
+   "x": 968,
+   "y": 266,
    "src_x": 968,
    "src_y": 266
   },
   {
    "name": "North Macedonia",
    "flag": "mk",
-   "x": 1087,
-   "y": 616,
+   "x": 1015,
+   "y": 228,
    "src_x": 1015,
    "src_y": 228
   },
   {
    "name": "Montenegro",
    "flag": "me",
-   "x": 1004,
-   "y": 561,
+   "x": 937,
+   "y": 176,
    "src_x": 937,
    "src_y": 176
   },
   {
    "name": "Ajdabiya",
    "flag": "ly",
-   "x": 1094,
-   "y": 1180,
+   "x": 1021,
+   "y": 754,
    "src_x": 1021,
    "src_y": 754
   },
   {
    "name": "Cagliari",
    "flag": "it",
-   "x": 663,
-   "y": 712,
+   "x": 619,
+   "y": 317,
    "src_x": 619,
    "src_y": 317
   },
   {
    "name": "Rize",
    "flag": "tr",
-   "x": 1752,
-   "y": 644,
+   "x": 1636,
+   "y": 254,
    "src_x": 1636,
    "src_y": 254
   },
   {
    "name": "Aydın",
    "flag": "tr",
-   "x": 1308,
-   "y": 789,
+   "x": 1221,
+   "y": 389,
    "src_x": 1221,
    "src_y": 389
   },
   {
    "name": "Ghardaïa",
    "flag": "dz",
-   "x": 451,
-   "y": 1085,
+   "x": 421,
+   "y": 665,
    "src_x": 421,
    "src_y": 665
   },
   {
    "name": "Salerno",
    "flag": "it",
-   "x": 869,
-   "y": 667,
+   "x": 811,
+   "y": 275,
    "src_x": 811,
    "src_y": 275
   },
   {
    "name": "Asturias",
    "flag": "es",
-   "x": 142,
-   "y": 537,
+   "x": 133,
+   "y": 154,
    "src_x": 133,
    "src_y": 154
   },
   {
    "name": "Béchar",
    "flag": "dz",
-   "x": 247,
-   "y": 1128,
+   "x": 231,
+   "y": 706,
    "src_x": 231,
    "src_y": 706
   },
   {
    "name": "Cádiz",
    "flag": "es",
-   "x": 144,
-   "y": 845,
+   "x": 134,
+   "y": 441,
    "src_x": 134,
    "src_y": 441
   },
   {
    "name": "Tlemcen",
    "flag": "dz",
-   "x": 292,
-   "y": 923,
+   "x": 273,
+   "y": 514,
    "src_x": 273,
    "src_y": 514
   },
   {
    "name": "Barcelona",
    "flag": "es",
-   "x": 413,
-   "y": 612,
+   "x": 386,
+   "y": 224,
    "src_x": 386,
    "src_y": 224
   },
   {
    "name": "Kocaeli",
    "flag": "tr",
-   "x": 1376,
-   "y": 646,
+   "x": 1285,
+   "y": 256,
    "src_x": 1285,
    "src_y": 256
   },
   {
    "name": "Var",
    "flag": "fr",
-   "x": 560,
-   "y": 533,
+   "x": 523,
+   "y": 150,
    "src_x": 523,
    "src_y": 150
   },
   {
    "name": "Marj",
    "flag": "ly",
-   "x": 1068,
-   "y": 1038,
+   "x": 997,
+   "y": 622,
    "src_x": 997,
    "src_y": 622
   },
   {
    "name": "Mardin",
    "flag": "tr",
-   "x": 1756,
-   "y": 803,
+   "x": 1639,
+   "y": 402,
    "src_x": 1639,
    "src_y": 402
   },
   {
    "name": "Sirte",
    "flag": "ly",
-   "x": 946,
-   "y": 1127,
+   "x": 883,
+   "y": 705,
    "src_x": 883,
    "src_y": 705
   },
   {
    "name": "Skikda",
    "flag": "dz",
-   "x": 580,
-   "y": 833,
+   "x": 541,
+   "y": 430,
    "src_x": 541,
    "src_y": 430
   },
   {
    "name": "Navarre",
    "flag": "es",
-   "x": 288,
-   "y": 563,
+   "x": 269,
+   "y": 178,
    "src_x": 269,
    "src_y": 178
   },
   {
    "name": "Palermo",
    "flag": "it",
-   "x": 811,
-   "y": 781,
+   "x": 757,
+   "y": 382,
    "src_x": 757,
    "src_y": 382
   },
   {
    "name": "Mersin",
    "flag": "tr",
-   "x": 1510,
-   "y": 837,
+   "x": 1410,
+   "y": 434,
    "src_x": 1410,
    "src_y": 434
   },
   {
    "name": "Ghadames",
    "flag": "ly",
-   "x": 710,
-   "y": 1121,
+   "x": 663,
+   "y": 699,
    "src_x": 663,
    "src_y": 699
   },
   {
    "name": "Alicante",
    "flag": "es",
-   "x": 326,
-   "y": 752,
+   "x": 304,
+   "y": 355,
    "src_x": 304,
    "src_y": 355
   },
   {
    "name": "Haute-Savoie",
    "flag": "fr",
-   "x": 569,
-   "y": 414,
+   "x": 531,
+   "y": 39,
    "src_x": 531,
    "src_y": 39
   },
   {
    "name": "Ordu",
    "flag": "tr",
-   "x": 1634,
-   "y": 648,
+   "x": 1525,
+   "y": 258,
    "src_x": 1525,
    "src_y": 258
   },
   {
    "name": "South Sinai",
    "flag": "eg",
-   "x": 1508,
-   "y": 1185,
+   "x": 1408,
+   "y": 759,
    "src_x": 1408,
    "src_y": 759
   },
   {
    "name": "Matrouh",
    "flag": "eg",
-   "x": 1292,
-   "y": 1154,
+   "x": 1206,
+   "y": 730,
    "src_x": 1206,
    "src_y": 730
   }

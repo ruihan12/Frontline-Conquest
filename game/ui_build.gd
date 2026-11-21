@@ -132,38 +132,8 @@ func _lbl(t: String, size := 16, col := TEXT) -> Label:
 	return l
 
 func _map_preview(k: int, pw: int, ph: int) -> ImageTexture:
-	if map_tab == 2: return UpstreamMaps.preview_texture(UpstreamMaps.id_at(k), pw, ph)
-	var im := Image.create(pw, ph, false, Image.FORMAT_RGBA8)
-	if map_tab == 0:
-		var raw_bytes := _get_handcrafted_map_bytes(k)
-		if raw_bytes.size() == W * H:
-			for py in ph:
-				var sy := clampi(int(float(py) * H / ph), 0, H - 1)
-				for px in pw:
-					var sx := clampi(int(float(px) * W / pw), 0, W - 1)
-					var code: int = raw_bytes[sy * W + sx]
-					var c := Color(0.16, 0.33, 0.50, 0.92)
-					if code >= 3: c = Color(0.93, 0.93, 0.96)
-					elif code == 2: c = Color(0.82, 0.76, 0.56)
-					elif code == 1: c = Color(0.70, 0.82, 0.53)
-					im.set_pixel(px, py, c)
-			return ImageTexture.create_from_image(im)
-	var m := _active_map_entry(k)
-	var seed_val: int = int(m[1]) + rand_seed_off
-	var n := FastNoiseLite.new(); n.seed = seed_val; n.frequency = 0.006; n.fractal_octaves = 6
-	var n2 := FastNoiseLite.new(); n2.seed = seed_val + 7; n2.frequency = 0.025
-	for py in ph:
-		for px in pw:
-			var x := float(px) * W / pw; var y := float(py) * H / ph
-			var v: float = _sample_map_elev(k, x, y, n, n2)
-			var c := Color(0.16, 0.33, 0.50, 0.85)
-			if v > 0.0:
-				if v > 0.48: c = Color(0.94, 0.94, 0.96)
-				elif v > 0.40: c = Color(0.70, 0.65, 0.56)
-				elif v > 0.20: c = Color(0.82, 0.76, 0.56)
-				else: c = Color(0.70, 0.82, 0.53)
-			im.set_pixel(px, py, c)
-	return ImageTexture.create_from_image(im)
+	return UpstreamMaps.preview_texture(UpstreamMaps.id_at(k), pw, ph)
+
 
 func _build_ui() -> void:
 	# upstream UITheme: Rubik everywhere (regular 500, bold 700, headings 800 + letter spacing)
@@ -229,10 +199,9 @@ func _build_ui() -> void:
 # (the main menu and the PLAY SOLO window are client/ui/title_screen.gd and map_picker.gd)
 
 func _set_map_tab(t_idx: int) -> void:
-	map_tab = clampi(t_idx, 0, 1)
-	map_i = clampi(map_i, 0, (UpstreamMaps.count() if map_tab == 2 else MAPS.size()) - 1)
-	if map_tab == 1 and rand_seed_off == 0:
-		rand_seed_off = rng.randi_range(100, 999999)
+	# Category filter only; the selected map (map_i) stays on UpstreamMaps.ORDER.
+	map_tab = clampi(t_idx, 0, UIMaps.TAB_NAMES.size() - 1)
+	map_i = clampi(map_i, 0, UpstreamMaps.count() - 1)
 	_refresh_map_tab_cards()
 
 func _preview_key(k: int) -> String:
@@ -249,13 +218,8 @@ func _blank_preview() -> ImageTexture:
 # Queues the random maps' previews that are not drawn yet (a few rows a frame, _pump_previews) and
 # has the map picker rebuild its cards.
 func _refresh_map_tab_cards() -> void:
-	var tbl: Array = _upstream_menu() if map_tab == 2 else (RANDOM_MAPS if map_tab == 1 else MAPS)
 	_pv_job = {}
 	_preview_queue.clear()
-	if map_tab == 1:
-		for k in tbl.size():
-			if not _preview_cache.has(_preview_key(k)):
-				_preview_queue.append(k)
 	if client != null and client.map_picker != null:
 		client.map_picker.rebuild()
 

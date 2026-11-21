@@ -14,16 +14,7 @@ func _ready() -> void:
 	RenderingServer.set_default_clear_color(Color(0.20, 0.42, 0.62))
 	if autoshot: Engine.time_scale = 4.0
 	# map split into chunk textures; only dirty chunks are uploaded each frame
-	for cy in H / CH:
-		for cx in W / CW:
-			var im := Image.create(CW, CH, false, Image.FORMAT_RGBA8)
-			var tx := ImageTexture.create_from_image(im)
-			var sp := Sprite2D.new(); sp.texture = tx; sp.centered = false
-			sp.scale = Vector2(TS, TS); sp.position = Vector2(cx * CW, cy * CH) * TS
-			sp.material = _map_material()
-			add_child(sp)
-			chunk_img.append(im); chunk_tex.append(tx); chunk_sp.append(sp)
-	chunk_dirty.resize(chunk_img.size()); chunk_dirty.fill(0)
+	_rebuild_chunks()
 	cam = Camera2D.new()
 	add_child(cam)
 	cam.position = Vector2(W, H) * TS / 2
@@ -152,10 +143,45 @@ func _upstream_menu() -> Array:
 	if _up_menu.is_empty(): _up_menu = UpstreamMaps.menu_entries()
 	return _up_menu
 func _real_map(k: int) -> Dictionary:
-	if map_tab == 2: return UpstreamMaps.real_map_at(k)
-	if map_tab == 0 and k == 0: return UpstreamMaps.as_real_map("world")  # World with Antarctica + 3 aq spawns
-	if RW_MAP_FOR.has(k): return RealMaps.MAPS[RW_MAP_FOR[k]]
-	return {}
+	return UpstreamMaps.real_map_at(k)
+func _chunk_cols() -> int:
+	return ceili(float(W) / CW)
+func _rebuild_chunks() -> void:
+	for sp in chunk_sp:
+		if sp != null and is_instance_valid(sp):
+			remove_child(sp)
+			sp.queue_free()
+	chunk_img.clear(); chunk_tex.clear(); chunk_sp.clear()
+	var cols := _chunk_cols()
+	var rows := ceili(float(H) / CH)
+	for cy in rows:
+		for cx in cols:
+			var cw := mini(CW, W - cx * CW)
+			var ch := mini(CH, H - cy * CH)
+			var im := Image.create(maxi(cw, 1), maxi(ch, 1), false, Image.FORMAT_RGBA8)
+			var tx := ImageTexture.create_from_image(im)
+			var sp := Sprite2D.new(); sp.texture = tx; sp.centered = false
+			sp.scale = Vector2(TS, TS); sp.position = Vector2(cx * CW, cy * CH) * TS
+			sp.material = _map_material()
+			add_child(sp)
+			chunk_img.append(im); chunk_tex.append(tx); chunk_sp.append(sp)
+	chunk_dirty.resize(chunk_img.size()); chunk_dirty.fill(0)
+func _set_map_size(w: int, h: int) -> void:
+	if w < 1 or h < 1:
+		return
+	if w == W and h == H and not chunk_img.is_empty():
+		return
+	W = w
+	H = h
+	TILE_NORM = (640.0 * 352.0) / float(W * H)
+	_DIRS4 = PackedInt32Array([1, -1, W, -W])
+	_cached_map_bytes.clear()
+	_gen_cache = {}
+	_rebuild_chunks()
+	if cam != null:
+		cam.position = Vector2(W, H) * TS / 2
+	if mcam != null:
+		mcam.set_map(W, H)
 
 func kind_of(id: int) -> int:
 	if id < _kind_cache.size(): return _kind_cache[id]
@@ -186,36 +212,19 @@ func _adj_any(tile: int, id: int) -> bool:
 	return _adj_to(tile, id) or owner_map[tile] == id
 
 func _get_handcrafted_map_bytes(k: int) -> PackedByteArray:
-	if map_tab == 2: return UpstreamMaps.codes_at(k)
-	var idx := clampi(k, 0, HANDCRAFTED_MAPS.size() - 1)
-	if _cached_map_bytes.has(idx):
-		return _cached_map_bytes[idx]
-	var rm := _real_map(idx)
-	if not rm.is_empty():
-		_cached_map_bytes[idx] = Marshalls.base64_to_raw(rm.b64).decompress(W * H, FileAccess.COMPRESSION_DEFLATE)
-		return _cached_map_bytes[idx]
-	var comp := Marshalls.base64_to_raw(HANDCRAFTED_MAPS[idx])
-	var raw := comp.decompress(W * H, FileAccess.COMPRESSION_DEFLATE)
-	_cached_map_bytes[idx] = raw
-	return raw
+	return UpstreamMaps.codes_at(k)
 
 func _map_sub(k: int, tab: int) -> String:
-	var rm := _real_map(k) if tab != 1 else {}
+	var rm := _real_map(k)
 	var nt := _tribes_for(tab, k)
-	if tab == 2 and not rm.is_empty():
-		return "RoWorld map  ·  %d nations + %d tribes" % [rm.nations.size(), nt]
-	if not rm.is_empty() and rm.nations.is_empty():
-		return "Real map  ·  ~40 nations + %d tribes" % nt
+	var sz := UpstreamMaps.size_of(UpstreamMaps.id_at(k))
 	if not rm.is_empty():
-		return "Real map  ·  %d nations + %d tribes" % [rm.nations.size(), nt]
-	return "%d × %d  ·  ~40 nations + %d tribes" % [W, H, nt]
+		return "%d × %d  ·  %d nations + %d tribes" % [sz.x, sz.y, rm.nations.size(), nt]
+	return "%d × %d  ·  %d tribes" % [sz.x, sz.y, nt]
 
-# The upstream map id behind (tab, k) ("" for random / non-upstream maps).
-func _upstream_id_for(tab: int, k: int) -> String:
-	if tab == 0 and k == 0: return "world"
-	if tab == 2: return UpstreamMaps.id_at(k)
-	if tab == 0 and RW_MAP_FOR.has(k): return str(RealMaps.MAPS[RW_MAP_FOR[k]].id)
-	return ""
+# The upstream map id behind (tab, k). tab is only the picker's category filter; k indexes ORDER.
+func _upstream_id_for(_tab: int, k: int) -> String:
+	return UpstreamMaps.id_at(k)
 
 # Sim.default_tribes for (tab, k): Rules.DEFAULT_TRIBES x the map's scale^2 (400 without one).
 func _tribes_for(tab: int, k: int) -> int:
@@ -226,7 +235,7 @@ func _tribes_for(tab: int, k: int) -> int:
 	return int(floor(SimRules.DEFAULT_TRIBES * s * s + 0.5))
 
 func _active_map_entry(k: int) -> Array:
-	var tbl: Array = _upstream_menu() if map_tab == 2 else (RANDOM_MAPS if map_tab == 1 else MAPS)
+	var tbl: Array = _upstream_menu()
 	return tbl[clampi(k, 0, tbl.size() - 1)]
 
 func _store_gen_cache() -> void:
@@ -240,6 +249,9 @@ func _gt(lbl: String) -> void:
 
 func gen_map() -> void:
 	_gt_t = Time.get_ticks_usec()
+	var mid := _upstream_id_for(map_tab, map_i)
+	var msz := UpstreamMaps.size_of(mid)
+	_set_map_size(msz.x, msz.y)
 	var m := _active_map_entry(map_i)
 	var seed_val: int = int(m[1]) + (rand_seed_off if map_tab == 1 else 0)
 	var n := FastNoiseLite.new()
@@ -261,8 +273,8 @@ func gen_map() -> void:
 	if fallout_glow != null: fallout_glow.reset()
 	var elev := PackedFloat32Array(); elev.resize(W * H)
 	land_total = 0; _land_w = -1.0
-	var raw_bytes := _get_handcrafted_map_bytes(map_i) if map_tab != 1 else PackedByteArray()
-	var rmap := _real_map(map_i) if map_tab != 1 else {}
+	var raw_bytes := _get_handcrafted_map_bytes(map_i)
+	var rmap := _real_map(map_i)
 	snow_src = raw_bytes
 	sim_rules.tile_norm = TILE_NORM
 	sim_rules.set_k(float(rmap.k_lin) if not rmap.is_empty() else DEFAULT_K_LIN)
@@ -280,7 +292,7 @@ func gen_map() -> void:
 		_redraw_all()
 		_gt("redraw")
 		return
-	if map_tab != 1 and raw_bytes.size() == W * H:
+	if raw_bytes.size() == W * H:
 		var jimg := n3.get_image(W, H, false, false, false).get_data()  # L8, noise*0.5+0.5
 		for i in W * H:
 			var code: int = raw_bytes[i]
@@ -604,7 +616,7 @@ func _hsl_darken(c: Color, k: float) -> Color:
 	return Color(m + r * ch, m + g * ch, m + b * ch)
 
 func _px(x: int, y: int, c: Color) -> void:
-	var k := (y / CH) * (W / CW) + x / CW
+	var k := (y / CH) * _chunk_cols() + x / CW
 	chunk_img[k].set_pixel(x % CW, y % CH, c)
 	chunk_dirty[k] = 1
 
@@ -624,9 +636,11 @@ func _redraw_all() -> void:
 		var b := i * 4
 		buf[b] = c.r8; buf[b + 1] = c.g8; buf[b + 2] = c.b8; buf[b + 3] = c.a8
 	var big := Image.create_from_data(W, H, false, Image.FORMAT_RGBA8, buf)
-	var cols := W / CW
+	var cols := _chunk_cols()
 	for k in chunk_img.size():
-		chunk_img[k].blit_rect(big, Rect2i((k % cols) * CW, (k / cols) * CH, CW, CH), Vector2i.ZERO)
+		var cw: int = chunk_img[k].get_width()
+		var ch: int = chunk_img[k].get_height()
+		chunk_img[k].blit_rect(big, Rect2i((k % cols) * CW, (k / cols) * CH, cw, ch), Vector2i.ZERO)
 		chunk_dirty[k] = 1
 	dirty = true
 

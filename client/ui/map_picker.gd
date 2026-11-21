@@ -1,9 +1,9 @@
 # Port of src/client/UI/MapPicker.luau (scripts/ui/map_picker.gd, UIMapPicker).
 # "CHOOSE A MAP": tabs, a scrolling grid of map cards (thumbnail, name, second line), a foot line.
 #
-# Upstream's tabs are regions of one map list. This port keeps its three map tables as the tabs
-# (real-world, random, RoWorld maps); turning a tab is the game's _set_map_tab, and the Random tab
-# has the port's REROLL chip. A card's second line says who is on the map (upstream: its size).
+# Tabs are upstream's category filters over the single MapList (Featured, World, Europe, ...).
+# There is no handcrafted or random-maps tab and no REROLL chip. A card's second line is the
+# map size and its nation + tribe counts.
 class_name MapPicker
 extends Control
 
@@ -84,13 +84,11 @@ func _init(c: UICtx, main) -> void:
 	var gap := Control.new()
 	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	tabs.add_child(gap)
-	# (port) new seeds for the twelve random maps
+	# Upstream has no random-maps tab, so there is no REROLL chip.
 	_reroll = UITheme.button("REROLL", "GlassButton", "", 32.0)
+	_reroll.visible = false
 	_reroll.add_theme_font_size_override("font_size", 12)
 	_reroll.add_theme_color_override("font_color", UITheme.GOLD)
-	_reroll.pressed.connect(func() -> void:
-		g.rand_seed_off = g.rng.randi_range(100, 999999)
-		g._refresh_map_tab_cards())
 	tabs.add_child(_reroll)
 	v.add_child(tabs)
 
@@ -190,13 +188,13 @@ func _card(e: Dictionary) -> Button:
 
 ## Rebuilds the grid for the game's current tab (the game calls this when the tab or the seeds change).
 func rebuild() -> void:
-	_tab = clampi(int(g.map_tab), 0, 1)
+	_tab = clampi(int(g.map_tab), 0, UIMaps.TAB_NAMES.size() - 1)
 	selected = UIMaps.selected(g)
 	for j in _tabs.size():
 		_tabs[j].text = _tab_label(j)
 		_tabs[j].set_pressed_no_signal(j == _tab)
-	_reroll.visible = _tab == 1
-	_foot.text = RANDOM_FOOT if _tab == 1 else ATTRIBUTION
+	_reroll.visible = false
+	_foot.text = ATTRIBUTION
 	for b in _cards.values():
 		b.queue_free()
 	_cards.clear()

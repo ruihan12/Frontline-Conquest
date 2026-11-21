@@ -28,6 +28,5 @@ func run(H) -> void:
 	# no capital / no ice: documented intentional; maps tests live with executor 2
 	H.section("intentional map deviations", "growth_rules.luau")
 	var maps_src = _read("res://sim/upstream_maps.gd") + preload("res://tests/upstream/_harness.gd").game_src()
-	H.intentional("Antarctica is present as white snow (code 4) playing like plains; no impassable ice (0x9F); no capital", "maps document code 4 snow; main.gd colours it white and uses plains rules")
-	H.expect(maps_src.find("is_snow") >= 0 or maps_src.find("code 4") >= 0 or maps_src.find("== 4") >= 0, "snow / Antarctica terrain is in the port", "")
-	H.expect(maps_src.find("plains") >= 0 and (maps_src.find("SNOW") >= 0 or maps_src.find("snow") >= 0), "snow uses plains rules / white colour", "")
+	H.intentional("Antarctica is ordinary land on the native World grid (bottom row); no impassable ice (0x9F); no capital; no custom snow colour", "maps are 1:1 with upstream tile bytes")
+	H.expect(maps_src.find("2000") >= 0 and maps_src.find("1000") >= 0, "World native 2000x1000 size is in the port", "")

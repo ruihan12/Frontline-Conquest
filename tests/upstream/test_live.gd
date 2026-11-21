@@ -819,21 +819,19 @@ func _ai_and_leftovers() -> void:
 			if m.sim_naval.body[i] > 0:
 				bodies += 1
 		H.expect(bodies > 0, "sim_nav: water bodies were computed", "nonzero samples=%d" % bodies)
-	# snow / Antarctica present on World
-	H.section("intentional snow / Antarctica live", "growth_rules.luau")
-	var snow = 0
+	# Antarctica is ordinary upstream land: World is 2000x1000 with land on the bottom row, no code 4, no 0x9F.
+	H.section("Antarctica / World edges live", "growth_rules.luau")
+	H.expect(m.W == 2000 and m.H == 1000, "World is the native 2000x1000 grid", "%dx%d" % [m.W, m.H])
+	var bot = 0
+	var top = 0
+	var code4 = 0
+	if m.owner_map.size() == m.W * m.H:
+		for x in m.W:
+			if m.owner_map[x] != m.WATER: top += 1
+			if m.owner_map[(m.H - 1) * m.W + x] != m.WATER: bot += 1
 	if m.snow_src.size() == m.W * m.H:
 		for i in range(0, m.snow_src.size(), 17):
 			if m.snow_src[i] == 4:
-				snow += 1
-	H.expect(snow > 0, "World has snow (Antarctica) tiles, code 4", "samples=%d" % snow)
-	# a snow tile that is land should use plains movement (mtn 0)
-	var plains = 0
-	var checked = 0
-	if m.snow_src.size() == m.W * m.H and m.mtn.size() == m.W * m.H:
-		for i in range(0, m.W * m.H, 17):
-			if m.snow_src[i] == 4 and m.owner_map[i] != m.WATER:
-				checked += 1
-				if int(m.mtn[i]) == 0:
-					plains += 1
-	H.expect(checked == 0 or plains == checked, "snow tiles use plains rules (mtn 0)", "plains=%d of %d land snow samples" % [plains, checked])
+				code4 += 1
+	H.expect(top == 0 and bot == m.W, "World row 0 is water and the bottom row is land", "top=%d bottom=%d" % [top, bot])
+	H.expect(code4 == 0, "no custom snow (code 4) tiles", "samples=%d" % code4)
