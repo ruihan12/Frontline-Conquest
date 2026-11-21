@@ -243,11 +243,11 @@ func _rw_spawn_all() -> void:
 		else:
 			tribe_name = "Tribe " + str(k + 1)
 		var id := _new_nation(tribe_name, Color.from_hsv(0.60, rng.randf_range(0.02, 0.07), grey_v), true)
-		nations[id].troops = SimRules.START_TROOPS_TRIBE
+		nations[id].troops = R.start_troops(SimRules.KIND_TRIBE, diff_i)
 		var t := _random_start()
 		if t >= 0:
 			_claim_disc(id, t, R.spawn_radius); _spawn_note(t); nations[id].spawn_tile = t
-			nations[id].troops = minf(SimRules.START_TROOPS_TRIBE, _spawn_cap(id, SimRules.KIND_TRIBE))
+			nations[id].troops = minf(R.start_troops(SimRules.KIND_TRIBE, diff_i), _spawn_cap(id, SimRules.KIND_TRIBE))
 		else:
 			nations[id].alive = false
 
@@ -324,7 +324,7 @@ func troop_diff(id: int) -> int:
 
 func start_troops_of(id: int) -> float:
 	if is_novice_bot(id): return sim_rules.start_troops(SimRules.KIND_NATION, NOVICE_SKILL)
-	return SimRules.START_TROOPS_HUMAN
+	return sim_rules.start_troops(SimRules.KIND_HUMAN, diff_i)
 
 # A solo match has no other people in it (bot players count as people).
 func is_solo() -> bool:

@@ -320,7 +320,7 @@ func _process(a: Dictionary) -> void:
 			_add_neighbors(a, t)
 			a.head = t; a.chew = 0.0
 		var tt: int = mtn[t]
-		var mag: float = R.ATTACK_MAG[tt]
+		var mag: float = R.ATTACK_MAG[tt] * R.ts  # (1:1: loss per tile is a troop amount)
 		var tc: float = R.ATTACK_TILE_COST[tt]
 		if not neutral and g.defended(t, tg):
 			mag *= R.DEFENSE_POST_MAG; tc *= R.DEFENSE_POST_COST
@@ -331,13 +331,13 @@ func _process(a: Dictionary) -> void:
 		var dloss := 0.0
 		if neutral:
 			loss = mag * nl
-			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
+			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * R.ts * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
 			tf = v / (border1 * 2.0)
 		else:
 			var dtroops: float = nats[tg].troops
 			dloss = dtroops / maxf(nats[tg].land * K_AREA, 1.0)
 			var ratio: float = dtroops / a.troops
-			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + R.ATTACKER_LOSS_PER_DENSITY * dloss)
+			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + R.ATTACKER_LOSS_PER_DENSITY / R.ts * dloss)
 			tf = clampf(ratio, 0.82, 7.5) * clampf(ratio / 20.0, 1.0, 50.0) * tc * bonus_s * trait_s
 		# light organic speed factor: low-freq noise (+-7%) and jitter (+-3%), clamped to 0.9..1.1, mean 1.0
 		var gw := 1.0

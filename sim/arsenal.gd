@@ -244,7 +244,7 @@ func strike(m: Dictionary) -> void:
 	for o in hit:
 		var n = g.nations[o]
 		var troops: float = n.troops
-		var kill := SimRules.strike_kill(nk, troops, float(hit[o]) * R.k_area)
+		var kill := SimRules.strike_kill(nk, troops, float(hit[o]) * R.k_area, R.ts)
 		if kill <= 0.0: continue
 		var keep := 1.0 - kill / maxf(troops, 1.0)
 		n.troops = troops - kill
@@ -355,7 +355,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 	var k := R.k_area
 	var tr: float = n.troops
 	for _i in n_lost:
-		var d := minf(k * SimRules.warhead_death(tr, cap), maxf(0.0, tr - 0.03 * cap))
+		var d := minf(k * SimRules.warhead_death(tr, cap, R.ts), maxf(0.0, tr - 0.03 * cap))
 		if d <= 0.0: break
 		tr -= d
 	n.troops = tr
@@ -363,7 +363,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 		if a.a != o: continue
 		var at: float = a.troops
 		for _i in n_lost:
-			var d2 := minf(k * SimRules.warhead_death(at, cap), maxf(0.0, at - 0.03 * cap))
+			var d2 := minf(k * SimRules.warhead_death(at, cap, R.ts), maxf(0.0, at - 0.03 * cap))
 			if d2 <= 0.0: break
 			at -= d2
 		a.troops = at
@@ -371,7 +371,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 		if bt.a != o: continue
 		var bt_t: float = bt.troops
 		for _i in n_lost:
-			var d3 := minf(k * SimRules.warhead_death(bt_t, cap), maxf(0.0, bt_t - 0.03 * cap))
+			var d3 := minf(k * SimRules.warhead_death(bt_t, cap, R.ts), maxf(0.0, bt_t - 0.03 * cap))
 			if d3 <= 0.0: break
 			bt_t -= d3
 		bt.troops = bt_t

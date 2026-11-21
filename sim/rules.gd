@@ -102,9 +102,31 @@ static func sigmoid(v: float, decay: float, mid: float) -> float:
 	return 1.0 / (1.0 + exp(-decay * (v - mid)))
 
 func start_troops(kind: int, diff: int) -> float:
-	if kind == KIND_TRIBE: return START_TROOPS_TRIBE
-	if kind == KIND_NATION: return NATION_START_TROOPS[clampi(diff, 0, 2)]
-	return START_TROOPS_HUMAN
+	if kind == KIND_TRIBE: return START_TROOPS_TRIBE * ts
+	if kind == KIND_NATION: return NATION_START_TROOPS[clampi(diff, 0, 2)] * ts
+	return START_TROOPS_HUMAN * ts
+
+# ---- Real-pop 1:1 (docs/REAL_POP_1TO1.md): troops are people ----
+# TROOP_SCALE: people per upstream internal troop, anchored on the USA (348M people / upstream's 1.17M cap).
+# `ts` is the scale in force for the current match: TROOP_SCALE in the 1:1 mode (pop_cap_mode 2 on a map
+# with baked population), 1.0 otherwise, so the normal game is unchanged. Rule: absolute troop amounts x ts,
+# coefficients on troops per tile / ts, nonlinear formulas of troops as ts * f(troops / ts).
+const TROOP_SCALE := 297.0
+# A city level adds the mean population of a Chinese urban centre (GHSL Degree of Urbanisation: 4-connected
+# 30" cells >= 1500 people/km2, holes filled, cluster >= 50,000 people; GHS-POP 2025; 2021 centres in China,
+# 625.3M people; tools/china_city_pop.py).
+const CITY_POP_BONUS := 309416.0
+var ts := 1.0
+
+func set_troop_scale(on: bool) -> void:
+	ts = TROOP_SCALE if on else 1.0
+
+func is_1to1() -> bool:
+	return ts != 1.0
+
+# What a city level adds to the cap, for the HUD.
+func city_troops_shown() -> float:
+	return CITY_POP_BONUS if is_1to1() else CITY_TROOPS
 
 # Land army cap (user nerf, replaces the source's 2 * (fullTiles^0.6 * 1000 + 50000)):
 # cap = CAP_BASE + CAP_K * ourTiles^CAP_EXP + CITY_TROOPS per city level. ~30 tiles -> ~28k.
@@ -136,13 +158,16 @@ func max_troops(kind: int, tiles: int, cities: int, diff: int) -> float:
 # World tiles (shown as 117K: NumberFormat.render_troops divides by 10; this port shows raw counts).
 # 348M / 300 + 5000 = 1.17M. China 4.77M, India 4.99M, Russia 0.50M, the World 27.3M.
 # (1/1750: USA 204k, China 822k, India 859k, Russia 89k, World 4.69M.)
-var pop_cap_mode := 0
+#   2 "1:1" (default): cap = the people owned + CITY_POP_BONUS per city level, troops are people (ts = 297)
+var pop_cap_mode := 2
 var pop_k := 1.0 / 300.0
 const POP_LAND_W := 0.25
 
 func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: int, diff: int) -> float:
 	var m: float
-	if pop_cap_mode == 0:
+	if pop_cap_mode == 2:
+		m = maxf(pop, 0.0) + cities * CITY_POP_BONUS
+	elif pop_cap_mode == 0:
 		m = CAP_BASE + maxf(pop, 0.0) * pop_k + cities * CITY_TROOPS_NERF
 	else:
 		var eff := POP_LAND_W * float(tiles) + (1.0 - POP_LAND_W) * maxf(pop, 0.0) / maxf(avg_pop, 1.0)
@@ -156,7 +181,8 @@ func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: i
 func troop_growth(kind: int, troops: float, cap: float, diff: int) -> float:
 	if troops > cap:
 		return cap - troops  # upstream troopIncreaseRate: min(troops + add, max) snaps an over-cap army to the cap
-	var add := (10.0 + pow(maxf(troops, 0.0), 0.73) / 4.0) * (1.0 - troops / maxf(cap, 1.0)) * growth_mult
+	# (1:1: ts * f(troops / ts); ts = 1 is the plain upstream formula)
+	var add := ts * (10.0 + pow(maxf(troops / ts, 0.0), 0.73) / 4.0) * (1.0 - troops / maxf(cap, 1.0)) * growth_mult
 	if kind == KIND_TRIBE: add *= 0.5
 	elif kind == KIND_NATION: add *= NATION_GROWTH_MULT[clampi(diff, 0, 2)]
 	return minf(troops + add, cap) - troops
@@ -352,21 +378,22 @@ func scatter_near() -> float: return SCATTER_NEAR_FULL / k_lin
 func scatter_far() -> float: return SCATTER_FAR_FULL / k_lin
 
 # Rules.strike_kill: troops a shell / air strike / slug kills of an army with src_full_tiles under it
-static func strike_kill(kind: int, troops: float, src_full_tiles: float) -> float:
+static func strike_kill(kind: int, troops: float, src_full_tiles: float, s := 1.0) -> float:
 	var t := maxf(troops, 0.0)
-	if kind == N_SHELL: return minf(t, clampf(floor(t * SHELL_KILL_FRAC), SHELL_KILL_MIN, SHELL_KILL_MAX))
-	if kind == N_AIRSTRIKE: return floor(minf(t, minf(src_full_tiles * AIRSTRIKE_KILL_PER_TILE, t * AIRSTRIKE_KILL_FRAC)))
-	if kind == N_SLUG: return floor(minf(t, minf(src_full_tiles * SLUG_KILL_PER_TILE, t * SLUG_KILL_FRAC)))
+	# (s: the 1:1 troop scale; the absolute floors / ceilings / per-tile kills are troop amounts)
+	if kind == N_SHELL: return minf(t, clampf(floor(t * SHELL_KILL_FRAC), SHELL_KILL_MIN * s, SHELL_KILL_MAX * s))
+	if kind == N_AIRSTRIKE: return floor(minf(t, minf(src_full_tiles * AIRSTRIKE_KILL_PER_TILE * s, t * AIRSTRIKE_KILL_FRAC)))
+	if kind == N_SLUG: return floor(minf(t, minf(src_full_tiles * SLUG_KILL_PER_TILE * s, t * SLUG_KILL_FRAC)))
 	return 0.0
 
 static func reinforce_troops(troops: float, cap: float) -> float:
 	return maxf(0.0, minf(floor(cap * REINFORCE_FRACTION), floor(cap) - floor(troops)))
 
 # nukeDeathFactor for a warhead, per full-size tile: 500 * (1 - e^(-2 * excess / max))
-static func warhead_death(troops: float, max_troops: float) -> float:
+static func warhead_death(troops: float, max_troops: float, s := 1.0) -> float:
 	var m := maxf(max_troops, 1.0)
 	var excess := maxf(0.0, troops - 0.03 * m)
-	return 500.0 * (1.0 - exp(-2.0 * excess / m))
+	return 500.0 * s * (1.0 - exp(-2.0 * excess / m))
 
 static func warship_max_hp(vet: int) -> int:
 	return WARSHIP_HP * (100 + clampi(vet, 0, 3) * 20) / 100

@@ -585,9 +585,11 @@ static func render_number(num: float) -> String:
 	return str(int(floorf(num)))
 
 # Troops as players see them (render_troops = the internal count / 10, floored, so a 25,000-troop start
-# reads "2.50K"). Gold and other numbers use fmt_num.
+# reads "2.50K"). Gold and other numbers use fmt_num. In the real-pop 1:1 mode troops are people and the
+# divisor is 1 (game/map.gd _load_tile_pop sets it per match), so the USA reads "348M".
+static var troop_div := 10.0
 static func fmt_troops(v: float) -> String:
-	return render_number(v / 10.0)
+	return render_number(v / troop_div)
 
 # Compact price: 50K, 125K, 1M, 1.5M, 25M. Past 1B it uses the shared big() formatter (Qd, then e-notation).
 static func fmt_cost(v: float) -> String:

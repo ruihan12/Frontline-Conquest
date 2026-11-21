@@ -101,7 +101,7 @@ static func format(text: String, values: Dictionary) -> String:
 func blurb(kind: String) -> String:
 	var R := rules()
 	return format(BLURBS.get(kind, ""), {
-		"city": UITheme.fmt_troops(SimRules.CITY_TROOPS),
+		"city": UITheme.fmt_troops(R.city_troops_shown()),
 		"def_r": str(Defs.round_i(R.defense_range)),
 		"def_mag": str(Defs.round_i(SimRules.DEFENSE_POST_MAG)),
 		"def_cost": str(Defs.round_i(SimRules.DEFENSE_POST_COST)),

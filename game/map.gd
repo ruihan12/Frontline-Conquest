@@ -722,6 +722,9 @@ func _pop_map_id() -> String:
 
 func _load_tile_pop() -> void:
 	tile_pop = PackedFloat32Array(); tile_pop_avg = 1.0
+	# the 1:1 mode (troops are people) is per match: off unless this map has baked population
+	sim_rules.set_troop_scale(false)
+	UITheme.troop_div = 10.0
 	if not (use_real_pop or OS.get_cmdline_user_args().has("--realpop")): return
 	var id := _pop_map_id()
 	var path := UpstreamMaps.DIR + id + ".pop.bin"
@@ -739,3 +742,7 @@ func _load_tile_pop() -> void:
 			tile_pop[i] = 0.0
 	tile_pop_avg = tot / maxf(1.0, float(lt))
 	print("real pop: %s %.3f B people on %d land tiles (avg %.0f per tile)" % [id, tot / 1e9, lt, tile_pop_avg])
+	if sim_rules.pop_cap_mode == 2:
+		sim_rules.set_troop_scale(true)
+		UITheme.troop_div = 1.0
+		print("real pop 1:1: troops are people (TROOP_SCALE %.0f, city level +%.0f)" % [SimRules.TROOP_SCALE, SimRules.CITY_POP_BONUS])

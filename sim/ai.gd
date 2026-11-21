@@ -563,7 +563,7 @@ func _consider_mopup(id: int, age: int) -> void:
 	if best <= 0: return
 	var target := own_coast(best)
 	if target < 0: return
-	var need: float = (_troops(best) + g.nations[best].land * 60.0 * LA) * 1.6
+	var need: float = (_troops(best) + g.nations[best].land * 60.0 * LA * R.ts) * 1.6  # (60 troops a tile: x ts in 1:1)
 	_boat_at(id, target, clampf(need / maxf(mine, 1.0), 0.05, SimRules.BOAT_ATTACK_FRACTION))
 
 # ---------------- nukes (SimAI._consider_nuke 805-949) ----------------
