@@ -25,7 +25,7 @@ func _initialize() -> void:
 	for _f in 3: await process_frame
 	var names: Array = preload("res://sim/upstream_maps.gd").tribe_names()
 	_check(names.size() == 480, "Data/Tribes: 480 names (%d)" % names.size())
-	_check(m.tribe_count() == 321, "World tribes = round(400 * 0.896^2) = 321 (%d)" % m.tribe_count())
+	_check(m.tribe_count() == 400, "World tribes = DEFAULT_TRIBES (400) on a scale-1 map (%d)" % m.tribe_count())
 	var tribes := 0
 	var named := 0
 	var at_start := true
@@ -37,7 +37,7 @@ func _initialize() -> void:
 		tribes += 1
 		if known.has(str(n.name)): named += 1
 		if n.alive and n.land > 0 and float(n.troops) > SimRules.START_TROOPS_TRIBE + 0.5: at_start = false
-	_check(tribes == 321, "321 tribes created (%d)" % tribes)
+	_check(tribes == 400, "400 tribes created (%d)" % tribes)
 	_check(named == tribes, "every tribe has a Data/Tribes name (%d/%d)" % [named, tribes])
 	_check(at_start, "tribes start at START_TROOPS_TRIBE (or their cap)")
 	var nat_ok := true

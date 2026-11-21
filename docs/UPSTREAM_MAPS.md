@@ -1,6 +1,10 @@
 # Upstream RoWorld maps
 
-Converter: `python3 tools/convert_upstream_maps.py [/workspace/roworld_src]`. It needs numpy, Pillow, zstandard and scipy, and its output is deterministic. Loader: `sim/upstream_maps.gd`. Test: `godot --headless --path . -s res://tests/test_upstream_maps.gd`.
+Converter: `python3 tools/convert_upstream_maps.py [/workspace/roworld_upstream_maps]`. It needs numpy, Pillow and zstandard, and its output is deterministic. Loader: `sim/upstream_maps.gd`. Test: `godot --headless --path . -s res://tests/test_upstream_maps.gd`.
+
+Maps are decoded **1:1** from RoWorld `@ c422466` `MapList` (10 playable maps). There is no crop, uniform scale, letterbox padding into a 1792×1600 canvas, mapfix (Suez / Panama / Hawaii / Hainan), or Antarctica recolour. `tiles.bin` is the exact upstream byte grid; `k_lin` is 1.0; tribe count is 400 (`Rules.DEFAULT_TRIBES`). The camera uses each map's native `width`×`height`, so World land reaches the bottom row (Antarctica) and is not surrounded by invented ocean.
+
+World check: 2000×1000, land 689018, first land row 25, last land row 999, bottom row all land, top row all water, 71 nations including 3 `aq` spawns, 400 tribes.
 
 ## Decoding
 
@@ -48,8 +52,7 @@ Pangaea and Onion are upstream test fixtures, not part of the game's map list. T
 
 ## Constraints
 
-- Antarctica (restored 2026-11-09): World source land in rows >= 820 (59.4 S; 207,614 source tiles) is kept and written as code 4 "snow" in codes.bin (166,781 tiles after scaling). Snow is ordinary land: plains rules for movement, conquest, spawns and building, nothing impassable; it is only drawn white (SNOW_COLOR #F4F7FA). tiles.bin keeps the upstream bytes.
-- The spawns West Antarctica, Antarctica and East Antarctica (flag `aq`) are kept (World 71 nations).
+- World is stored at its native 2000×1000 size. Antarctica is ordinary source land on the bottom rows (last land row 999); it is not recoloured as snow and is not padded with ocean below. The three `aq` spawns stay where upstream placed them.
 - Game side: docs/HOOKS.md section Snow (docs/hooks_snow.patch, or tools/apply_snow_hooks.py). Without it, current main.gd treats code 4 as mountain (still white and conquerable, but slower).
 - Any 0x9F would also become water, but none exists.
 - No capitals: upstream maps only carry spawn points `{name, flag, x, y}`, kept as `[name, flag, x, y]` in this project's format. Every spawn was verified on land.

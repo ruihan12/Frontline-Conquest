@@ -1,10 +1,8 @@
 {
- "source": "RoWorld @ ae7a350 (AGPL); maps: Natural Earth + NOAA ETOPO1 (public domain)",
+ "source": "RoWorld @ c422466 (AGPL); maps: Natural Earth + NOAA ETOPO1 (public domain)",
  "format": {
-  "width": 1792,
-  "height": 1600,
-  "codes": "zlib(W*H u8): 0 water 1 plains 2 highland 3 mountain 4 snow (Antarctica: plains rules, white colour)",
-  "tiles": "zlib(W*H u8) upstream tile byte: bit7 land, bit6 shore, bit5 ocean, bits0-4 magnitude"
+  "codes": "zlib(W*H u8): 0 water 1 plains 2 highland 3 mountain; W,H are the map's native size",
+  "tiles": "zlib(W*H u8) exact upstream tile bytes (bit7 land, bit6 shore, bit5 ocean, bits0-4 magnitude). No padding, crop, or mapfix."
  },
  "default": "world",
  "maps": [
@@ -16,14 +14,23 @@
     "featured",
     "world"
    ],
-   "k_lin": 1.1161,
-   "scale": 0.896,
-   "land_tiles": 553664,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 689018,
+   "width": 2000,
+   "height": 1000,
+   "forced_modifiers": [
+    "isCrowded:50"
+   ],
+   "multiplayer_frequency": 30,
+   "default_tribes": 400,
    "nations": 71,
    "src_size": [
     2000,
     1000
-   ]
+   ],
+   "first_land_row": 25,
+   "last_land_row": 999
   },
   {
    "id": "africa",
@@ -34,14 +41,21 @@
     "continental",
     "africa"
    ],
-   "k_lin": 0.8309,
-   "scale": 1.203492,
-   "land_tiles": 1394687,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 963230,
+   "width": 1489,
+   "height": 1332,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 45,
    "src_size": [
     1489,
     1332
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 1310
   },
   {
    "id": "asia",
@@ -52,14 +66,21 @@
     "continental",
     "asia"
    ],
-   "k_lin": 0.8571,
-   "scale": 1.166667,
-   "land_tiles": 1636645,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 1202586,
+   "width": 1536,
+   "height": 1350,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 64,
    "src_size": [
     1536,
     1350
-   ]
+   ],
+   "first_land_row": 4,
+   "last_land_row": 1349
   },
   {
    "id": "europe",
@@ -70,14 +91,21 @@
     "continental",
     "europe"
    ],
-   "k_lin": 0.7935,
-   "scale": 1.260197,
-   "land_tiles": 1320759,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 831821,
+   "width": 1422,
+   "height": 1254,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 48,
    "src_size": [
     1422,
     1254
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 1253
   },
   {
    "id": "northamerica",
@@ -88,14 +116,21 @@
     "continental",
     "north_america"
    ],
-   "k_lin": 0.9235,
-   "scale": 1.082779,
-   "land_tiles": 865264,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 738172,
+   "width": 1655,
+   "height": 1224,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 50,
    "src_size": [
     1655,
     1224
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 1223
   },
   {
    "id": "southamerica",
@@ -106,14 +141,21 @@
     "continental",
     "south_america"
    ],
-   "k_lin": 0.8787,
-   "scale": 1.13798,
-   "land_tiles": 760002,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 587124,
+   "width": 1165,
+   "height": 1420,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 36,
    "src_size": [
     1165,
     1420
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 1397
   },
   {
    "id": "unitedstates",
@@ -123,14 +165,21 @@
     "regional",
     "north_america"
    ],
-   "k_lin": 0.9046,
-   "scale": 1.10549,
-   "land_tiles": 1226342,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 1003249,
+   "width": 1621,
+   "height": 918,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 44,
    "src_size": [
     1621,
     918
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 917
   },
   {
    "id": "mediterranean",
@@ -141,14 +190,21 @@
     "europe",
     "africa"
    ],
-   "k_lin": 0.9336,
-   "scale": 1.07113,
-   "land_tiles": 972309,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 847177,
+   "width": 1673,
+   "height": 798,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 48,
    "src_size": [
     1673,
     798
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 797
   },
   {
    "id": "middleeast",
@@ -158,14 +214,21 @@
     "regional",
     "asia"
    ],
-   "k_lin": 0.615,
-   "scale": 1.626134,
-   "land_tiles": 2144800,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 811134,
+   "width": 1102,
+   "height": 976,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 48,
    "src_size": [
     1102,
     976
-   ]
+   ],
+   "first_land_row": 0,
+   "last_land_row": 975
   },
   {
    "id": "oceania",
@@ -175,46 +238,21 @@
     "regional",
     "oceania"
    ],
-   "k_lin": 0.9481,
-   "scale": 1.054738,
-   "land_tiles": 464733,
+   "k_lin": 1.0,
+   "scale": 1.0,
+   "land_tiles": 417893,
+   "width": 1705,
+   "height": 1195,
+   "forced_modifiers": [],
+   "multiplayer_frequency": 10,
+   "default_tribes": 400,
    "nations": 42,
    "src_size": [
     1705,
     1195
-   ]
-  },
-  {
-   "id": "pangaea",
-   "name": "Pangaea",
-   "source_kind": "test_fixture",
-   "categories": [
-    "fictional"
    ],
-   "k_lin": 0.558,
-   "scale": 1.792,
-   "land_tiles": 991102,
-   "nations": 29,
-   "src_size": [
-    1000,
-    1000
-   ]
-  },
-  {
-   "id": "onion",
-   "name": "Onion",
-   "source_kind": "test_fixture",
-   "categories": [
-    "arcade"
-   ],
-   "k_lin": 0.3088,
-   "scale": 3.238866,
-   "land_tiles": 1670962,
-   "nations": 3,
-   "src_size": [
-    512,
-    512
-   ]
+   "first_land_row": 0,
+   "last_land_row": 1182
   }
  ],
  "nation_table": [

@@ -24,651 +24,603 @@
  "src_impassable_tiles": 0,
  "crop": [
   0,
-  17,
+  0,
   2000,
   1000
  ],
- "scale": 0.896,
+ "scale": 1.0,
  "placed": [
   0,
-  359,
-  1792,
-  881
+  0,
+  2000,
+  1000
  ],
- "width": 1792,
- "height": 1600,
- "k_lin": 1.1161,
- "resample": "nearest (upstream WorldMap._resample, centre sampling)",
- "land_tiles": 553664,
+ "width": 2000,
+ "height": 1000,
+ "k_lin": 1.0,
+ "resample": "none (native upstream grid, 1:1)",
+ "land_tiles": 689018,
  "code_counts": [
-  2313536,
-  166840,
-  160478,
-  59565,
-  166781
+  1310982,
+  214986,
+  222089,
+  251943
  ],
- "snow_tiles": 166781,
- "lake_tiles": 3351,
- "water_bodies": 57,
+ "snow_tiles": 0,
+ "lake_tiles": 2303,
+ "first_land_row": 25,
+ "last_land_row": 999,
+ "default_tribes": 400,
  "nations": [
   {
    "name": "Alaska",
    "flag": "us",
-   "x": 81,
-   "y": 461,
+   "x": 90,
+   "y": 131,
    "src_x": 90,
    "src_y": 131
   },
   {
    "name": "Yukon",
    "flag": "ca",
-   "x": 170,
-   "y": 469,
+   "x": 190,
+   "y": 140,
    "src_x": 190,
    "src_y": 140
   },
   {
    "name": "Nunavut",
    "flag": "ca",
-   "x": 359,
-   "y": 458,
+   "x": 401,
+   "y": 128,
    "src_x": 401,
    "src_y": 128
   },
   {
    "name": "Quebec",
    "flag": "ca",
-   "x": 479,
-   "y": 524,
+   "x": 535,
+   "y": 201,
    "src_x": 535,
    "src_y": 201
   },
   {
    "name": "California",
    "flag": "california",
-   "x": 243,
-   "y": 598,
+   "x": 271,
+   "y": 284,
    "src_x": 271,
    "src_y": 284
   },
   {
    "name": "Texas",
    "flag": "us",
-   "x": 345,
-   "y": 626,
+   "x": 385,
+   "y": 315,
    "src_x": 385,
    "src_y": 315
   },
   {
    "name": "Greenland",
    "flag": "gl",
-   "x": 638,
-   "y": 424,
+   "x": 712,
+   "y": 90,
    "src_x": 712,
    "src_y": 90
   },
   {
    "name": "Siberia",
    "flag": "ru",
-   "x": 1325,
-   "y": 469,
+   "x": 1479,
+   "y": 140,
    "src_x": 1479,
    "src_y": 140
   },
   {
    "name": "Yakutia",
    "flag": "ru",
-   "x": 1475,
-   "y": 464,
+   "x": 1646,
+   "y": 134,
    "src_x": 1646,
    "src_y": 134
   },
   {
    "name": "Kamchatka",
    "flag": "ru",
-   "x": 1629,
-   "y": 501,
+   "x": 1818,
+   "y": 176,
    "src_x": 1818,
    "src_y": 176
   },
   {
    "name": "Mongolia",
    "flag": "mn",
-   "x": 1350,
-   "y": 550,
+   "x": 1507,
+   "y": 230,
    "src_x": 1507,
    "src_y": 230
   },
   {
    "name": "Western Australia",
    "flag": "au",
-   "x": 1440,
-   "y": 909,
+   "x": 1607,
+   "y": 631,
    "src_x": 1607,
    "src_y": 631
   },
   {
    "name": "Patagonia",
    "flag": "ar",
-   "x": 494,
-   "y": 1009,
+   "x": 551,
+   "y": 742,
    "src_x": 551,
    "src_y": 742
   },
   {
    "name": "West Antarctica",
    "flag": "aq",
-   "x": 289,
-   "y": 1171,
+   "x": 323,
+   "y": 923,
    "src_x": 323,
    "src_y": 923
   },
   {
    "name": "Antarctica",
    "flag": "aq",
-   "x": 887,
-   "y": 1161,
+   "x": 990,
+   "y": 912,
    "src_x": 990,
    "src_y": 912
   },
   {
    "name": "East Antarctica",
    "flag": "aq",
-   "x": 1434,
-   "y": 1151,
+   "x": 1601,
+   "y": 901,
    "src_x": 1601,
    "src_y": 901
   },
   {
    "name": "China",
    "flag": "cn",
-   "x": 1366,
-   "y": 621,
+   "x": 1525,
+   "y": 309,
    "src_x": 1525,
    "src_y": 309
   },
   {
    "name": "India",
    "flag": "in",
-   "x": 1232,
-   "y": 669,
+   "x": 1375,
+   "y": 363,
    "src_x": 1375,
    "src_y": 363
   },
   {
    "name": "United States",
    "flag": "us",
-   "x": 352,
-   "y": 586,
+   "x": 393,
+   "y": 270,
    "src_x": 393,
    "src_y": 270
   },
   {
    "name": "Indonesia",
    "flag": "id",
-   "x": 1345,
-   "y": 787,
+   "x": 1501,
+   "y": 495,
    "src_x": 1501,
    "src_y": 495
   },
   {
    "name": "Pakistan",
    "flag": "pk",
-   "x": 1178,
-   "y": 637,
+   "x": 1315,
+   "y": 327,
    "src_x": 1315,
    "src_y": 327
   },
   {
    "name": "Brazil",
    "flag": "br",
-   "x": 590,
-   "y": 843,
+   "x": 659,
+   "y": 557,
    "src_x": 659,
    "src_y": 557
   },
   {
    "name": "Nigeria",
    "flag": "ng",
-   "x": 874,
-   "y": 735,
+   "x": 976,
+   "y": 437,
    "src_x": 976,
    "src_y": 437
   },
   {
    "name": "Bangladesh",
    "flag": "bd",
-   "x": 1284,
-   "y": 662,
+   "x": 1433,
+   "y": 355,
    "src_x": 1433,
    "src_y": 355
   },
   {
    "name": "Russia",
    "flag": "ru",
-   "x": 1060,
-   "y": 492,
+   "x": 1183,
+   "y": 166,
    "src_x": 1183,
    "src_y": 166
   },
   {
    "name": "Mexico",
    "flag": "mx",
-   "x": 328,
-   "y": 664,
+   "x": 366,
+   "y": 357,
    "src_x": 366,
    "src_y": 357
   },
   {
    "name": "Japan",
    "flag": "jp",
-   "x": 1527,
-   "y": 603,
+   "x": 1704,
+   "y": 289,
    "src_x": 1704,
    "src_y": 289
   },
   {
    "name": "Ethiopia",
    "flag": "et",
-   "x": 1032,
-   "y": 743,
+   "x": 1152,
+   "y": 445,
    "src_x": 1152,
    "src_y": 445
   },
   {
    "name": "Philippines",
    "flag": "ph",
-   "x": 1447,
-   "y": 726,
+   "x": 1615,
+   "y": 427,
    "src_x": 1615,
    "src_y": 427
   },
   {
    "name": "Egypt",
    "flag": "eg",
-   "x": 984,
-   "y": 652,
+   "x": 1098,
+   "y": 344,
    "src_x": 1098,
    "src_y": 344
   },
   {
    "name": "Vietnam",
    "flag": "vn",
-   "x": 1362,
-   "y": 674,
+   "x": 1520,
+   "y": 369,
    "src_x": 1520,
    "src_y": 369
   },
   {
    "name": "DR Congo",
    "flag": "cd",
-   "x": 954,
-   "y": 792,
+   "x": 1065,
+   "y": 500,
    "src_x": 1065,
    "src_y": 500
   },
   {
    "name": "Türkiye",
    "flag": "tr",
-   "x": 1009,
-   "y": 587,
+   "x": 1126,
+   "y": 271,
    "src_x": 1126,
    "src_y": 271
   },
   {
    "name": "Germany",
    "flag": "de",
-   "x": 885,
-   "y": 528,
+   "x": 988,
+   "y": 206,
    "src_x": 988,
    "src_y": 206
   },
   {
    "name": "Iran",
    "flag": "ir",
-   "x": 1111,
-   "y": 622,
+   "x": 1240,
+   "y": 311,
    "src_x": 1240,
    "src_y": 311
   },
   {
    "name": "Thailand",
    "flag": "th",
-   "x": 1340,
-   "y": 706,
+   "x": 1496,
+   "y": 404,
    "src_x": 1496,
    "src_y": 404
   },
   {
    "name": "France",
    "flag": "fr",
-   "x": 850,
-   "y": 550,
+   "x": 949,
+   "y": 230,
    "src_x": 949,
    "src_y": 230
   },
   {
    "name": "United Kingdom",
    "flag": "gb",
-   "x": 827,
-   "y": 511,
+   "x": 923,
+   "y": 187,
    "src_x": 923,
    "src_y": 187
   },
   {
    "name": "Italy",
    "flag": "it",
-   "x": 892,
-   "y": 560,
+   "x": 996,
+   "y": 241,
    "src_x": 996,
    "src_y": 241
   },
   {
    "name": "South Africa",
    "flag": "za",
-   "x": 955,
-   "y": 931,
+   "x": 1066,
+   "y": 655,
    "src_x": 1066,
    "src_y": 655
   },
   {
    "name": "Tanzania",
    "flag": "tz",
-   "x": 1012,
-   "y": 812,
+   "x": 1129,
+   "y": 523,
    "src_x": 1129,
    "src_y": 523
   },
   {
    "name": "Myanmar",
    "flag": "mm",
-   "x": 1314,
-   "y": 675,
+   "x": 1467,
+   "y": 370,
    "src_x": 1467,
    "src_y": 370
   },
   {
    "name": "Kenya",
    "flag": "ke",
-   "x": 1026,
-   "y": 779,
+   "x": 1145,
+   "y": 486,
    "src_x": 1145,
    "src_y": 486
   },
   {
    "name": "South Korea",
    "flag": "kr",
-   "x": 1475,
-   "y": 601,
+   "x": 1646,
+   "y": 287,
    "src_x": 1646,
    "src_y": 287
   },
   {
    "name": "Colombia",
    "flag": "co",
-   "x": 473,
-   "y": 766,
+   "x": 528,
+   "y": 471,
    "src_x": 528,
    "src_y": 471
   },
   {
    "name": "Spain",
    "flag": "es",
-   "x": 820,
-   "y": 583,
+   "x": 915,
+   "y": 267,
    "src_x": 915,
    "src_y": 267
   },
   {
    "name": "Argentina",
    "flag": "ar",
-   "x": 518,
-   "y": 950,
+   "x": 578,
+   "y": 676,
    "src_x": 578,
    "src_y": 676
   },
   {
    "name": "Ukraine",
    "flag": "ua",
-   "x": 997,
-   "y": 535,
+   "x": 1113,
+   "y": 213,
    "src_x": 1113,
    "src_y": 213
   },
   {
    "name": "Algeria",
    "flag": "dz",
-   "x": 851,
-   "y": 646,
+   "x": 950,
+   "y": 337,
    "src_x": 950,
    "src_y": 337
   },
   {
    "name": "Sudan",
    "flag": "sd",
-   "x": 983,
-   "y": 701,
+   "x": 1097,
+   "y": 399,
    "src_x": 1097,
    "src_y": 399
   },
   {
    "name": "Iraq",
    "flag": "iq",
-   "x": 1053,
-   "y": 618,
+   "x": 1175,
+   "y": 306,
    "src_x": 1175,
    "src_y": 306
   },
   {
    "name": "Poland",
    "flag": "pl",
-   "x": 934,
-   "y": 524,
+   "x": 1043,
+   "y": 201,
    "src_x": 1043,
    "src_y": 201
   },
   {
    "name": "Canada",
    "flag": "ca",
-   "x": 330,
-   "y": 482,
+   "x": 368,
+   "y": 154,
    "src_x": 368,
    "src_y": 154
   },
   {
    "name": "Morocco",
    "flag": "ma",
-   "x": 802,
-   "y": 625,
+   "x": 895,
+   "y": 314,
    "src_x": 895,
    "src_y": 314
   },
   {
    "name": "Saudi Arabia",
    "flag": "sa",
-   "x": 1060,
-   "y": 664,
+   "x": 1183,
+   "y": 357,
    "src_x": 1183,
    "src_y": 357
   },
   {
    "name": "Uzbekistan",
    "flag": "uz",
-   "x": 1156,
-   "y": 575,
+   "x": 1290,
+   "y": 258,
    "src_x": 1290,
    "src_y": 258
   },
   {
    "name": "Peru",
    "flag": "pe",
-   "x": 474,
-   "y": 847,
+   "x": 529,
+   "y": 562,
    "src_x": 529,
    "src_y": 562
   },
   {
    "name": "Malaysia",
    "flag": "my",
-   "x": 1404,
-   "y": 769,
+   "x": 1567,
+   "y": 475,
    "src_x": 1567,
    "src_y": 475
   },
   {
    "name": "Angola",
    "flag": "ao",
-   "x": 926,
-   "y": 843,
+   "x": 1034,
+   "y": 557,
    "src_x": 1034,
    "src_y": 557
   },
   {
    "name": "Ghana",
    "flag": "gh",
-   "x": 832,
-   "y": 744,
+   "x": 929,
+   "y": 447,
    "src_x": 929,
    "src_y": 447
   },
   {
    "name": "Mozambique",
    "flag": "mz",
-   "x": 1026,
-   "y": 852,
+   "x": 1145,
+   "y": 567,
    "src_x": 1145,
    "src_y": 567
   },
   {
    "name": "Yemen",
    "flag": "ye",
-   "x": 1065,
-   "y": 706,
+   "x": 1189,
+   "y": 404,
    "src_x": 1189,
    "src_y": 404
   },
   {
    "name": "Nepal",
    "flag": "np",
-   "x": 1253,
-   "y": 641,
+   "x": 1399,
+   "y": 332,
    "src_x": 1399,
    "src_y": 332
   },
   {
    "name": "Venezuela",
    "flag": "ve",
-   "x": 516,
-   "y": 747,
+   "x": 576,
+   "y": 450,
    "src_x": 576,
    "src_y": 450
   },
   {
    "name": "Madagascar",
    "flag": "mg",
-   "x": 1070,
-   "y": 875,
+   "x": 1194,
+   "y": 593,
    "src_x": 1194,
    "src_y": 593
   },
   {
    "name": "Cameroon",
    "flag": "cm",
-   "x": 900,
-   "y": 760,
+   "x": 1004,
+   "y": 464,
    "src_x": 1004,
    "src_y": 464
   },
   {
    "name": "Australia",
    "flag": "au",
-   "x": 1504,
-   "y": 903,
+   "x": 1679,
+   "y": 624,
    "src_x": 1679,
    "src_y": 624
   },
   {
    "name": "Taiwan",
    "flag": "tw",
-   "x": 1439,
-   "y": 665,
+   "x": 1606,
+   "y": 358,
    "src_x": 1606,
    "src_y": 358
   },
   {
    "name": "Sri Lanka",
    "flag": "lk",
-   "x": 1239,
-   "y": 744,
+   "x": 1383,
+   "y": 447,
    "src_x": 1383,
    "src_y": 447
   },
   {
    "name": "Mali",
    "flag": "ml",
-   "x": 827,
-   "y": 690,
+   "x": 923,
+   "y": 386,
    "src_x": 923,
    "src_y": 386
   },
   {
    "name": "Romania",
    "flag": "ro",
-   "x": 961,
-   "y": 554,
+   "x": 1073,
+   "y": 235,
    "src_x": 1073,
    "src_y": 235
   }
  ],
- "notes": [
-  "Antarctica kept: 207614 land tiles in rows >= 820 (south of 59.4 S) -> code 4 snow (passable, conquerable)",
-  "mapfix suez: to_water 40, box_x0y0x1y1 [999, 628, 1006, 644]",
-  "mapfix panama: to_water 6, box_x0y0x1y1 [440, 736, 442, 738]",
-  "mapfix hainan: to_water 6, box_x0y0x1y1 [1384, 681, 1387, 682]",
-  "mapfix hawaii: to_land 226, to_water 24, box_x0y0x1y1 [24, 660, 84, 700], scale 2.5"
- ],
- "mapfix": [
-  {
-   "fix": "suez",
-   "to_water": 40,
-   "box_x0y0x1y1": [
-    999,
-    628,
-    1006,
-    644
-   ]
-  },
-  {
-   "fix": "panama",
-   "to_water": 6,
-   "box_x0y0x1y1": [
-    440,
-    736,
-    442,
-    738
-   ]
-  },
-  {
-   "fix": "hainan",
-   "to_water": 6,
-   "box_x0y0x1y1": [
-    1384,
-    681,
-    1387,
-    682
-   ]
-  },
-  {
-   "fix": "hawaii",
-   "to_land": 226,
-   "to_water": 24,
-   "box_x0y0x1y1": [
-    24,
-    660,
-    84,
-    700
-   ],
-   "scale": 2.5
-  }
- ]
+ "notes": [],
+ "mapfix": []
 }

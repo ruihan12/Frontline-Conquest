@@ -26,378 +26,379 @@
   1621,
   918
  ],
- "scale": 1.10549,
+ "scale": 1.0,
  "placed": [
   0,
-  292,
-  1792,
-  1015
+  0,
+  1621,
+  918
  ],
- "width": 1792,
- "height": 1600,
- "k_lin": 0.9046,
- "resample": "nearest (upstream WorldMap._resample, centre sampling)",
- "land_tiles": 1226342,
+ "width": 1621,
+ "height": 918,
+ "k_lin": 1.0,
+ "resample": "none (native upstream grid, 1:1)",
+ "land_tiles": 1003249,
  "code_counts": [
-  1640858,
-  395172,
-  520393,
-  310777,
-  0
+  484829,
+  323297,
+  425679,
+  254273
  ],
  "snow_tiles": 0,
- "lake_tiles": 39756,
- "water_bodies": 108,
+ "lake_tiles": 32558,
+ "first_land_row": 0,
+ "last_land_row": 917,
+ "default_tribes": 400,
  "nations": [
   {
    "name": "Washington",
    "flag": "us",
-   "x": 167,
-   "y": 424,
+   "x": 151,
+   "y": 119,
    "src_x": 151,
    "src_y": 119
   },
   {
    "name": "Maine",
    "flag": "us",
-   "x": 1682,
-   "y": 511,
+   "x": 1521,
+   "y": 198,
    "src_x": 1521,
    "src_y": 198
   },
   {
    "name": "Texas",
    "flag": "us",
-   "x": 806,
-   "y": 1038,
+   "x": 729,
+   "y": 675,
    "src_x": 729,
    "src_y": 675
   },
   {
    "name": "North Dakota",
    "flag": "us",
-   "x": 761,
-   "y": 425,
+   "x": 688,
+   "y": 120,
    "src_x": 688,
    "src_y": 120
   },
   {
    "name": "South Carolina",
    "flag": "us",
-   "x": 1343,
-   "y": 936,
+   "x": 1215,
+   "y": 582,
    "src_x": 1215,
    "src_y": 582
   },
   {
    "name": "Arizona",
    "flag": "us",
-   "x": 416,
-   "y": 919,
+   "x": 376,
+   "y": 567,
    "src_x": 376,
    "src_y": 567
   },
   {
    "name": "Michigan",
    "flag": "us",
-   "x": 1215,
-   "y": 576,
+   "x": 1099,
+   "y": 257,
    "src_x": 1099,
    "src_y": 257
   },
   {
    "name": "Montana",
    "flag": "us",
-   "x": 472,
-   "y": 442,
+   "x": 427,
+   "y": 136,
    "src_x": 427,
    "src_y": 136
   },
   {
    "name": "Missouri",
    "flag": "us",
-   "x": 993,
-   "y": 760,
+   "x": 898,
+   "y": 423,
    "src_x": 898,
    "src_y": 423
   },
   {
    "name": "Colorado",
    "flag": "us",
-   "x": 606,
-   "y": 743,
+   "x": 548,
+   "y": 408,
    "src_x": 548,
    "src_y": 408
   },
   {
    "name": "New Jersey",
    "flag": "us",
-   "x": 1526,
-   "y": 703,
+   "x": 1380,
+   "y": 372,
    "src_x": 1380,
    "src_y": 372
   },
   {
    "name": "California",
    "flag": "california",
-   "x": 189,
-   "y": 827,
+   "x": 171,
+   "y": 484,
    "src_x": 171,
    "src_y": 484
   },
   {
    "name": "Mississippi",
    "flag": "us",
-   "x": 1075,
-   "y": 973,
+   "x": 972,
+   "y": 616,
    "src_x": 972,
    "src_y": 616
   },
   {
    "name": "Florida",
    "flag": "us",
-   "x": 1313,
-   "y": 1150,
+   "x": 1188,
+   "y": 776,
    "src_x": 1188,
    "src_y": 776
   },
   {
    "name": "Minnesota",
    "flag": "us",
-   "x": 966,
-   "y": 477,
+   "x": 874,
+   "y": 167,
    "src_x": 874,
    "src_y": 167
   },
   {
    "name": "Nebraska",
    "flag": "us",
-   "x": 779,
-   "y": 648,
+   "x": 705,
+   "y": 322,
    "src_x": 705,
    "src_y": 322
   },
   {
    "name": "Kentucky",
    "flag": "us",
-   "x": 1197,
-   "y": 803,
+   "x": 1083,
+   "y": 462,
    "src_x": 1083,
    "src_y": 462
   },
   {
    "name": "Utah",
    "flag": "us",
-   "x": 428,
-   "y": 723,
+   "x": 387,
+   "y": 390,
    "src_x": 387,
    "src_y": 390
   },
   {
    "name": "Idaho",
    "flag": "us",
-   "x": 350,
-   "y": 563,
+   "x": 317,
+   "y": 245,
    "src_x": 317,
    "src_y": 245
   },
   {
    "name": "Oklahoma",
    "flag": "us",
-   "x": 855,
-   "y": 876,
+   "x": 773,
+   "y": 528,
    "src_x": 773,
    "src_y": 528
   },
   {
    "name": "New Mexico",
    "flag": "us",
-   "x": 591,
-   "y": 911,
+   "x": 535,
+   "y": 560,
    "src_x": 535,
    "src_y": 560
   },
   {
    "name": "Wyoming",
    "flag": "us",
-   "x": 546,
-   "y": 593,
+   "x": 494,
+   "y": 272,
    "src_x": 494,
    "src_y": 272
   },
   {
    "name": "West Virginia",
    "flag": "us",
-   "x": 1341,
-   "y": 756,
+   "x": 1213,
+   "y": 420,
    "src_x": 1213,
    "src_y": 420
   },
   {
    "name": "Oregon",
    "flag": "us",
-   "x": 166,
-   "y": 561,
+   "x": 150,
+   "y": 243,
    "src_x": 150,
    "src_y": 243
   },
   {
    "name": "Iowa",
    "flag": "us",
-   "x": 965,
-   "y": 628,
+   "x": 873,
+   "y": 304,
    "src_x": 873,
    "src_y": 304
   },
   {
    "name": "Wisconsin",
    "flag": "us",
-   "x": 1078,
-   "y": 541,
+   "x": 975,
+   "y": 225,
    "src_x": 975,
    "src_y": 225
   },
   {
    "name": "Nevada",
    "flag": "us",
-   "x": 265,
-   "y": 727,
+   "x": 240,
+   "y": 393,
    "src_x": 240,
    "src_y": 393
   },
   {
    "name": "New York",
    "flag": "us",
-   "x": 1500,
-   "y": 585,
+   "x": 1357,
+   "y": 265,
    "src_x": 1357,
    "src_y": 265
   },
   {
    "name": "Kansas",
    "flag": "us",
-   "x": 819,
-   "y": 762,
+   "x": 741,
+   "y": 425,
    "src_x": 741,
    "src_y": 425
   },
   {
    "name": "Louisiana",
    "flag": "us",
-   "x": 1006,
-   "y": 1062,
+   "x": 910,
+   "y": 696,
    "src_x": 910,
    "src_y": 696
   },
   {
    "name": "South Dakota",
    "flag": "us",
-   "x": 762,
-   "y": 536,
+   "x": 689,
+   "y": 221,
    "src_x": 689,
    "src_y": 221
   },
   {
    "name": "Illinois",
    "flag": "us",
-   "x": 1089,
-   "y": 707,
+   "x": 985,
+   "y": 375,
    "src_x": 985,
    "src_y": 375
   },
   {
    "name": "Arkansas",
    "flag": "us",
-   "x": 1003,
-   "y": 902,
+   "x": 907,
+   "y": 552,
    "src_x": 907,
    "src_y": 552
   },
   {
    "name": "Pennsylvania",
    "flag": "us",
-   "x": 1433,
-   "y": 672,
+   "x": 1296,
+   "y": 344,
    "src_x": 1296,
    "src_y": 344
   },
   {
    "name": "New Hampshire",
    "flag": "us",
-   "x": 1610,
-   "y": 570,
+   "x": 1456,
+   "y": 251,
    "src_x": 1456,
    "src_y": 251
   },
   {
    "name": "Indiana",
    "flag": "us",
-   "x": 1180,
-   "y": 709,
+   "x": 1067,
+   "y": 377,
    "src_x": 1067,
    "src_y": 377
   },
   {
    "name": "Georgia",
    "flag": "us",
-   "x": 1261,
-   "y": 973,
+   "x": 1141,
+   "y": 616,
    "src_x": 1141,
    "src_y": 616
   },
   {
    "name": "Alabama",
    "flag": "us",
-   "x": 1163,
-   "y": 973,
+   "x": 1052,
+   "y": 616,
    "src_x": 1052,
    "src_y": 616
   },
   {
    "name": "North Carolina",
    "flag": "us",
-   "x": 1395,
-   "y": 870,
+   "x": 1262,
+   "y": 523,
    "src_x": 1262,
    "src_y": 523
   },
   {
    "name": "Ohio",
    "flag": "us",
-   "x": 1282,
-   "y": 701,
+   "x": 1160,
+   "y": 370,
    "src_x": 1160,
    "src_y": 370
   },
   {
    "name": "Virginia",
    "flag": "us",
-   "x": 1414,
-   "y": 790,
+   "x": 1279,
+   "y": 450,
    "src_x": 1279,
    "src_y": 450
   },
   {
    "name": "Tennessee",
    "flag": "us",
-   "x": 1174,
-   "y": 865,
+   "x": 1062,
+   "y": 518,
    "src_x": 1062,
    "src_y": 518
   },
   {
    "name": "Maryland",
    "flag": "us",
-   "x": 1449,
-   "y": 728,
+   "x": 1311,
+   "y": 394,
    "src_x": 1311,
    "src_y": 394
   },
   {
    "name": "Vermont",
    "flag": "us",
-   "x": 1578,
-   "y": 551,
+   "x": 1427,
+   "y": 234,
    "src_x": 1427,
    "src_y": 234
   }

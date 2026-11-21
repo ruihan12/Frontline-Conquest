@@ -2,8 +2,8 @@ extends Node2D
 # Frontline Conquest: shared state (constants, variables, inner classes) and forward declarations.
 # The game is one class split over a chain of scripts, each adding one feature area:
 #   state -> map -> nations -> economy -> nukes -> navy -> rails -> bot_ai -> draw_helpers -> planes_fx -> diplomacy -> ui_anim -> ui_build -> strikes -> end_screen -> shop -> audio -> main (res://main.gd, the leaf attached to main.tscn)
-const W := 1792
-const H := 1600
+var W := 2000  # native upstream size of the loaded map (World is 2000x1000)
+var H := 1000
 const TS := 2.0  # pixels per tile
 const RK := preload("res://ui_upstream/rw_kit.gd")
 const RW_HUD := preload("res://ui_upstream/rw_hud.gd")
@@ -44,7 +44,7 @@ const RANDOM_MAPS := [
 	["Inland Sea", 2853, 0.02, 240],
 	["Four Corners", 3967, 0.07, 260]
 ]
-var map_tab := 0  # 0 = Real-World Maps, 1 = Random Maps
+var map_tab := 0  # picker category tab only (Featured, World, Europe, ...); map_i indexes UpstreamMaps.ORDER
 var rand_seed_off := 0
 var map_tab_btns := []
 var reroll_btn: Button
@@ -283,12 +283,12 @@ const HANDCRAFTED_MAPS := ["", "", "", "", "", "", "", "", "", "", "", ""]  # al
 var _cached_map_bytes := {}
 # ---- RoWorld port (stage 1): real map data + faithful simulation modules ----
 const RealMaps := preload("res://sim/real_maps.gd")
-const UpstreamMaps := preload("res://sim/upstream_maps.gd")  # map_tab 2: RoWorld maps (maps/upstream/)
+const UpstreamMaps := preload("res://sim/upstream_maps.gd")  # playable RoWorld maps (maps/upstream/), native size
 var _up_menu := []
 const RW_MAP_FOR := {0: 0, 1: 1, 2: 6, 3: 2, 4: 3, 5: 4, 6: 5, 7: 7, 8: 8, 9: 9, 10: 10, 11: 11}  # MAPS index -> RealMaps.MAPS index
-const DEFAULT_K_LIN := 1.1161  # 1792 tiles across = RoWorld's 2000-wide world
+const DEFAULT_K_LIN := 1.0  # upstream k_lin on a native-size map
 var sim_rules := SimRules.new(DEFAULT_K_LIN)
-const TILE_NORM := (640.0 * 352.0) / float(W * H)
+var TILE_NORM := (640.0 * 352.0) / float(2000 * 1000)
 # ---- TEST ONLY: real-world population per tile (density-test branch; tools/bake_population.py) ----
 # Off by default: with it off nothing below runs and the troop cap is the normal tile formula.
 # On (const, or `--realpop` on the command line, or set use_real_pop before a match) and on a map with a
@@ -344,7 +344,7 @@ var def_posts := {}  # owner -> PackedInt32Array of finished defense post tiles 
 var _ai_place_budget := 0  # AI placement searches (flood fills) left this tick
 # ================= v5 systems: weapons, ships, notifications =================
 # RoWorld radii (7/25/3/15/7 at 640x352) scaled by the map's linear scale so each bomb covers the same share of the map
-const BLAST_S := float(W) / 640.0
+const BLAST_S := 1792.0 / 640.0  # previous 1792-wide scale; not retuned with native map width (nuke pass is separate)
 var NUKE_R := {7: 7.0 * BLAST_S, 8: 25.0 * BLAST_S, 9: 3.0 * BLAST_S, 11: 15.0 * BLAST_S, 12: 7.0 * BLAST_S}
 var mirv_enabled := true
 var god_mode := false

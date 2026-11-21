@@ -3,8 +3,8 @@
 # --game (needs the docs/HOOKS_NAV.md hooks applied): plays World for 900 sim ticks with ports,
 # warships, trade and transports, checking every live route/ship stays on water. --game --nonav runs the
 # same game with sim_nav disabled (old BFS / straight-line ships) as a baseline.
-# Loads main.tscn, generates World (tab 0), Upstream World with Antarctica (tab 2, if present),
-# Europe (tab 0) and a random map (tab 1); builds the nav graph from sim_naval.body and checks:
+# Loads main.tscn, generates World, Europe and Africa (native upstream grids); builds the nav graph
+# from sim_naval.body and checks:
 # path validity (no land tile, same body, 8-connected, no land-corner cuts except 1-tile straits),
 # rounded pixel polylines stay on water, cold/warm query timing, the old BFS (_water_path) for
 # comparison, routes around continents, transport routes (nearest own coast by sea), warship steering
@@ -28,9 +28,7 @@ func _initialize() -> void:
 		print("NAV_GAME %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 		quit(0 if fails == 0 else 1)
 		return
-	var cfgs := [[0, 0, "world"], [0, 1, "europe"], [1, 0, "random0"]]
-	if FileAccess.file_exists("res://sim/upstream_maps.gd") and m.has_method("_upstream_menu"):
-		cfgs.insert(1, [2, 0, "upstream_world"])
+	var cfgs := [[0, 0, "world"], [0, 1, "europe"], [0, 5, "africa"]]
 	for cfg in cfgs:
 		m.map_tab = cfg[0]; m.map_i = cfg[1]
 		var t0 := Time.get_ticks_usec()
