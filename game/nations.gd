@@ -2,12 +2,6 @@ extends "res://game/map.gd"
 # Nations and the RoWorld spawn phase
 
 # ---------------- nations ----------------
-func _name() -> String:
-	var a := ["Kar", "Vel", "Os", "Tam", "Bri", "Nor", "Zan", "Eld", "Mor", "Ash", "Qua", "Ril", "Dun", "Sar", "Hol", "Ter", "Ul", "Fen", "Gal", "Pry"]
-	var b := ["avia", "esh", "ora", "undi", "mark", "heim", "ar", "ios", "ett", "anor", "wick", "stan", "ia", "oth", "urra"]
-	var pre := ["", "", "", "Free ", "Clan ", "Tribe of ", "", "Old "]
-	return pre[rng.randi() % pre.size()] + a[rng.randi() % a.size()] + b[rng.randi() % b.size()]
-
 func _new_nation(nm: String, col: Color, ai: bool) -> int:
 	if border.size() != nations.size():
 		border.clear()
@@ -226,20 +220,51 @@ func _rw_spawn_all() -> void:
 		if t < 0: t = _random_start()
 		if t >= 0:
 			_claim_disc(id, t, R.spawn_radius); _spawn_note(t); nations[id].spawn_tile = t
-			nations[id].troops = R.max_troops(SimRules.KIND_NATION, nations[id].land, 0, diff_i) if tile_pop.is_empty() \
-				else R.max_troops_pop(SimRules.KIND_NATION, nations[id].land, nations[id].pop, tile_pop_avg, 0, diff_i)
+			# (upstream Sim._create_nations: a nation keeps Rules.start_troops; the cap only bounds it)
+			nations[id].troops = minf(R.start_troops(SimRules.KIND_NATION, diff_i), _spawn_cap(id, SimRules.KIND_NATION))
 		nations[id]["authored_color"] = hex != ""
 	_nudge_nation_colors()
-	for k in SimRules.DEFAULT_TRIBES:
+	# Sim._create_tribes: tribe_count tribes named from Data/Tribes in a shuffled order (a second lap
+	# gets " 2", " 3"...), START_TROOPS_TRIBE each, at random starts.
+	var names: Array = UpstreamMaps.tribe_names()
+	var nn := names.size()
+	var order := PackedInt32Array()
+	order.resize(nn)
+	for i in nn: order[i] = i
+	for i in range(nn - 1, 0, -1):
+		var j := rng.randi() % (i + 1)
+		var tmp := order[i]; order[i] = order[j]; order[j] = tmp
+	for k in tribe_count():
 		var grey_v := rng.randf_range(0.58, 0.74)
-		var id := _new_nation(_name(), Color.from_hsv(0.60, rng.randf_range(0.02, 0.07), grey_v), true)
+		var tribe_name := ""
+		if nn > 0:
+			tribe_name = str(names[order[k % nn]])
+			if k >= nn: tribe_name += " " + str(k / nn + 1)
+		else:
+			tribe_name = "Tribe " + str(k + 1)
+		var id := _new_nation(tribe_name, Color.from_hsv(0.60, rng.randf_range(0.02, 0.07), grey_v), true)
 		nations[id].troops = SimRules.START_TROOPS_TRIBE
 		var t := _random_start()
 		if t >= 0:
 			_claim_disc(id, t, R.spawn_radius); _spawn_note(t); nations[id].spawn_tile = t
-			nations[id].troops = R.max_troops(SimRules.KIND_TRIBE, nations[id].land, 0, diff_i)
+			nations[id].troops = minf(SimRules.START_TROOPS_TRIBE, _spawn_cap(id, SimRules.KIND_TRIBE))
 		else:
 			nations[id].alive = false
+
+# Sim.default_tribes: Rules.DEFAULT_TRIBES (400) on a map at scale 1, scaled by the map's area
+# (World 0.896 -> 321). Maps without an upstream scale (random maps) get 400.
+func tribe_count() -> int:
+	var id := _pop_map_id()
+	var s := 1.0
+	if id != "":
+		s = float(UpstreamMaps.meta(id).get("scale", 1.0))
+	return int(floor(SimRules.DEFAULT_TRIBES * s * s + 0.5))
+
+# The troop cap `id` has right after spawning (bounds the start troops, as the over-cap snap does).
+func _spawn_cap(id: int, kind: int) -> float:
+	if tile_pop.is_empty():
+		return sim_rules.max_troops(kind, nations[id].land, 0, diff_i)
+	return sim_rules.max_troops_pop(kind, nations[id].land, float(nations[id].get("pop", 0.0)), tile_pop_avg, 0, diff_i)
 
 # Sim._create_nations colour pass (COLOR_NEAR_NATION = 70 legacy tiles): an authored flag colour stays unless a
 # capital nearby is too similar (minimal nudge); a nation without one gets the human-palette colour most
@@ -268,7 +293,8 @@ func _place_start(t: int) -> void:
 		return
 	_clear_nation(PLAYER)
 	_claim_disc(PLAYER, t, sim_rules.spawn_radius)
-	nations[PLAYER].troops = sim_rules.max_troops(SimRules.KIND_HUMAN, nations[PLAYER].land, 0, diff_i)
+	# (upstream Sim._apply_intent spawn: _start_troops_of = START_TROOPS_HUMAN; the cap bounds it)
+	nations[PLAYER].troops = minf(start_troops_of(PLAYER), _spawn_cap(PLAYER, SimRules.KIND_HUMAN))
 	start_tile = t
 	# Do NOT reset deploy_t when placing or switching starting location!
 
