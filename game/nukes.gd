@@ -9,8 +9,11 @@ extends "res://game/economy.gd"
 # applies the camera. Nothing here depends on zoom, viewport, frame rate or the render dt; the game
 # speed slider only changes how many sim ticks run per second.
 #
-# Kept custom (user): the ICBM toggle (key I) adds 10% to the launching player's bomb price. Upstream
-# silos already reach the whole map (Rules.launch_range is 0 for bombs), so there is no range to lift.
+# Kept custom (user): the ICBM toggle (key I). While it is on, every bomb the player launches costs 10% more
+# and has a 35% chance (ICBM_EVADE_P) to evade SAMs entirely, rolled once at launch with the sim RNG
+# (main.rng). An evading missile ("evade": true) is never a SAM candidate, never planned, never intercepted.
+# A MIRV rolls once for its bus and every warhead it splits into inherits that roll; a Scattershot's
+# warheads likewise share the core's roll. (Upstream silos already reach the whole map, so ICBM lifts no range.)
 #
 # Missile dictionaries (main.missiles): {o, k (build id), nk (Defs.N_*), from, to (tile centres),
 # lt, ft, t, dur (t / dur: the old missile-clock view, DT_TICK per tick), r (outer radius, tiles),
@@ -117,7 +120,7 @@ func _spawn_missile(o: int, k: int, nk: int, from: Vector2, to: Vector2, ft: int
 	var ms := {"o": o, "k": k, "nk": nk, "from": from, "to": to, "lt": t0, "ft": maxi(1, ft),
 		"t": 0.0, "dur": float(maxi(1, ft)) * SimArsenal.DT_TICK, "r": nuke_outer(k, nk), "arc": arc,
 		"tgt_o": owner_map[tile] if tile >= 0 and tile < W * H else -1,
-		"mirv": nk == SimRules.N_MIRV, "mirv_bus": nk == SimRules.N_MIRV, "branched": nk == SimRules.N_WARHEAD}
+		"mirv": nk == SimRules.N_MIRV, "mirv_bus": nk == SimRules.N_MIRV, "branched": nk == SimRules.N_WARHEAD, "evade": false}
 	ms.merge(extra, true)
 	missiles.append(ms)
 	return ms
@@ -154,10 +157,12 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 	var arc: Dictionary = sim_rules.munition_arc(H, from, tp, nk)
 	var ms := _spawn_missile(o, k, nk, from, tp, sim_rules.nuke_arc_ticks(arc, nk), arc)
 	ms.tgt_o = victim
+	# ICBM: one roll per launch (sim RNG), player only, never with the toggle off
+	ms["evade"] = icbm_mode and o == PLAYER and rng.randf() < ICBM_EVADE_P
 	if nk == SimRules.N_MIRV:
 		mirvs_launched += 1
 	elif nk == SimRules.N_SCATTER:
-		_scatter_warheads(o, k, from, tile, int(ms.ft))
+		_scatter_warheads(o, k, from, tile, int(ms.ft), bool(ms.evade))
 	if victim > 0:
 		nations[victim]["grudge_" + str(o)] = sim_atk.tick + SimRules.NUKE_GRUDGE_TICKS
 		nations[victim]["attacked_tick"] = sim_atk.tick
@@ -175,13 +180,13 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 # SimArsenal._scatter_warheads: SCATTER_MIN..MAX warheads evenly around the aim (a random turn, +-0.3 rad
 # jitter), SCATTER_NEAR..FAR tiles out, never onto the launcher's or an ally's land; each flies its own
 # arc from the silo and lands 2 ticks after the last (never before the core).
-func _scatter_warheads(o: int, k: int, from: Vector2, aim: int, flight: int) -> void:
+func _scatter_warheads(o: int, k: int, from: Vector2, aim: int, flight: int, evade := false) -> void:
 	var fired := 0
 	for wp in sim_ars.scatter_targets(o, _tc(aim, W)):
 		fired += 1
 		var arc: Dictionary = sim_rules.nuke_arc(H, from, wp)
 		var ft := maxi(flight, sim_rules.nuke_arc_ticks(arc, SimRules.N_SCATTER)) + fired * 2
-		_spawn_missile(o, k, SimRules.N_WARHEAD, from, wp, ft, arc)
+		_spawn_missile(o, k, SimRules.N_WARHEAD, from, wp, ft, arc, {"evade": evade})
 
 # ---------------------------------------------------------------- per tick (SimNukes.nukes_tick)
 # Called once per sim tick, after sim_ars.tick() (SimNukes._sam_tick). `_dt` is ignored: flight is
@@ -276,7 +281,7 @@ func _split_mirv(ms) -> void:
 		var dp := _tc(t, W)
 		var arc: Dictionary = sim_rules.nuke_arc(H, from, dp)
 		var ft: int = sim_rules.nuke_arc_ticks(arc, SimRules.N_WARHEAD) + rng.randi_range(0, 15)
-		_spawn_missile(o, 9, SimRules.N_WARHEAD, from, dp, ft, arc, {"mirv": true, "tgt_o": tg})
+		_spawn_missile(o, 9, SimRules.N_WARHEAD, from, dp, ft, arc, {"mirv": true, "tgt_o": tg, "evade": bool(ms.get("evade", false))})
 
 func g_randi() -> int:
 	return rng.randi()

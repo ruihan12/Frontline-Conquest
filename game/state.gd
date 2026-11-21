@@ -395,6 +395,7 @@ var neigh_cache := [-1, 0]
 # ---------- nukes ----------
 # Vanilla: silos reach the whole map (Rules.launch_range 0 for bombs) and bombs fly upstream's speeds.
 const ICBM_FEE_PCT := 0.10  # ICBM toggle (key I, kept custom): +10% of the player's bomb price
+const ICBM_EVADE_P := 0.35  # ...and each bomb the player launches with it on has a 35% chance to ignore SAMs
 var icbm_mode := false
 var _land_w := -1.0
 var mirvs_launched := 0  # Rules.nuke_cost: MIRV +15M per MIRV already launched in the match (Rules.luau 785-789)

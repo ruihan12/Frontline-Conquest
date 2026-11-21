@@ -542,14 +542,14 @@ func _build_bottom() -> void:
 		["7", "Warship", 250e3, "1,000 HP (+20% per veterancy, max 3). Shells transports and warships within 130 tiles, captures trade ships, repairs at your ports."],
 		["8", "Atom Bomb", 750e3, "Tactical nuclear strike (7-tile blast radius) that leaves radioactive fallout."],
 		["9", "Hydrogen Bomb", 5e6, "Strategic nuclear blast (25-tile radius) that wipes structures and troops."],
-		["0", "MIRV", 25e6, "Splits into branched warheads covering 65-85% of the targeted country in fallout."],
+		["0", "MIRV", 25e6, "Splits over the aim into up to 350 warheads on the target's land. SAMs can't stop the carrier."],
 		["", "Artillery", 150e3, "Shells enemy land and buildings within 45 tiles every 4-7 s: kills 2.88% of the army hit (1,440-19,200), 150 damage to buildings."],
-		["", "Mega Nuke", 2.5e6, "Heavy nuclear warhead (15-tile blast radius)."],
-		["", "Scattershot", 3.75e6, "An atom-sized crater at the aim plus 4-6 warheads 25-41 tiles around it (never on your or an ally's land)."],
+		["", "Mega Nuke", 2.5e6, "Twice an Atom Bomb's blast radius: four times the ground."],
+		["", "Scattershot", 3.75e6, "An atom-sized crater at the aim plus 4-6 warheads 28-46 full-size tiles around it (never on your or an ally's land)."],
 		["", "Reinforcements", 100e3, "Adds a fifth of your troop cap (never past it). 30 s cooldown."],
 		["", "Airfield", 500e3, "Build on your land. Aim at enemy land within 156 tiles for a free Air Strike (15-tile circle, up to 6% of the army, 600 to buildings). Rearms in 30 s."],
 		["", "Railgun", 2.5e6, "Build on your land. Aim anywhere for a free slug (5-tile circle, up to 4% of the army, 1,000 to buildings). Reloads in 25 s."],
-		["I", "ICBM", 0.0, "Upgrade toggle, not a warhead: while ON every bomb launch ignores range and costs +10% of that bomb's price."]]
+		["I", "ICBM", 0.0, "Upgrade toggle, not a warhead: while ON every bomb you launch costs +10% and has a 35% chance to evade SAMs."]]
 	build_data = builds
 	var sx := 16.0
 	var order := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 16, 11, 12, 10, 13, 14, 15]
@@ -750,7 +750,7 @@ func _update_build_tip() -> bool:
 		return true
 	var k := tip_slot
 	if k == 16:
-		var rows := [["Status", "ON" if icbm_mode else "OFF", ORANGE_Y if icbm_mode else MUTED], ["Fee", "+10% of the bomb's price", GOLD_C]]
+		var rows := [["Status", "ON" if icbm_mode else "OFF", ORANGE_Y if icbm_mode else MUTED], ["Fee", "+10% of the bomb's price", GOLD_C], ["SAMs", "35% chance to evade SAMs", ORANGE_Y]]
 		for nk in [7, 8, 9, 11, 12]:
 			rows.append([build_data[nk][1], "%s  →  %s" % [_fmt(float(build_data[nk][2])), _fmt(float(build_data[nk][2]) * (1.0 + ICBM_FEE_PCT))], GOLD_C])
 		_show_tip({"title": "ICBM upgrade", "badge": "I", "rows": rows, "desc": build_data[16][3], "foot": "Click to turn " + ("OFF" if icbm_mode else "ON"), "foot_col": CYAN, "foot_icon": "o"}, build_btns[16].global_position + Vector2(build_btns[16].size.x * 0.5, 0), true)
@@ -769,7 +769,8 @@ func _update_build_tip() -> bool:
 			d.rows.append(["Upgrade", "Click existing %s on map" % bd[1], GREEN])
 	if k in [7, 8, 9, 11]:
 		d.rows.append(["Blast radius", "%d tiles" % int(NUKE_R[k]) if k != 9 else "many warheads", TEXT])
-		d.rows.append(["Range", "Anywhere (ICBM +10%)" if icbm_mode else nuke_range_label(k), ORANGE_Y if icbm_mode else TEXT])
+		d.rows.append(["Range", nuke_range_label(k), TEXT])
+		if icbm_mode: d.rows.append(["ICBM", "+10%, 35% chance to evade SAMs", ORANGE_Y])
 	var req := build_req(k, -1)
 	if k == 13 and pl.troops >= troop_cap(PLAYER) - 1: req = "Your army is already at its cap"
 	if req != "":

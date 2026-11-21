@@ -1044,7 +1044,7 @@ func _draw_overlay_inner() -> void:
 				var tgt := _tex("ui_icons/target.png")
 				if tgt: overlay.draw_texture_rect(tgt, Rect2(mp - Vector2(14, 14), Vector2(28, 28)), false, Color(1, 0.3, 0.25) if inr else Color(0.5, 0.5, 0.5, 0.8))
 				if icbm_mode:
-					overlay.draw_string(f_bold, mp + Vector2(18, -14), "ICBM  +10%%  (%s)" % _fmt(nuke_cost(build_sel)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.5))
+					overlay.draw_string(f_bold, mp + Vector2(18, -14), "ICBM  +10%%  (%s)  ·  35%% chance to evade SAMs" % _fmt(nuke_cost(build_sel)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.5))
 			if build_sel == 2:
 				for st in structs:
 					if st.o == PLAYER and st.k == 2:

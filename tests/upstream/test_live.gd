@@ -398,7 +398,9 @@ func _nukes_and_sam() -> void:
 		# fly to impact (or intercept)
 		var flight: int = _fly()
 		H.expect(m.missiles.is_empty(), "atom leaves the missile list after flight / intercept", "ticks=%d" % flight)
-	# foe SAM intercept
+	# foe SAM intercept (ICBM off: with it on, a launch has a 35% chance to evade SAMs; see tests/test_icbm_evade.gd)
+	if m.has_method("set_icbm"):
+		m.set_icbm(false)
 	var fc: int = _center(foe)
 	var fsam_t: int = m._pt_free_land_near(foe, fc, 60)
 	if fsam_t >= 0:
@@ -418,6 +420,8 @@ func _nukes_and_sam() -> void:
 			H.expect(m.sim_ars.ready_missiles(fsam) == 0, "the SAM spent its missile")
 		if fsam != null:
 			m._struct_remove(fsam)
+	if m.has_method("set_icbm"):
+		m.set_icbm(true)
 	# detonation / fallout / troop loss (H-bomb), no SAM
 	for st in m.structs.duplicate():
 		if st.o == foe and st.k == 4:

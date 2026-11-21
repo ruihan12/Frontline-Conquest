@@ -418,6 +418,7 @@ func scatter_targets(o: int, aim: Vector2) -> Array:
 # ---------------------------------------------------------------- SAMs (SimNukes._sam_tick / _sam_plan)
 func interceptable(ms) -> bool:
 	if ms.get("mirv_bus", false): return false
+	if ms.get("evade", false): return false  # ICBM evasion roll (game/nukes.gd): SAMs ignore it entirely
 	return SimRules.NUKE_INTERCEPT_P[int(ms.get("nk", 0))] > 0.0
 
 func flight_ticks(ms) -> int:
@@ -443,6 +444,9 @@ func _traj(ms, k: int) -> Vector2:
 func _sam_candidates(ms, sams: Array) -> void:
 	ms["cand_tick"] = now() + SimRules.SAM_CAND_REFRESH_TICKS
 	ms["plan_fire"] = {}; ms["plan_k"] = {}
+	if ms.get("evade", false):
+		ms["cands"] = []
+		return
 	var reach := (SimRules.SAM_MAX_RANGE_FULL + SimRules.NUKE_TARGETABLE_FULL) / R.k_lin
 	var r2 := reach * reach
 	var c := []
@@ -456,6 +460,9 @@ func _man_v(a: Vector2, b: Vector2) -> float:
 	return absf(floorf(a.x) - floorf(b.x)) + absf(floorf(a.y) - floorf(b.y))
 
 func _sam_plan(ms, st) -> void:
+	if ms.get("evade", false):
+		ms.plan_fire[st.tile] = -1
+		return
 	var t := now()
 	var cur := maxi(0, _cur_k(ms))
 	var last := flight_ticks(ms)
@@ -540,6 +547,9 @@ func _sam_tick(t: int) -> void:
 func sam_resolve(ms) -> bool:
 	var st = ms.get("sam_st")
 	if st == null: return false
+	if ms.get("evade", false):
+		ms["sam_st"] = null
+		return false
 	if not _alive_struct(st) or st.o == ms.o:
 		ms["sam_st"] = null
 		ms["cand_tick"] = now()
