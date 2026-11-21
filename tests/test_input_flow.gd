@@ -104,7 +104,7 @@ func _initialize() -> void:
 
 	var tg := _targets()
 	_check(tg[0] >= 0 and tg[1] >= 0, "found adjacent (%d) and same-continent wilderness 15 tiles out (%d)" % [tg[0], tg[1]])
-	for which in [[1, "same-continent wilderness 15 tiles out"], [0, "adjacent unclaimed land"]]:
+	for which in [[0, "adjacent unclaimed land"], [1, "same-continent wilderness 15 tiles out"]]:
 		var tile: int = _targets()[which[0]]
 		if tile < 0: continue
 		var a0 := _player("attacks"); var b0 := _player("boats")
@@ -114,7 +114,9 @@ func _initialize() -> void:
 		m.client.interact._last_click_tile = -1
 		m.client.ctx.rules.invalidate()
 		print('    primary: ', m.client.ctx.rules.primary(tile), ' tile_at ', m.client.ctx.tile_at(pos), '=', tile, ' owner ', m.owner_map[tile])
+		var sp0: int = m.minput.stats.stop_presses if m.minput else -1
 		await _click(pos)
+		print('    stop_presses %d -> %d, moving=%s' % [sp0, m.minput.stats.stop_presses, m.mcam.is_moving(30.0)])
 		_check(_player("attacks") > a0 or m.nations[m.PLAYER].troops < tr0 - 0.5, "click on %s starts a land attack (attacks %d -> %d, troops %.0f -> %.0f)" % [which[1], a0, _player("attacks"), tr0, m.nations[m.PLAYER].troops])
 		_check(_player("boats") == b0, "  ... and sends no boat (boats %d -> %d)" % [b0, _player("boats")])
 		await _secs(2.0)
