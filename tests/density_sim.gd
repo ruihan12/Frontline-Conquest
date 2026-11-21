@@ -65,6 +65,17 @@ func _report(m, pop: PackedFloat32Array, t: int) -> void:
 	var tot_land := 0; var tot_tr := 0.0
 	for id in ids: tot_land += m.nations[id].land; tot_tr += m.nations[id].troops
 	print("DSIM t=%d alive=%d owned_land=%d troops_total=%.0f" % [t, ids.size(), tot_land, tot_tr])
+	var neu := 0; var neu0 := 0
+	for i in om.size():
+		if om[i] == 0:
+			neu += 1
+			if pop[i] <= 0.0: neu0 += 1
+	print("DSIM   neutral_land=%d (0-pop %d)" % [neu, neu0])
+	var by_kind := [0, 0, 0]; var tiny := 0
+	for id in ids:
+		by_kind[clampi(m.kind_of(id), 0, 2)] += 1
+		if np.get(id, 0.0) <= 0.0: tiny += 1
+	print("DSIM   alive by kind human=%d nation=%d tribe=%d, 0-pop alive=%d" % [by_kind[0], by_kind[1], by_kind[2], tiny])
 	for k in mini(10, ids.size()):
 		var id: int = ids[k]; var n = m.nations[id]
 		print("DSIM   #%d %-18s land=%6d pop=%7.1fM troops=%8.0f cap=%8.0f" % [k + 1, n.name, n.land, np.get(id, 0.0) / 1e6, n.troops, m.troop_cap(id)])

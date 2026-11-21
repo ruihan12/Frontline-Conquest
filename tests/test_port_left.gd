@@ -96,6 +96,9 @@ func _initialize() -> void:
 	_check(absf(SimRules.warhead_death(1e5 * S, 1e5 * S, S) - S * SimRules.warhead_death(1e5, 1e5)) < 1e-6 * S, "warhead death x S")
 	R2.pop_cap_mode = 2
 	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 348e6, 1.0, 2, 1) == 348e6 + 2.0 * SimRules.CITY_POP_BONUS, "1:1 cap = people + city levels x CITY_POP_BONUS")
+	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 0.0, 1.0, 0, 1) == SimRules.MIN_CAP_1TO1, "1:1 empty human cap floors at MIN_CAP_1TO1")
+	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 0.0, 1.0, 0, 1, false) == 0.0, "1:1 spawn cap has no floor (empty spawns start empty)")
+	_check(R2.max_troops_pop(SimRules.KIND_TRIBE, 100, 0.0, 1.0, 0, 1) == 0.0, "1:1 empty tribe has no floor (absorbable)")
 	_check(R1.max_troops(SimRules.KIND_HUMAN, 100, 0, 1) == R2.max_troops(SimRules.KIND_HUMAN, 100, 0, 1), "tile cap untouched by the scale")
 	print("PORT_LEFT fails=%d" % fails)
 	quit(1 if fails > 0 else 0)

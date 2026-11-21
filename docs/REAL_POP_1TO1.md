@@ -217,3 +217,24 @@ Known balance problems in 1:1: South/East Asia snowball (caps 1.1-2.2B); 0-pop l
 Siberia, Sahara) stays neutral (~130-180k tiles) since a 0-pop nation has 0 cap and neutral land costs
 ~6k people a tile; 0-cap tribes sit frozen, inflating the alive count; the US capital often falls to a
 neighbour; difficulty multipliers keep caps below population; the city bonus is negligible at national scale.
+
+## Cheaper land (Ruihan: "make land cheaper")
+
+The first 1:1 build left ~130-180k tiles of 0-pop land neutral: neutral land cost a flat ~5.9k people a
+tile and 0-pop nations had a 0 cap. Now, in 1:1 only (normal mode untouched):
+- Neutral tile cost = (terrain mag / 100) * (nl / 0.2) * (NEUTRAL_LOSS_FLOOR 60 + 0.25 * people on the tile)
+  (sim/attacks.gd neutral branch, SimRules.NEUTRAL_LOSS_*). Empty land is nearly free, dense land is not.
+- Nation/human caps floor at MIN_CAP_1TO1 = 300k people, so empty nations regrow and expand slowly. The
+  spawn cap ignores the floor (max_troops_pop with_floor=false), so empty spawns still start nearly empty.
+- Tribes get no floor: a 0-pop tribe keeps a 0 cap and is absorbed or dies out.
+
+World, 4,000 ticks, `--pop 2` (off for comparison: 89-100 alive, 2.1-3.6k neutral):
+
+| Seed | Alive (tribes) | Neutral tiles | Dense / sparse tiles | Biggest cap | USA / China / India capital owner troops |
+|---|---|---|---|---|---|
+| 1 | 59 (24) | 2,681 | 98.6k / 48.9k | Sri Lanka 2.07B | US 32.5M / Vietnam 596M / Sri Lanka 558M |
+| 2 | 63 (29) | 2,186 | 90.9k / 40.9k | Vietnam 1.58B | Texas 19.4M / Vietnam 849M / Vietnam 849M |
+| 3 | 41 (12) | 5,264 | 93.3k / 6.2k | Bangladesh 2.44B | Mexico 79.7M / Bangladesh 1.44B / Bangladesh 1.44B |
+
+Left over: the South/East Asia snowball (caps 1.6-2.4B) is unchanged, and fewer nations survive than in
+normal mode now that empty tribes die out.
