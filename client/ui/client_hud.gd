@@ -68,6 +68,9 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	ctx.reload_settings()
 	root = Control.new()
 	root.name = "ClientHud"
+	# UIRoot: every button clicks when pressed and ticks under the pointer (BuildButtons and leaderboard
+	# rows click quieter and do not tick)
+	main.get_tree().node_added.connect(_hook_button_sfx)
 	root.theme = UITheme.theme()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -278,9 +281,8 @@ func layout() -> void:
 		vp = Vector2(1600, 900)
 	ctx.vp = vp
 	ctx.compact = vp.y < 560.0 or vp.x < 900.0
-	# One row only when nation + troops + attack + gold + slots actually fit (boxes are reserved
-	# for the widest HUD strings, including scientific notation).
-	ctx.wide = vp.x >= bar.wide_threshold()
+	# (the single-row bar: ten slots, plus the Arsenal's SHOP slot and a slot per unlocked kind)
+	ctx.wide = vp.x >= 1420.0 + bar.extra_width() + 62.0 * bar.port_slots.size()
 	# the top-left corner belongs to the top-bar buttons (and the speed chip under them)
 	topbar.layout()
 	var tr := topbar.topbar_rect()
@@ -602,10 +604,17 @@ func _placing_kind() -> String:
 # Event feed: the game's notify() and alliance prompts
 # ---------------------------------------------------------------------------------------------
 const _KIND_CAT := {"good": Defs.MSG_GOOD, "bad": Defs.MSG_BAD, "info": Defs.MSG_INFO, "alert": Defs.MSG_ALERT, "ally": Defs.MSG_ALLIANCE}
-## The event's own glyph by what the line is about (boat for naval news, crown for captures, ...).
-const _TOAST_ICONS := [["warship", "boat"], ["transport", "boat"], ["boat", "boat"], ["captured", "crown"], ["alliance", "alliance"], ["allied", "alliance"],
-	["betray", "betray"], ["traitor", "betray"], ["nuke", "atom"], ["bomb", "atom"], ["mirv", "atom"], ["gold", "gold"], ["troops", "troops"],
-	["eliminated", "skull"], ["destroyed", "skull"], ["attack", "attack"], ["unlocked", "check"]]
+## UIAdvisor._naval_sfx: which naval news a message is ("" = none); naval news wears the warship glyph.
+static func _naval_kind(t: String) -> String:
+	if t.contains("sank your") or t.contains("your transport was sunk") or t.contains("your warship was sunk"):
+		return "ship_lost"
+	if t.contains("you sank") or t.contains("your warship sank"):
+		return "ship_kill"
+	if t.contains("captured a trade ship") and t.begins_with("your"):
+		return "trade_captured"
+	if t.contains("trade ship"):
+		return "trade_lost"
+	return ""
 
 
 ## main.notify(text, kind): kind is "good" / "bad" / "info". It can fire inside a time-budgeted sim
@@ -623,13 +632,15 @@ func _toast_now(text: String, kind: String) -> void:
 		k = "alert"
 	elif t.contains("alliance") or t.contains("allied") or t.contains("ally"):
 		k = "ally"
+	# Upstream (UIAdvisor.on_message / the alliance handlers): the category's own glyph
+	# (UITheme.msg_icon), except naval news (warship) and the alliance lines (alliance / betray).
 	var icon := ""
-	for pair in _TOAST_ICONS:
-		if t.contains(pair[0]):
-			icon = pair[1]
-			break
-	if UITheme.icon_texture(icon) == null:
-		icon = ""
+	if _naval_kind(t) != "":
+		icon = "warship"
+	elif t.contains("betrayed you"):
+		icon = "betray"
+	elif t.begins_with("alliance formed") or (t.begins_with("your alliance with") and t.ends_with("has ended")):
+		icon = "alliance"
 	feed.toast(_KIND_CAT.get(k, Defs.MSG_INFO), text, icon)
 
 
@@ -929,3 +940,21 @@ func process(dt: float) -> void:
 	bar.update(dt)
 	board.update(dt)
 	attacks.update(dt)
+
+
+## UIRoot's button sounds (W.button_sound / the pressed + mouse_entered hooks): a press clicks (-2 dB;
+## -4 dB for a BuildButton or a leaderboard row), the pointer entering an enabled button ticks
+## (-14 dB, mouse only; none on those quiet ones).
+func _hook_button_sfx(node: Node) -> void:
+	if not (node is BaseButton) or root == null or not root.is_ancestor_of(node) or node.has_meta("_sfx_hooked"):
+		return
+	node.set_meta("_sfx_hooked", true)
+	var b := node as BaseButton
+	var quiet := b is BuildButton or b is Leaderboard.Row
+	if quiet:
+		b.pressed.connect(func() -> void: ctx.sfx("click", -4.0))
+	else:
+		b.pressed.connect(func() -> void: ctx.sfx("click", -2.0))
+		b.mouse_entered.connect(func() -> void:
+			if not b.disabled and not ctx.touch:
+				ctx.sfx("hover", -14.0))

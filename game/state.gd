@@ -434,7 +434,7 @@ const UI_TEX := {0: "ui/city.png", 1: "ui/port.png", 2: "ui/factory.png", 3: "ui
 # snapped to whole device pixels.
 const SHIP_UNIT_SIZE_FULL := 13.0
 const SHIP_MIN_PX := 5.0
-const SHIP_CIVIL_SCALE := 0.75  # trade / cargo / transport boats; warships stay at 1.0
+const SHIP_CIVIL_SCALE := 1.0  # upstream: every ship the same size (the old 0.75 for civil boats is gone)
 
 var _tie_vr := Rect2()
 var cap_fx := {}
@@ -673,6 +673,7 @@ var _dir_music := false  # the director plays the soundtrack playlist (music_pla
 # play a sound by key; vol_db lets far/AI events be quieter. Missing sounds are ignored.
 var _sfx_log := false
 const SFX_ANY_OWNER := ["atom_launch", "hydrogen_launch", "mirv_launch", "atom_hit", "hydrogen_hit"]
+const SFX_LAUNCH_KEYS := ["atom_launch", "hydrogen_launch", "mirv_launch", "icbm_launch", "mega_launch", "scatter_launch", "nuke_launch"]
 # Only this file may play as music. sounds/rejected/ holds the old themes; they are not scanned.
 const MUSIC_FILE := "res://sounds/music/frontline_bed.wav"
 
@@ -852,7 +853,7 @@ func _fmt(n: float, decimals := 6) -> String:
 	return UITheme.big(n, decimals)  # overridden in game/ui_build.gd with the same contract
 
 func _fmt_hud(n: float) -> String:
-	return UITheme.hud_num(n)
+	return UITheme.fmt_num(n)
 
 func _try_unlock_web_audio(_e: InputEvent = null) -> void:
 	pass  # implemented in game/audio.gd

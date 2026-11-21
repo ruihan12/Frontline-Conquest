@@ -101,7 +101,7 @@ static func format(text: String, values: Dictionary) -> String:
 func blurb(kind: String) -> String:
 	var R := rules()
 	return format(BLURBS.get(kind, ""), {
-		"city": UITheme.fmt_troops(R.city_troops_shown()),
+		"city": UITheme.fmt_troops(SimRules.CITY_TROOPS),
 		"def_r": str(Defs.round_i(R.defense_range)),
 		"def_mag": str(Defs.round_i(SimRules.DEFENSE_POST_MAG)),
 		"def_cost": str(Defs.round_i(SimRules.DEFENSE_POST_COST)),
@@ -151,7 +151,7 @@ static func troop_rate_rising(rate: float, last: float = NAN) -> bool:
 
 ## The label text: "+" .. render_troops(rate per second) .. "/s".
 static func troop_rate_text(per_second: float) -> String:
-	return "+" + UITheme.hud_troops(maxf(per_second, 0.0)) + "/s"
+	return "+" + UITheme.fmt_troops(maxf(per_second, 0.0)) + "/s"
 
 
 ## Aimed at a target tile and launched (the bombs, and the Arsenal's munitions).

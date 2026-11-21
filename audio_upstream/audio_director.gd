@@ -741,26 +741,14 @@ func _block(raw: String, name: String, reason: String) -> bool:
 	return false
 
 
-func _gate(name: String, who: int, hits_player: bool, button_press: bool) -> String:
-	if name == "ui_click" and not button_press:
-		return "click_not_button"
-	if name in GATE_NUKE:
-		return ""
-	if name in GATE_NUKE_IF_HIT:
-		return "" if hits_player or who == player_id else "nuke_alarm_not_player"
-	if name in GATE_UI:
-		return ""
-	if who == player_id or hits_player:
-		return ""
-	return "gated_ai"
+## Upstream AudioDirector.play_sfx has no gate: whoever asks for a sound gets it (the callers decide,
+## as UIAdvisor does: your own builds / ships / launches, alarms aimed at you, blasts on screen or yours).
+func _gate(_name: String, _who: int, _hits_player: bool, _button_press: bool) -> String:
+	return ""
 
 
-func _in_match_hush(name: String) -> bool:
-	if _match_t0_ms < 0:
-		return false
-	if name not in MATCH_START_HUSH_EVENTS:
-		return false
-	return _now_ms() - _match_t0_ms < MATCH_START_HUSH_MS
+func _in_match_hush(_name: String) -> bool:
+	return false  # (upstream has no match-start hush)
 
 
 func begin_match() -> void:

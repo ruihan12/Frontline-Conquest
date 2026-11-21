@@ -10,8 +10,13 @@ Support files that are not upstream client files: client/defs.gd (Core/Defs cons
 
 Art comes from upstream's assets/ folder, copied to assets/rw/ (AGPL-3.0, see assets/LICENSE-AGPL-3.0-RoWorld.txt).
 
-Kept from the old port on purpose: the custom range system, ICBM toggle, countdown, speed slider, number
-suffixes, click-sound rule, Tab console and settings.
+Vanilla pass (branch van-ui): the UI follows upstream. Kept on purpose: the Tab console (password, FPS
+counter, match only), the 0.5-10x speed slider and the ICBM toggle (port-only slot); plus engineering
+fixes that do not change what upstream shows: icons resampled to the device pixels they cover
+(client/ui/crisp_icon.gd), round badges drawn as circles (UITheme.set_disc), a count that outgrows its
+box shrinks instead of being cut off, web audio unlock, and a static bus layout (default_bus_layout.tres)
+so the web build's Web Audio graph reaches the speakers. The graphics settings window (resolution, FPS
+cap, quality, AA, VSync, screen shake, volumes) stays: nothing in it changes the game.
 
 Progress: 44632 of 52913 upstream lines accounted for (80 of 86 files; 11524 of those lines are files with no counterpart here: the Widgets kit, Roblox store / account / platform screens). Live in the game: the whole in-match HUD (top bar, command bar, status pill, spawn banner, leaderboard, attacks panel, event feed, nuke alert, hint cards, game menu, game over). The old HUD (ui_upstream/rw_hud.gd) still draws only the port's own speed chip. The map hover card is ported too. The right-click action ring is ported too. The title screen, the PLAY SOLO panel and the map picker are ported and live (the old menu and play dialog are removed). Left clicks on the map run through the ported UIInteract.on_click. Placement clicks (with the two-click nuke lock) run through it too; the build itself stays the game's try_build. The Arsenal window, the tutorial and the coach tips are ported and live. The spectate pill (keep watching after your nation falls) is ported and live. The help window is ported.
 

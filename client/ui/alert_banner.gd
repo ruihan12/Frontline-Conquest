@@ -41,7 +41,7 @@ func _init(c: UICtx) -> void:
 	_disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_disc.custom_minimum_size = Vector2(34, 34)
 	_disc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_disc.add_theme_stylebox_override("panel", T.flat(T.c(T.RED, 0.25), 17, T.RED, 1))
+	T.set_disc(_disc, T.c(T.RED, 0.25), T.RED, 1.0)
 	var ic := T.icon_rect("atom", 18.0, Color(1.0, 0.85, 0.85))
 	_disc_icon = ic
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -111,7 +111,7 @@ func _show_green(last: bool) -> void:
 	_detail.text = "Shot down by a SAM" + ("" if last else " · more incoming")
 	panel.set_tint(Color(0.03, 0.2, 0.09, 0.9))
 	panel.set_border(T.c(T.GREEN, 0.9))
-	_disc.add_theme_stylebox_override("panel", T.flat(T.c(T.GREEN, 0.25), 17, T.GREEN, 1))
+	T.set_disc(_disc, T.c(T.GREEN, 0.25), T.GREEN, 1.0)
 	_disc_icon.texture = T.icon_texture("sam")
 	_disc_icon.modulate = Color(0.85, 1.0, 0.9)
 	panel.reset_size()
@@ -122,7 +122,7 @@ func _set_red() -> void:
 	T.set_font_color(_title, RED_TITLE)
 	panel.set_tint(RED_TINT)
 	panel.set_border(T.c(T.RED, 0.8))
-	_disc.add_theme_stylebox_override("panel", T.flat(T.c(T.RED, 0.25), 17, T.RED, 1))
+	T.set_disc(_disc, T.c(T.RED, 0.25), T.RED, 1.0)
 	_disc_icon.texture = T.icon_texture("atom")
 	_disc_icon.modulate = Color(1.0, 0.85, 0.85)
 

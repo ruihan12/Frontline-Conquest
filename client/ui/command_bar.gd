@@ -46,8 +46,6 @@ var _rate := 0.0
 var _rate_up := true
 var _last_growth := NAN
 var _poll := 0.0
-## When set, refresh() leaves gold / troops / rate texts alone (used by --hudfit).
-var _hold_count_texts := false
 var _buttons_dirty := true
 ## Port-only slots (not in upstream) that follow the nukes in the row: the ICBM toggle.
 var port_slots: Array = []
@@ -137,29 +135,22 @@ func _build_sections() -> void:
 	_nation.add_child(nv)
 	_nation.custom_minimum_size = Vector2(150, 0)
 
-	# Troops: caption only in the header. Value + cap on one row, +N/s under them so the
-	# rate never collides with the count. Box is reserved for the widest HUD string.
+	# Troops
 	_troops_box = UITheme.vbox(3)
-	_troops_box.clip_contents = false
 	var tr := UITheme.hbox(6)
 	tr.add_child(UITheme.icon_rect("troops", 12.0, UITheme.TEXT_3))
 	tr.add_child(UITheme.caption("Troops"))
+	tr.add_child(_spacer())
+	_growth = UITheme.label("+0/s", 11, 700, UITheme.GREEN)
+	tr.add_child(_growth)
 	_troops_box.add_child(tr)
 	var tv := UITheme.hbox(5)
-	_troops = CountLabel.new(20, 700, UITheme.TEXT, UITheme.hud_troops)
-	_troops.clip_text = false
-	_troops.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	_troops = CountLabel.new(20, 700, UITheme.TEXT, UITheme.fmt_troops)
 	tv.add_child(_troops)
 	_troops_cap = UITheme.label("/ 0", 13, 500, UITheme.TEXT_3)
-	_troops_cap.clip_text = false
-	_troops_cap.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	_troops_cap.size_flags_vertical = Control.SIZE_SHRINK_END
 	tv.add_child(_troops_cap)
 	_troops_box.add_child(tv)
-	_growth = UITheme.label("+0/s", 11, 700, UITheme.GREEN)
-	_growth.clip_text = false
-	_growth.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	_troops_box.add_child(_growth)
 	var brow := UITheme.hbox(6)
 	_troops_bar = FillBar.new(4.0, UITheme.CYAN)
 	_troops_bar.custom_minimum_size = Vector2(40, 8)
@@ -171,26 +162,22 @@ func _build_sections() -> void:
 	_committed.modulate.a = 0.0
 	brow.add_child(_committed)
 	_troops_box.add_child(brow)
-	_troops_box.custom_minimum_size = Vector2(UITheme.hud_count_width(20, 700) + 5.0 + UITheme.hud_cap_width(13, 500), 0)
-	_troops_box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_troops_box.custom_minimum_size = Vector2(158, 0)
 
-	# Gold: caption only in the header. Value on its own row, +N/s under it.
+	# Gold (same shape as troops: caption row carries the rate, the value sits below)
 	_gold_box = UITheme.vbox(3)
-	_gold_box.clip_contents = false
 	var gr := UITheme.hbox(6)
 	gr.add_child(UITheme.icon_rect("gold", 12.0, UITheme.TEXT_3))
 	gr.add_child(UITheme.caption("Gold"))
-	_gold_box.add_child(gr)
-	_gold = CountLabel.new(20, 700, UITheme.GOLD, UITheme.hud_num)
-	_gold.clip_text = false
-	_gold.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	_gold_box.add_child(_gold)
+	gr.add_child(_spacer())
 	_income = UITheme.label("+0/s", 11, 700, UITheme.GREEN)
-	_income.clip_text = false
-	_income.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	_gold_box.add_child(_income)
-	_gold_box.custom_minimum_size = Vector2(maxf(UITheme.hud_count_width(20, 700), UITheme.hud_rate_width(11, 700)), 0)
-	_gold_box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	gr.add_child(_income)
+	_gold_box.add_child(gr)
+	var gv := UITheme.hbox(6)
+	_gold = CountLabel.new(20, 700, UITheme.GOLD, UITheme.fmt_num)
+	gv.add_child(_gold)
+	_gold_box.add_child(gv)
+	_gold_box.custom_minimum_size = Vector2(118, 0)
 
 	# Attack ratio
 	_ratio_box = UITheme.vbox(2)
@@ -246,7 +233,7 @@ func _build_sections() -> void:
 	var ti := UITheme.icon_rect("troops", 14.0, UITheme.TEXT_2)
 	ti.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mth.add_child(ti)
-	_m_troops = CountLabel.new(15, 700, UITheme.TEXT, UITheme.hud_troops)
+	_m_troops = CountLabel.new(15, 700, UITheme.TEXT, UITheme.fmt_troops)
 	mth.add_child(_m_troops)
 	# the troop rate, coloured like the desktop label (green while it isn't falling, orange once it
 	# is): players time their attacks by it
@@ -264,7 +251,7 @@ func _build_sections() -> void:
 	var gi := UITheme.icon_rect("gold", 14.0, UITheme.GOLD)
 	gi.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	mgh.add_child(gi)
-	_m_gold = CountLabel.new(15, 700, UITheme.GOLD, UITheme.hud_num)
+	_m_gold = CountLabel.new(15, 700, UITheme.GOLD, UITheme.fmt_num)
 	mgh.add_child(_m_gold)
 	_m_stats_box.add_child(mgh)
 	_m_stats.add_child(_m_stats_box)
@@ -393,9 +380,8 @@ func _anchor_bottom_center(c: Control, bottom: float) -> void:
 	c.reset_size()
 
 
-## Every value in the bar sits in a box sized for its widest possible HUD text (tabular digits,
-## including scientific notation past Qd). Labels never clip: if a string is still wider at the
-## minimum font, the box grows.
+## Every value in the bar sits in a box sized for its widest possible text (tabular digits), and
+## labels clip rather than grow, so the bar never changes size or shifts as numbers change.
 func _apply_fixed_widths(compact: bool) -> void:
 	var T := UITheme
 	var small := 11
@@ -403,46 +389,36 @@ func _apply_fixed_widths(compact: bool) -> void:
 	var cf := 12 if compact else 13
 	for l in [_growth, _income, _committed, _ratio_sub]:
 		l.add_theme_font_size_override("font_size", small)
-		l.set_meta("base_fs", small)
 	_troops_cap.add_theme_font_size_override("font_size", cf)
-	_troops_cap.set_meta("base_fs", cf)
-	_troops.set_meta("base_fs", vf)
-	_gold.set_meta("base_fs", vf)
-	_m_troops.set_meta("base_fs", 15)
-	_m_gold.set_meta("base_fs", 15)
-	var w_val := T.hud_count_width(vf, 700)
-	var w_gold := T.hud_count_width(vf, 700)
-	var w_cap := T.hud_cap_width(cf, 500)
-	var w_rate := T.hud_rate_width(small, 700)
-	var w_war := T.text_width("1.000e100 at war", small, 700) + 4.0
-	T.fix_width(_troops, w_val, HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_troops_cap, w_cap, HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_growth, w_rate, HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_committed, w_war, HORIZONTAL_ALIGNMENT_RIGHT, true, false)
-	T.fix_width(_gold, w_gold, HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_income, w_rate, HORIZONTAL_ALIGNMENT_LEFT, true, false)
+	var w_val := T.text_width("888.8M", vf, 700) + 2.0
+	var w_gold := T.text_width("8888.8M", vf, 700) + 2.0
+	var w_cap := T.text_width("/ 888.8M", cf, 500) + 2.0
+	var w_rate := T.text_width("+888.8K/s", small, 700) + 2.0
+	var w_war := T.text_width("888.8M at war", small, 700) + 2.0
+	T.fix_width(_troops, w_val, HORIZONTAL_ALIGNMENT_RIGHT)
+	T.fix_width(_troops_cap, w_cap)
+	T.fix_width(_growth, w_rate, HORIZONTAL_ALIGNMENT_RIGHT)
+	T.fix_width(_committed, w_war, HORIZONTAL_ALIGNMENT_RIGHT)
+	T.fix_width(_gold, w_gold)
+	T.fix_width(_income, w_rate, HORIZONTAL_ALIGNMENT_RIGHT)
 	var cap_troops := T.text_width("TROOPS", small, 700) + 6.0
 	var cap_gold := T.text_width("GOLD", small, 700) + 4.0
-	# Header is icon + caption only; rate lives under the value.
-	var troops_w := maxf(w_val + 5.0 + w_cap, 12.0 + 6.0 + cap_troops)
-	troops_w = maxf(troops_w, w_rate)
+	var troops_w := maxf(w_val + 5.0 + w_cap, 12.0 + 6.0 + cap_troops + 8.0 + w_rate)
 	troops_w = maxf(troops_w, 40.0 + 6.0 + w_war)
 	_troops_box.custom_minimum_size = Vector2(troops_w, 0)
-	_troops_box.clip_contents = false
-	_gold_box.custom_minimum_size = Vector2(maxf(w_gold, maxf(w_rate, 12.0 + 6.0 + cap_gold)), 0)
-	_gold_box.clip_contents = false
+	_gold_box.custom_minimum_size = Vector2(maxf(w_gold, 12.0 + 6.0 + cap_gold + 8.0 + w_rate), 0)
 	var pct_w := T.text_width("100%", 13, 800) + 2.0
 	T.fix_width(_ratio_pct, pct_w, HORIZONTAL_ALIGNMENT_RIGHT)
-	var inline_w := maxf(T.text_width("Sends", 12, 600), T.hud_count_width(13, 700)) + 2.0
+	var inline_w := maxf(T.text_width("Sends", 12, 600), T.text_width("888.8K", 13, 700)) + 2.0
 	T.fix_width(_ratio_inline, inline_w, HORIZONTAL_ALIGNMENT_RIGHT)
-	T.fix_width(_ratio_sends, inline_w, HORIZONTAL_ALIGNMENT_RIGHT, true, false)
+	T.fix_width(_ratio_sends, inline_w, HORIZONTAL_ALIGNMENT_RIGHT)
 	var ratio_w := 188.0 if compact else 180.0
 	_ratio_box.custom_minimum_size = Vector2(ratio_w, 0)
 	T.fix_width(_ratio_sub, ratio_w, HORIZONTAL_ALIGNMENT_LEFT, false)
-	# Phone strip numbers: reserved for the same worst-case HUD strings, never clipped.
-	T.fix_width(_m_troops, T.hud_count_width(15, 700), HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_m_growth, T.hud_rate_width(12, 700), HORIZONTAL_ALIGNMENT_LEFT, true, false)
-	T.fix_width(_m_gold, T.hud_count_width(15, 700), HORIZONTAL_ALIGNMENT_LEFT, true, false)
+	# Phone strip numbers: fixed boxes too.
+	T.fix_width(_m_troops, T.text_width("888.8M", 15, 700) + 2.0, HORIZONTAL_ALIGNMENT_LEFT)
+	T.fix_width(_m_growth, T.text_width("+888.8K/s", 12, 700) + 2.0, HORIZONTAL_ALIGNMENT_LEFT)
+	T.fix_width(_m_gold, T.text_width("888.8M", 15, 700) + 2.0, HORIZONTAL_ALIGNMENT_LEFT)
 	var name_w := 84.0 if compact else 118.0
 	T.fix_width(_name, name_w, HORIZONTAL_ALIGNMENT_LEFT, false)
 	T.fix_width(_land, name_w + 20.0, HORIZONTAL_ALIGNMENT_LEFT, false)
@@ -702,10 +678,6 @@ func refresh(animate: bool = true) -> void:
 	var o = ctx.my()
 	if s == null or o == null:
 		return
-	if _hold_count_texts:
-		_refresh_ratio()
-		refresh_buttons()
-		return
 	var col := T.owner_ui_color(o.color)
 	T.set_swatch_color(_swatch, o.color)
 	_name.text = o.name
@@ -715,7 +687,7 @@ func refresh(animate: bool = true) -> void:
 	var leader = ctx.leader()
 	_crown.modulate.a = 1.0 if (leader != null and leader.id == o.id) else 0.0
 	_troops.set_value(o.troops, animate)
-	_troops_cap.text = "/ " + T.hud_troops(o.max_troops)
+	_troops_cap.text = "/ " + T.fmt_troops(o.max_troops)
 	var bar_col := col.lerp(T.CYAN, 0.35)
 	_troops_bar.fill_color = bar_col
 	_troops_bar.set_target(o.troops / maxf(o.max_troops, 1.0), not animate)
@@ -725,7 +697,7 @@ func refresh(animate: bool = true) -> void:
 	_m_troops_bar.fill_color = bar_col
 	_m_troops_bar.set_target(o.troops / maxf(o.max_troops, 1.0), not animate)
 	var income: float = s.income(o.id)
-	_income.text = T.hud_rate(income)
+	_income.text = T.fmt_rate(income)
 	T.set_font_color(_income, T.GREEN if income > 0 else T.TEXT_3)
 	# Growth: the troop-rate label, "+{troops gained per second}/s", green while the rate is not
 	# falling and orange once it is (sample_growth). Attacks spend troops but do not slow it.
@@ -838,83 +810,6 @@ func _refresh_ratio() -> void:
 	_ratio_sends.text = UITheme.fmt_troops(ctx.troops_for_ratio())
 	_ratio_sub.text = "Sends %s troops" % UITheme.fmt_troops(ctx.troops_for_ratio())
 
-
-## Logical width a single-row bar needs (stats + slots + gaps + glass pad). Used to choose STACKED.
-func wide_threshold() -> float:
-	_apply_fixed_widths(false)
-	var stats := _nation.custom_minimum_size.x + _troops_box.custom_minimum_size.x + _ratio_box.custom_minimum_size.x + _gold_box.custom_minimum_size.x
-	# 10 action slots at their default width, plus Arsenal / SHOP / port slots, 4 vdividers, 4 gaps, glass pad 36, side margin 24.
-	var slots := 62.0 * 10.0 + extra_width() + 62.0 * port_slots.size()
-	return stats + slots + 16.0 * 4.0 + 8.0 * 4.0 + 36.0 + 24.0
-
-func apply_count_texts(gold_s: String, troops_s: String, cap_s: String, income_s: String, growth_s: String) -> void:
-	_hold_count_texts = true
-	for cl in [_gold, _troops, _m_gold, _m_troops]:
-		if cl._tween:
-			cl._tween.kill()
-		cl.rolling = false
-	_gold.text = gold_s
-	_m_gold.text = gold_s
-	_troops.text = troops_s
-	_m_troops.text = troops_s
-	_troops_cap.text = cap_s
-	_income.text = income_s
-	_growth.text = growth_s
-	_m_growth.text = growth_s
-	_fit_count_labels()
-
-func snap_counts(gold_v: float, troops_v: float) -> void:
-	_hold_count_texts = false
-	_gold.set_value(gold_v, false)
-	_troops.set_value(troops_v, false)
-	_m_gold.set_value(gold_v, false)
-	_m_troops.set_value(troops_v, false)
-	_fit_count_labels()
-
-func _fit_count_labels() -> void:
-	var T := UITheme
-	for l in [_gold, _troops, _troops_cap, _income, _growth, _m_gold, _m_troops, _m_growth]:
-		if l == null:
-			continue
-		var budget := maxf(l.custom_minimum_size.x, l.size.x)
-		if budget < 8.0:
-			budget = l.custom_minimum_size.x
-		var fs := int(l.get_meta("base_fs", l.get_theme_font_size("font_size")))
-		T.fit_label(l, l.text, budget, fs, 9)
-
-func counts_fit() -> Dictionary:
-	var rec := {"ok": true}
-	var pairs := {
-		"gold": _gold,
-		"troops": _troops,
-		"income": _income,
-		"growth": _growth,
-		"cap": _troops_cap,
-		"m_gold": _m_gold,
-		"m_troops": _m_troops,
-	}
-	for key in pairs:
-		var l: Label = pairs[key]
-		var fs := l.get_theme_font_size("font_size")
-		var need := UITheme.label_need_width(l, l.text, fs)
-		var rect := maxf(l.size.x, l.custom_minimum_size.x)
-		var box := 0.0
-		if l == _gold or l == _income:
-			box = _gold_box.size.x if _gold_box else 0.0
-		elif l == _troops or l == _growth or l == _troops_cap:
-			box = _troops_box.size.x if _troops_box else 0.0
-		var ok := need <= rect + 0.51
-		# Value + cap share a row: the pair must also fit the troops box.
-		if key == "troops":
-			var cap_need := UITheme.label_need_width(_troops_cap, _troops_cap.text, _troops_cap.get_theme_font_size("font_size"))
-			if need + 5.0 + cap_need > box + 0.51 and box > 1.0:
-				ok = false
-		if key == "gold" and box > 1.0 and need > box + 0.51:
-			ok = false
-		rec[key] = {"text": l.text, "need": need, "rect": rect, "box": box, "ok": ok, "fs": fs}
-		if not ok:
-			rec["ok"] = false
-	return rec
 
 ## Per frame.
 func update(delta: float) -> void:

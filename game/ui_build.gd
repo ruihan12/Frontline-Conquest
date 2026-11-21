@@ -1021,7 +1021,7 @@ func _fmt(n: float, decimals := 6) -> String:
 
 ## Tight HUD labels: 3-decimal scientific notation past Qd ("2.345e23").
 func _fmt_hud(n: float) -> String:
-	return _fmt(n, 3)
+	return UITheme.fmt_num(n)  # upstream's display (UITheme.fmt_num)
 
 func load_save() -> void:
 	if FileAccess.file_exists(save_path):
