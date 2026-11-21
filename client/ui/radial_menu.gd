@@ -278,7 +278,7 @@ func _pill(c: Vector2, text: String, col: Color, alpha: float, fs: int, weight: 
 	var w := UITheme.text_width(text, fs, weight) + 22.0
 	var h := fs + 12.0
 	var r := Rect2(c.x - w * 0.5, c.y - h * 0.5, w, h)
-	draw_style_box(UITheme.flat(Color(0.04, 0.055, 0.11, alpha), 999, Color(1, 1, 1, 0.12 * alpha), 1), r)
+	draw_style_box(UITheme.box(Color(0.04, 0.055, 0.11, alpha), 999, Color(1, 1, 1, 0.12 * alpha), 1), r)
 	draw_string(f, Vector2(r.position.x, r.position.y + (h - f.get_height(fs)) * 0.5 + f.get_ascent(fs)), text, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(col.r, col.g, col.b, alpha))
 
 
@@ -295,7 +295,7 @@ func _draw() -> void:
 	var ri := r_in
 	var ro := r_out
 	draw_set_transform(c, 0.0, Vector2(s, s))
-	draw_circle(Vector2.ZERO, ro + 36.0, Color(0.0, 0.01, 0.04, 0.36 * alpha))
+	draw_circle(Vector2.ZERO, ro + 36.0, Color(0.0, 0.01, 0.04, 0.36 * alpha), true, -1.0, true)
 	var n := items.size()
 	var span := TAU / maxi(n, 1)
 	var lf := Th.font(600)
@@ -340,10 +340,10 @@ func _draw() -> void:
 			draw_texture_rect(tex, Rect2(ip.x - 12, ip.y - 5 - 12, 24, 24), false, Color(icol.r, icol.g, icol.b, icol_a * alpha))
 		var la := icol_a * alpha * (0.95 if ok else 1.0)
 		draw_string(lf, Vector2(ip.x - 45, ip.y + 21 - 0.935 * 11 + lf.get_ascent(11)), str(it.get("label", "")), HORIZONTAL_ALIGNMENT_CENTER, 90, 11, Color(icol.r, icol.g, icol.b, la))
-	draw_circle(Vector2.ZERO, ri - 1.0, Color(0.02, 0.03, 0.07, 0.55 * alpha))
+	draw_circle(Vector2.ZERO, ri - 1.0, Color(0.02, 0.03, 0.07, 0.55 * alpha), true, -1.0, true)
 	var cr := ri - 8.0
 	var cc := Color(0.14, 0.18, 0.3) if _center_hover else Color(0.09, 0.12, 0.22)
-	draw_circle(Vector2.ZERO, cr, Color(cc.r, cc.g, cc.b, alpha))
+	draw_circle(Vector2.ZERO, cr, Color(cc.r, cc.g, cc.b, alpha), true, -1.0, true)
 	draw_arc(Vector2.ZERO, cr, 0, TAU, 64, Color(1, 1, 1, 0.16 * alpha), 1.0, true)
 	var ct := Th.icon_texture("retreat" if _in_sub else "close")
 	if ct != null:

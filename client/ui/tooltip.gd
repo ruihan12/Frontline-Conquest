@@ -192,7 +192,7 @@ func _build(spec: Dictionary) -> void:
 func _badge(text: String, c: Color) -> PanelContainer:
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_theme_stylebox_override("panel", UITheme.flat(UITheme.c(c, 0.16), 999, UITheme.c(c, 0.5), 1, 7.0, 1.0))
+	p.add_theme_stylebox_override("panel", UITheme.box(UITheme.c(c, 0.16), 999, UITheme.c(c, 0.5), 1, 7.0, 1.0))
 	p.add_child(UITheme.label(text.to_upper(), 10, 700, c, 1))
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	return p

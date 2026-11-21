@@ -250,6 +250,126 @@ static func owner_ui_color(col: Color) -> Color:
 # Style factories (StyleBoxFlat)
 # =============================================================================================
 
+# --- Smooth rounded corners -------------------------------------------------------------------
+# StyleBoxFlat's anti-aliasing feather (anti_aliasing_size) is in logical px, and the window's
+# canvas_items stretch scales it with everything else: the old 1.2 was 1.4 render px at 1080p and
+# 1.9 at 1440p, wider than a 1 px border. The feathers of the border's inner edge and of the fill's
+# edge then overlap, and in the translucent colours of the HUD the overlap shows as dots and a dashed
+# rim at every corner, with uneven edges. smooth() gives every box a feather of one render pixel and
+# enough corner segments for the radius at the current scale, and keeps them so when the window size
+# changes (on_resize).
+
+static var _smooth_boxes: Array = []  # WeakRef(StyleBoxFlat)
+static var _smooth_adds := 0
+static var _smooth_hooked := false
+static var _render_scale := -1.0
+
+## Render px per logical px (the window's canvas_items stretch), 1.0 without a window.
+static func render_scale() -> float:
+	if _render_scale > 0.0:
+		return _render_scale
+	var ml = Engine.get_main_loop()
+	var w: Window = ml.root if ml is SceneTree else null
+	var s := 1.0
+	if w != null:
+		var cs := w.content_scale_size
+		if cs.x > 0 and cs.y > 0 and w.size.x > 0 and w.size.y > 0:
+			s = minf(float(w.size.x) / cs.x, float(w.size.y) / cs.y)
+		s *= w.content_scale_factor
+		if not _smooth_hooked:
+			_smooth_hooked = true
+			w.size_changed.connect(on_resize)
+	_render_scale = maxf(0.25, s)
+	return _render_scale
+
+## The anti-aliasing feather for one render pixel (logical px).
+static func aa_size() -> float:
+	return clampf(1.0 / render_scale(), 0.25, 1.0)
+
+static func _apply_smooth(s: StyleBoxFlat) -> void:
+	s.anti_aliasing = true
+	s.anti_aliasing_size = aa_size()
+	var r := maxi(maxi(s.corner_radius_top_left, s.corner_radius_top_right), maxi(s.corner_radius_bottom_left, s.corner_radius_bottom_right))
+	# (a radius past half the box is cut down when drawn: segments for a 40 px corner at most)
+	s.corner_detail = clampi(int(ceil(minf(float(r), 40.0) * render_scale() * 0.75)), 8, 32)
+
+## Anti-aliased corners one render pixel wide (see above); returns `s`.
+static func smooth(s: StyleBoxFlat) -> StyleBoxFlat:
+	_apply_smooth(s)
+	_smooth_adds += 1
+	if _smooth_adds % 512 == 0:
+		_smooth_boxes = _smooth_boxes.filter(func(w: WeakRef) -> bool: return w.get_ref() != null)
+	_smooth_boxes.append(weakref(s))
+	return s
+
+## The window was resized: every live box gets the feather for the new scale.
+static func on_resize() -> void:
+	var old := _render_scale
+	_render_scale = -1.0
+	if absf(render_scale() - old) < 1e-4:
+		return
+	var live: Array = []
+	for w: WeakRef in _smooth_boxes:
+		var s = w.get_ref()
+		if s != null:
+			_apply_smooth(s)
+			live.append(w)
+	_smooth_boxes = live
+
+static var _draw_boxes := {}
+
+## A flat() box for a _draw() that runs every frame: one box per look, not a new one each frame.
+static func flat_draw(bg: Color, radius: float = R_MD, border: Variant = null, bw: int = 0) -> StyleBoxFlat:
+	var key := "%s|%s|%s|%d" % [bg.to_html(), radius, (border as Color).to_html() if border != null else "-", bw]
+	var s = _draw_boxes.get(key)
+	if s == null:
+		if _draw_boxes.size() > 2048:
+			_draw_boxes.clear()
+		s = flat(bg, radius, border, bw)
+		_draw_boxes[key] = s
+	return s
+
+## flat(), or for a radius of 999 and up (a pill / circle) a PillBox: its radius stays just under half
+## of the box it is drawn in, whatever that box's size.
+static func box(bg: Color, radius: float = R_MD, border: Variant = null, bw: int = 0, mh: float = 0.0, mv: float = 0.0) -> StyleBox:
+	var f := flat(bg, radius, border, bw, mh, mv)
+	if radius < 999.0:
+		return f
+	return PillBox.new(f)
+
+## An icon drawn from a control's _draw() pixel for pixel (CrispIcon's way): the glyph resampled to the
+## device pixels `rect` covers and placed on the device pixel grid, so the canvas' nearest filter shows
+## every texel once. (Drawn straight from the 128 px art, a 24 px icon was nearest-sampled at 1.2x:
+## jagged, with missing strokes.) Falls back to a plain draw for a rotated / skewed canvas.
+static func draw_icon(ci: CanvasItem, tex: Texture2D, rect: Rect2, modulate: Color = Color.WHITE) -> void:
+	if tex == null:
+		return
+	var vp := ci.get_viewport()
+	if vp == null:
+		ci.draw_texture_rect(tex, rect, false, modulate)
+		return
+	var xf := vp.get_final_transform() * ci.get_global_transform_with_canvas()
+	var sc := xf.get_scale()
+	if absf(xf.get_rotation()) > 1e-4 or absf(sc.x - sc.y) > 1e-4 or sc.x <= 0.0:
+		ci.draw_texture_rect(tex, rect, false, modulate)
+		return
+	var n := maxi(1, roundi(maxf(rect.size.x, rect.size.y) * sc.x))
+	var t := CrispIcon._resampled(tex, n)
+	if t == null:
+		ci.draw_texture_rect(tex, rect, false, modulate)
+		return
+	var tsz := Vector2(t.get_width(), t.get_height())
+	var dc := xf * rect.get_center()  # device px
+	var d0 := (dc - tsz * 0.5).round()
+	var inv := xf.affine_inverse()
+	var p0 := inv * d0
+	ci.draw_texture_rect(t, Rect2(p0, tsz / sc.x), false, modulate)
+
+## A radius that stays under half of `extent` (a pill / circle): a StyleBoxFlat whose radii fill the
+## whole side draws its two halves with overlapping feathers, a seam down the middle.
+static func pill_radius(extent: float) -> int:
+	return maxi(0, int(floor(extent * 0.5)) - 1)
+
 static func flat(bg: Color, radius: float = R_MD, border: Variant = null, bw: int = 0, mh: float = 0.0, mv: float = 0.0) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = bg
@@ -260,10 +380,7 @@ static func flat(bg: Color, radius: float = R_MD, border: Variant = null, bw: in
 	s.content_margin_right = mh
 	s.content_margin_top = mv
 	s.content_margin_bottom = mv
-	s.anti_aliasing = true
-	s.anti_aliasing_size = 1.2
-	s.corner_detail = 16
-	return s
+	return smooth(s)
 
 ## A round badge behind an icon (upstream: a Frame with a full UICorner and a UIStroke). Drawn as a real
 ## circle: a StyleBoxFlat whose radius is half its size, in translucent colours, shows its seams (a
@@ -300,7 +417,7 @@ static func shadow_box(radius: float, size: int = 18, alpha: float = 0.45, offse
 	s.shadow_color = Color(0, 0, 0, alpha)
 	s.shadow_size = size
 	s.set_meta("offset_y", offset_y)
-	return s
+	return smooth(s)
 
 static func draw_shadow(ci: CanvasItem, rect: Rect2, s: StyleBoxFlat) -> void:
 	# (the solid core stays under the panel: only the soft falloff shows past its edges)
@@ -309,7 +426,10 @@ static func draw_shadow(ci: CanvasItem, rect: Rect2, s: StyleBoxFlat) -> void:
 
 # Copy of a style (StyleBoxFlat.duplicate()).
 static func dup(s: StyleBox) -> StyleBox:
-	return s.duplicate()
+	var d := s.duplicate()
+	if d is StyleBoxFlat:
+		smooth(d)
+	return d
 
 # Content margins of a style: [left, top, right, bottom].
 static func margins(s: StyleBox) -> Array:
@@ -340,11 +460,11 @@ static func _button_styles(t: Theme, typ: String, n: Color, h: Color, p: Color, 
 	var hbw := 1 if border_h.a > 0 else 0
 	var v := {
 		"styles": {
-			"normal": flat(n, radius, border, nbw, mh, 8.0),
-			"hover": flat(h, radius, border_h, hbw, mh, 8.0),
-			"pressed": flat(p, radius, border_h, hbw, mh, 8.0),
-			"hover_pressed": flat(p, radius, border_h, hbw, mh, 8.0),
-			"disabled": flat(c(n, n.a * 0.5), radius, c(border, border.a * 0.5), nbw, mh, 8.0),
+			"normal": box(n, radius, border, nbw, mh, 8.0),
+			"hover": box(h, radius, border_h, hbw, mh, 8.0),
+			"pressed": box(p, radius, border_h, hbw, mh, 8.0),
+			"hover_pressed": box(p, radius, border_h, hbw, mh, 8.0),
+			"disabled": box(c(n, n.a * 0.5), radius, c(border, border.a * 0.5), nbw, mh, 8.0),
 		},
 		"colors": {
 			"font_color": fg,
@@ -369,7 +489,7 @@ static func _apply(t: Theme, typ: String, v: Dictionary) -> void:
 static func _lipped(fill: Color, hi: Color, lo: Color) -> Dictionary:
 	var pn := flat(fill, R_MD, lo, 0, 22.0, 10.0)
 	pn.border_width_bottom = 3
-	var ph: StyleBoxFlat = pn.duplicate()
+	var ph: StyleBoxFlat = smooth(pn.duplicate())
 	ph.bg_color = hi
 	var pp := flat(lo.lerp(fill, 0.5), R_MD, CLEAR, 0, 22.0, 10.0)
 	pp.content_margin_top = 12.0
@@ -395,8 +515,8 @@ static func theme() -> Theme:
 	_apply(t, "GhostButton", ghost)
 	_apply(t, "DangerButton", _button_styles(t, "DangerButton", c(RED, 0.14), c(RED, 0.26), c(RED, 0.08), c(RED, 0.45), c(RED, 0.8), Color(1.0, 0.78, 0.8), 700))
 	var chip := _button_styles(t, "ChipButton", Color(1, 1, 1, 0.04), FILL_2, c(AMBER, 0.2), LINE, LINE_2, TEXT_2, 600, 999, 14.0)
-	chip.styles.hover_pressed = flat(c(AMBER, 0.26), 999, AMBER, 1, 14.0, 6.0)
-	chip.styles.pressed = flat(c(AMBER, 0.2), 999, c(AMBER, 0.9), 1, 14.0, 6.0)
+	chip.styles.hover_pressed = box(c(AMBER, 0.26), 999, AMBER, 1, 14.0, 6.0)
+	chip.styles.pressed = box(c(AMBER, 0.2), 999, c(AMBER, 0.9), 1, 14.0, 6.0)
 	chip.colors.font_pressed_color = AMBER_HI
 	chip.colors.font_hover_pressed_color = AMBER_HI
 	chip.font_size = 13
@@ -524,7 +644,7 @@ static func swatch(col: Color, px: float = 12.0, radius: float = 3.0) -> PanelCo
 static func set_swatch_color(p: PanelContainer, col: Color) -> void:
 	var sb := p.get_theme_stylebox("panel") as StyleBoxFlat
 	if sb != null and not equal(sb.bg_color, col):
-		var n: StyleBoxFlat = sb.duplicate()
+		var n: StyleBoxFlat = smooth(sb.duplicate())
 		n.bg_color = col
 		p.add_theme_stylebox_override("panel", n)
 

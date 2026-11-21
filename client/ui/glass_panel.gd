@@ -88,14 +88,14 @@ func _draw() -> void:
 	var w := size.x; var h := size.y
 	if w <= 0 or h <= 0:
 		return
-	var r := minf(radius, minf(w, h) / 2.0)
+	var r := minf(radius, float(UITheme.pill_radius(minf(w, h))))
 	var rect := Rect2(Vector2.ZERO, size)
 	if _shadow_size > 0:
 		UITheme.draw_shadow(self, rect, UITheme.shadow_box(r, _shadow_size, 0.5, 6.0))
 	var a := tint.a
 	if _frost and a < 0.97:
 		a = clampf(a + UITheme.GLASS_BOOST, 0.0, 0.97)
-	var bg := UITheme.flat(UITheme.c(tint, a), r, border_color, 1)
+	var bg := UITheme.flat_draw(UITheme.c(tint, a), r, border_color, 1)
 	draw_style_box(bg, rect)
 	if sheen and _frost:
 		# the gradient through the rounded shape: a rounded box in white, modulated by the gradient rows

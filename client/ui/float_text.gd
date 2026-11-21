@@ -22,7 +22,7 @@ static func spawn(parent: Control, pos: Vector2, text: String, icon_name: String
 	parent.add_child(ft)
 	var pill := PanelContainer.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_theme_stylebox_override("panel", UITheme.flat(Color(0.03, 0.045, 0.1, 0.92), 999, UITheme.c(col, 0.55), 1, 12.0, 5.0))
+	pill.add_theme_stylebox_override("panel", UITheme.box(Color(0.03, 0.045, 0.1, 0.92), 999, UITheme.c(col, 0.55), 1, 12.0, 5.0))
 	var row := UITheme.hbox(7)
 	if icon_name != "":
 		var ic := UITheme.icon_rect(icon_name, 14.0, col)

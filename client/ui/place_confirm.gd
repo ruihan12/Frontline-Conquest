@@ -64,7 +64,7 @@ func _round_button(icon_name: String, primary: bool) -> Button:
 	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	b.add_theme_constant_override("icon_max_width", 22)
 	b.custom_minimum_size = Vector2(BTN, BTN)
-	var r := int(BTN * 0.5)
+	var r := UITheme.pill_radius(BTN)
 	var bg := UITheme.flat(UITheme.AMBER if primary else UITheme.rgba(0.08, 0.1, 0.16, 0.92), r, UITheme.AMBER_LO if primary else UITheme.LINE_2, 0 if primary else 1, 4.0, 4.0)
 	if primary:
 		bg.border_width_bottom = 3

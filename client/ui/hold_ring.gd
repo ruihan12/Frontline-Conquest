@@ -41,5 +41,5 @@ func _draw() -> void:
 	var e := _e
 	var r := SIZE * (1.9 - 0.9 * e) * 0.5
 	# a soft fill that brightens as it closes
-	draw_circle(_pos, r, Color(COL, 0.05 + 0.25 * e))
+	draw_circle(_pos, r, Color(COL, 0.05 + 0.25 * e), true, -1.0, true)
 	draw_arc(_pos, r, 0.0, TAU, 48, Color(COL, 0.15 + 0.7 * e), 2.0 + 2.0 * e, true)

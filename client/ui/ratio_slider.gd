@@ -105,8 +105,7 @@ func _rbox(c: Color, r: float) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
 	s.bg_color = c
 	s.set_corner_radius_all(int(round(r)))
-	s.anti_aliasing = true
-	return s
+	return UITheme.smooth(s)
 
 
 func _draw() -> void:

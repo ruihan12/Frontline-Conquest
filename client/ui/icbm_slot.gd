@@ -60,10 +60,10 @@ func _draw() -> void:
 	if on:
 		bg = UITheme.c(UITheme.AMBER, 0.2)
 		border = UITheme.AMBER
-	draw_style_box(UITheme.flat(bg, UITheme.R_MD, border, 1), Rect2(Vector2.ZERO, size))
+	draw_style_box(UITheme.flat_draw(bg, UITheme.R_MD, border, 1), Rect2(Vector2.ZERO, size))
 	var tex := UITheme.icon_texture("target")
 	var ip := 24.0
 	if tex != null:
-		draw_texture_rect(tex, Rect2(floorf(size.x * 0.5 - ip * 0.5), floorf(size.y * 0.42 - ip * 0.5), ip, ip), false, UITheme.AMBER_HI if on else Color(1.0, 0.86, 0.84))
+		UITheme.draw_icon(self, tex, Rect2(floorf(size.x * 0.5 - ip * 0.5), floorf(size.y * 0.42 - ip * 0.5), ip, ip), UITheme.AMBER_HI if on else Color(1.0, 0.86, 0.84))
 	draw_string(UITheme.font(700), Vector2(0, size.y - 7.0), "ON" if on else "+10%", HORIZONTAL_ALIGNMENT_CENTER, size.x, 11, UITheme.AMBER_HI if on else UITheme.GOLD)
 	draw_string(UITheme.font(600), Vector2(6, 13), "I", HORIZONTAL_ALIGNMENT_LEFT, -1, 9, UITheme.c(UITheme.TEXT_3, 0.9))

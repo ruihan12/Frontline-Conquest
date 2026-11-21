@@ -248,7 +248,7 @@ func _draw() -> void:
 	if _flash > 0:
 		bg = bg.lerp(_a(UITheme.RED, 0.35), _flash)
 		border = border.lerp(UITheme.RED, _flash)
-	draw_style_box(UITheme.flat(bg, UITheme.R_MD, border, 1), Rect2(Vector2.ZERO, size))
+	draw_style_box(UITheme.flat_draw(bg, UITheme.R_MD, border, 1), Rect2(Vector2.ZERO, size))
 
 	var icol: Color = UITheme.TEXT
 	if nuke:
@@ -263,7 +263,7 @@ func _draw() -> void:
 	var ip := icon_px
 	var tex := UITheme.icon_texture(kind)
 	if tex != null:
-		draw_texture_rect(tex, Rect2(floorf(size.x * 0.5 - ip * 0.5), floorf(cy - ip * 0.5), ip, ip), false, icol)
+		UITheme.draw_icon(self, tex, Rect2(floorf(size.x * 0.5 - ip * 0.5), floorf(cy - ip * 0.5), ip, ip), icol)
 
 	var fs := 11
 	var c: float = _av.cost
@@ -278,7 +278,7 @@ func _draw() -> void:
 		ctext = ""
 		var lt := UITheme.icon_texture("lock")
 		if lt != null:
-			draw_texture_rect(lt, Rect2(floorf(size.x * 0.5) - 6, floorf(size.y - (4.0 if size.y < 50 else 6.0)) - 12, 12, 12), false, UITheme.GOLD)
+			UITheme.draw_icon(self, lt, Rect2(floorf(size.x * 0.5) - 6, floorf(size.y - (4.0 if size.y < 50 else 6.0)) - 12, 12, 12), UITheme.GOLD)
 	_text(0, size.y - (5.0 if size.y < 50 else 7.0), size.x, HORIZONTAL_ALIGNMENT_CENTER, fs, 700, ctext, ccol)
 	if show_name:
 		var ncol := _a(UITheme.TEXT, 0.9 if ok else (0.45 if locked else 0.7))

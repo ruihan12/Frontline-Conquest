@@ -50,12 +50,12 @@ class TopButton:
 	func _draw() -> void:
 		var c := size * 0.5
 		var r := minf(size.x, size.y) * 0.5
-		draw_circle(c, r, Color(FILL.r, FILL.g, FILL.b, 1.0 - FILL_T))
+		draw_circle(c, r, Color(FILL.r, FILL.g, FILL.b, 1.0 - FILL_T), true, -1.0, true)
 		if overlay_t < 1.0:
-			draw_circle(c, r, Color(1, 1, 1, 1.0 - overlay_t))
+			draw_circle(c, r, Color(1, 1, 1, 1.0 - overlay_t), true, -1.0, true)
 		var t := UITheme.icon_texture("hud_" + icon_name)
 		if t != null:
-			draw_texture_rect(t, Rect2(c - Vector2(ICON, ICON) * 0.5, Vector2(ICON, ICON)), false, Color.WHITE)
+			UITheme.draw_icon(self, t, Rect2(c - Vector2(ICON, ICON) * 0.5, Vector2(ICON, ICON)), Color.WHITE)
 
 
 var hud  # ClientHud

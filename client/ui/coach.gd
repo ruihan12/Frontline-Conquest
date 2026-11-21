@@ -386,4 +386,4 @@ func _draw_arrow() -> void:
 	# Pulsing ring on the target
 	var k := fmod(_t, 1.2) / 1.2
 	_arrow.draw_arc(to, 8.0 + 18.0 * k, 0.0, TAU, 40, Color(UITheme.AMBER, (1.0 - k) * 0.9 * a), 2.0, true)
-	_arrow.draw_circle(to, 4.0, Color(UITheme.AMBER, a))
+	_arrow.draw_circle(to, 4.0, Color(UITheme.AMBER, a), true, -1.0, true)

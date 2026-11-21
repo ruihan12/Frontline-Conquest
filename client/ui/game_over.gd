@@ -118,7 +118,7 @@ func _init(c: UICtx) -> void:
 	_winner = PanelContainer.new()
 	_winner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_winner.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_winner.add_theme_stylebox_override("panel", T.flat(T.c(T.GOLD, 0.1), 999, T.c(T.GOLD, 0.45), 1, 16.0, 6.0))
+	_winner.add_theme_stylebox_override("panel", T.box(T.c(T.GOLD, 0.1), 999, T.c(T.GOLD, 0.45), 1, 16.0, 6.0))
 	var wr := T.hbox(8)
 	_crown = T.icon_rect("crown", 16.0, T.GOLD)
 	_crown.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -340,7 +340,7 @@ func open(kind: String, winner: int, killer: int, stats: Dictionary, reason: int
 	_pill_id = -1
 	_pill_text = ""
 	_crown.visible = real_winner
-	_winner.add_theme_stylebox_override("panel", T.flat(T.c(T.GOLD, 0.1), 999, T.c(T.GOLD, 0.45), 1, 16.0, 6.0) if real_winner else T.flat(Color(1, 1, 1, 0.06), 999, T.LINE_2, 1, 16.0, 6.0))
+	_winner.add_theme_stylebox_override("panel", T.box(T.c(T.GOLD, 0.1), 999, T.c(T.GOLD, 0.45), 1, 16.0, 6.0) if real_winner else T.box(Color(1, 1, 1, 0.06), 999, T.LINE_2, 1, 16.0, 6.0))
 	_set_pill(pill_id)
 	for ch in _stats.get_children():
 		_stats.remove_child(ch)

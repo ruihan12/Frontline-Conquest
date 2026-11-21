@@ -243,7 +243,7 @@ func _draw_marker() -> void:
 	var k := 1.0 - fmod(_dest_t, 0.8) / 0.8
 	_marker.draw_arc(p, 6.0 + 16.0 * k, 0, TAU, 40, Color(UITheme.CYAN, a * (1.0 - k)), 2.0, true)
 	_marker.draw_arc(p, 9.0, 0, TAU, 32, Color(UITheme.CYAN, a), 2.0, true)
-	_marker.draw_circle(p, 3.0, Color(UITheme.CYAN, a))
+	_marker.draw_circle(p, 3.0, Color(UITheme.CYAN, a), true, -1.0, true)
 
 
 func _process(delta: float) -> void:

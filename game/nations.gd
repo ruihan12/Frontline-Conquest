@@ -235,14 +235,15 @@ func _rw_spawn_all() -> void:
 		var j := rng.randi() % (i + 1)
 		var tmp := order[i]; order[i] = order[j]; order[j] = tmp
 	for k in tribe_count():
-		var grey_v := rng.randf_range(0.58, 0.74)
+		# (two draws the old random tribe greys took: kept so a seeded match plays out as before)
+		rng.randf(); rng.randf()
 		var tribe_name := ""
 		if nn > 0:
 			tribe_name = str(names[order[k % nn]])
 			if k >= nn: tribe_name += " " + str(k / nn + 1)
 		else:
 			tribe_name = "Tribe " + str(k + 1)
-		var id := _new_nation(tribe_name, Color.from_hsv(0.60, rng.randf_range(0.02, 0.07), grey_v), true)
+		var id := _new_nation(tribe_name, TRIBE_COLOR, true)
 		nations[id].troops = R.start_troops(SimRules.KIND_TRIBE, diff_i)
 		var t := _random_start()
 		if t >= 0:
@@ -250,6 +251,10 @@ func _rw_spawn_all() -> void:
 			nations[id].troops = minf(R.start_troops(SimRules.KIND_TRIBE, diff_i), _spawn_cap(id, SimRules.KIND_TRIBE))
 		else:
 			nations[id].alive = false
+
+# Sim.TRIBE_COLOR: one flat warm grey shared by every tribe, so tribes read as neutral filler and only
+# players and nations are colourful.
+const TRIBE_COLOR := Color8(0xD1, 0xCD, 0xC7)
 
 # Sim.default_tribes: Rules.DEFAULT_TRIBES (400) on a map at scale 1, scaled by the map's area
 # (World 0.896 -> 321). Maps without an upstream scale (random maps) get 400.
