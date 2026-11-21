@@ -1,0 +1,16 @@
+wait 30
+key Escape 27
+wait 2
+shot /tmp/fc_menu_1.png
+click 812 561
+wait 2
+shot /tmp/fc_menu_2.png
+click 880 481
+wait 4
+shot /tmp/fc_menu_3.png
+click 766 731
+wait 3
+shot /tmp/fc_menu_4.png
+click 800 733
+wait 3
+shot /tmp/fc_menu_5.png

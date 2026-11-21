@@ -1,0 +1,88 @@
+diff --git a/main.gd b/main.gd
+index 99f7441..bba6d22 100644
+--- a/main.gd
++++ b/main.gd
+@@ -31,6 +31,83 @@ func _process(dt: float) -> void:
+ 				JavaScriptBridge.eval("window._fcStats = %s" % JSON.stringify({"line": line, "fps": Engine.get_frames_per_second()}), true)
+ 	for kz in ["ai_prot", "ai_boat", "ai_mop", "ai_inv"]: _fp[kz] = 0
+ 	if bench: _bench_step(dt, Time.get_ticks_usec() - _t0)
++	if OS.has_feature("web"): _fctest_tick(dt)
++
++# Web test probe (only with ?fctest in the URL): publishes the match state and page positions of
++# unclaimed tiles near the player, so a headless browser can click them and check the result.
++var _fct_on := -1
++var _fct_acc := 0.0
++func _fct_px(t: int) -> Array:
++	var sp: Vector2 = get_viewport().get_final_transform() * client.ctx.tile_screen_pos(t)
++	return [sp.x, sp.y]
++func _fctest_tick(dt: float) -> void:
++	if _fct_on < 0:
++		var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
++		_fct_on = (2 if qs.contains("fcgold") else 1) if qs.contains("fctest") else 0
++	if _fct_on == 0: return
++	_fct_acc += dt
++	if _fct_acc < 0.25: return
++	_fct_acc = 0.0
++	var o := {"state": state, "tick": ticks_done, "fps": Engine.get_frames_per_second(), "paused": sim_paused, "speed": sim_speed}
++	var hov = get_viewport().gui_get_hovered_control()
++	o["hovered"] = (str(hov.get_path()) + ":" + str(hov.mouse_filter)) if hov != null else ""
++	if client == null or W <= 0 or owner_map.size() != W * H:
++		_fct_pub(o); return
++	if nations.size() > PLAYER and nations[PLAYER] is Dictionary and nations[PLAYER].has("land"):
++		o["land"] = nations[PLAYER].land; o["troops"] = nations[PLAYER].troops; o["gold"] = nations[PLAYER].get("gold", 0)
++		o["attacks"] = attacks.filter(func(a): return a.a == PLAYER).size()
++		o["boats"] = boats.filter(func(b): return int(b.get("a", b.get("o", -1))) == PLAYER).size()
++		o["start_tile"] = start_tile; o["structs"] = structs.filter(func(s): return int(s.o) == PLAYER).size()
++	if _fct_on == 2 and state == "play" and nations.size() > PLAYER: nations[PLAYER].gold = maxf(float(nations[PLAYER].gold), 1.0e9)
++	var vp := get_viewport_rect().size
++	var onscr := func(t: int) -> bool:
++		var p: Vector2 = client.ctx.tile_screen_pos(t)
++		return p.x > 80 and p.y > 120 and p.x < vp.x - 80 and p.y < vp.y - 220
++	if state == "pick" and start_tile < 0:
++		var ct: int = client.ctx.tile_at(vp * 0.5)
++		if ct >= 0:
++			for r in range(0, 200, 3):
++				var hit := -1
++				for k in 16:
++					var x: int = clampi(ct % W + int(r * cos(k * TAU / 16.0)), 0, W - 1)
++					var y: int = clampi(ct / W + int(r * sin(k * TAU / 16.0)), 0, H - 1)
++					if owner_map[y * W + x] == NEUTRAL: hit = y * W + x; break
++				if hit >= 0:
++					o["free_px"] = _fct_px(hit); o["free_tile"] = hit
++					break
++	elif state == "play" and nations.size() > PLAYER and border.size() > PLAYER:
++		# BFS over unclaimed land from our border: depth 1 = adjacent, depth >= 15 = same land, not adjacent
++		var depth := {}
++		var q: Array[int] = []
++		var own := -1
++		for t in border[PLAYER].keys():
++			if own < 0 and onscr.call(int(t)): own = int(t)
++			for d in [1, -1, W, -W]:
++				var j: int = int(t) + d
++				if j >= 0 and j < W * H and owner_map[j] == NEUTRAL and not depth.has(j):
++					depth[j] = 1; q.append(j)
++		var qi := 0
++		var adj := -1; var far := -1
++		while qi < q.size() and qi < 60000:
++			var t2: int = q[qi]; qi += 1
++			var dd: int = depth[t2]
++			if dd == 1 and adj < 0 and onscr.call(t2): adj = t2
++			if dd >= 15 and far < 0 and onscr.call(t2): far = t2; break
++			var x2 := t2 % W
++			for d in [1, -1, W, -W]:
++				if (d == 1 and x2 == W - 1) or (d == -1 and x2 == 0): continue
++				var j: int = t2 + d
++				if j >= 0 and j < W * H and owner_map[j] == NEUTRAL and not depth.has(j):
++					depth[j] = dd + 1; q.append(j)
++		if adj >= 0: o["neutral_px"] = _fct_px(adj); o["neutral_tile"] = adj
++		if far >= 0: o["far_px"] = _fct_px(far); o["far_tile"] = far
++		if own >= 0: o["own_px"] = _fct_px(own); o["own_tile"] = own
++		# an inner tile of ours for building
++		for t in border[PLAYER].keys():
++			if build_req(0, int(t)) == "" and onscr.call(int(t)): o["build_px"] = _fct_px(int(t)); o["build_tile"] = int(t); break
++	_fct_pub(o)
++func _fct_pub(o: Dictionary) -> void:
++	JavaScriptBridge.eval("window._fc = %s; console.log('FCTEST ' + JSON.stringify(window._fc))" % JSON.stringify(o), true)
+ 
+ func _bench_step(dt: float, us: int) -> void:
+ 	if bench_i == -1:
