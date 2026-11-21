@@ -13,7 +13,7 @@ func _new_nation(nm: String, col: Color, ai: bool) -> int:
 		border.clear()
 		for _k in nations.size(): border.append({})
 	border.append({})
-	nations.append({"name": nm, "color": col, "ai": ai, "land": 0, "troops": 0.0, "gold": 0.0, "bb": Rect2i(), "alive": true, "sx": 0.0, "sy": 0.0, "regen": 0.0, "reinf_cd": 0.0})
+	nations.append({"name": nm, "color": col, "ai": ai, "land": 0, "troops": 0.0, "gold": 0.0, "bb": Rect2i(), "alive": true, "sx": 0.0, "sy": 0.0, "regen": 0.0, "reinf_cd": 0.0, "pop": 0.0})
 	return nations.size() - 1
 
 func _find_spawn_tile(cx: int, cy: int) -> int:
@@ -93,6 +93,7 @@ func _start_game() -> void:
 	mirvs_launched = 0
 	ally_requests.clear(); ally_req_last.clear(); ally_replies.clear()
 	if not _skip_gen: gen_map()
+	_load_tile_pop()
 	var gnz := FastNoiseLite.new(); gnz.seed = randi(); gnz.frequency = 0.012; gnz.fractal_octaves = 2
 	grow_n = gnz.get_image(W, H, false, false, true).get_data()
 	nations.clear()
@@ -225,7 +226,8 @@ func _rw_spawn_all() -> void:
 		if t < 0: t = _random_start()
 		if t >= 0:
 			_claim_disc(id, t, R.spawn_radius); _spawn_note(t); nations[id].spawn_tile = t
-			nations[id].troops = R.max_troops(SimRules.KIND_NATION, nations[id].land, 0, diff_i)
+			nations[id].troops = R.max_troops(SimRules.KIND_NATION, nations[id].land, 0, diff_i) if tile_pop.is_empty() \
+				else R.max_troops_pop(SimRules.KIND_NATION, nations[id].land, nations[id].pop, tile_pop_avg, 0, diff_i)
 		nations[id]["authored_color"] = hex != ""
 	_nudge_nation_colors()
 	for k in SimRules.DEFAULT_TRIBES:

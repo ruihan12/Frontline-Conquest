@@ -655,6 +655,10 @@ func _set_owner(i: int, o: int) -> void:
 	if old > 0:
 		nations[old].land -= 1
 		nations[old].sx -= i % W; nations[old].sy -= i / W
+	if not tile_pop.is_empty():
+		var tp: float = tile_pop[i]
+		if old > 0: nations[old].pop -= tp
+		if o > 0: nations[o].pop += tp
 	owner_map[i] = o
 	if old > 0 and o > 0: nations[old]["last_by"] = o
 	if struct_at.has(i):
@@ -692,3 +696,33 @@ func _set_owner(i: int, o: int) -> void:
 		if i >= W: _upd_border(i - W)
 		if i < W * (H - 1): _upd_border(i + W)
 	_repaint(i)
+
+
+# TEST ONLY (USE_REAL_POP): load maps/upstream/<id>.pop.bin (zlib float32 W*H people per tile) for the
+# current map: World and the continents (tabs 0 and 2); a map without a baked file leaves it off.
+func _pop_map_id() -> String:
+	if map_tab == 0 and map_i == 0: return "world"
+	if map_tab == 2: return UpstreamMaps.id_at(map_i)
+	# the real-maps tab's continents share the upstream grid (land differs on ~0.2% of tiles)
+	if map_tab == 0 and RW_MAP_FOR.has(map_i): return str(RealMaps.MAPS[RW_MAP_FOR[map_i]].id)
+	return ""
+
+func _load_tile_pop() -> void:
+	tile_pop = PackedFloat32Array(); tile_pop_avg = 1.0
+	if not (use_real_pop or OS.get_cmdline_user_args().has("--realpop")): return
+	var id := _pop_map_id()
+	var path := UpstreamMaps.DIR + id + ".pop.bin"
+	if id == "" or not FileAccess.file_exists(path): return
+	var f := FileAccess.open(path, FileAccess.READ)
+	var raw := f.get_buffer(f.get_length()).decompress(W * H * 4, FileAccess.COMPRESSION_DEFLATE)
+	if raw.size() != W * H * 4:
+		push_error("real pop: %s decoded to %d bytes" % [path, raw.size()]); return
+	tile_pop = raw.to_float32_array()
+	var tot := 0.0; var lt := 0
+	for i in W * H:
+		if owner_map[i] != WATER:
+			tot += tile_pop[i]; lt += 1
+		else:
+			tile_pop[i] = 0.0
+	tile_pop_avg = tot / maxf(1.0, float(lt))
+	print("real pop: %s %.3f B people on %d land tiles (avg %.0f per tile)" % [id, tot / 1e9, lt, tile_pop_avg])

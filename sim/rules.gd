@@ -127,6 +127,29 @@ func max_troops(kind: int, tiles: int, cities: int, diff: int) -> float:
 	if kind == KIND_NATION: return m * NATION_TROOP_MULT[clampi(diff, 0, 2)]
 	return m
 
+# TEST ONLY (USE_REAL_POP): troop cap from real population. POP_CAP_MODE
+#   0 "linear":  cap = CAP_BASE + pop * POP_K + cities   (Ruihan's idea: army = people x k)
+#   1 "density": the normal concave tile curve, fed population-equivalent tiles
+#                tiles_eff = POP_LAND_W * tiles + (1 - POP_LAND_W) * pop / avg_pop_per_tile
+#                (a tile of average density counts as 1 tile; the whole world caps where it does now)
+# POP_K = 1 soldier per 2,500 people: the USA (348M) -> 139k, about what a USA-sized blob caps at today
+# (~150k); India 1.49B -> 600k, the World 8.2B -> 3.3M. 1:1 would be 348M for the USA, ~2,300x today's
+# caps (and ~1M x the 10-troops/tick base growth), so every attack, nuke and AI threshold would need redoing.
+var pop_cap_mode := 1
+const POP_K := 1.0 / 2500.0
+const POP_LAND_W := 0.25
+
+func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: int, diff: int) -> float:
+	var m: float
+	if pop_cap_mode == 0:
+		m = CAP_BASE + maxf(pop, 0.0) * POP_K + cities * CITY_TROOPS_NERF
+	else:
+		var eff := POP_LAND_W * float(tiles) + (1.0 - POP_LAND_W) * maxf(pop, 0.0) / maxf(avg_pop, 1.0)
+		m = CAP_BASE + CAP_K * pow(maxf(eff * tile_norm, 0.0), CAP_EXP) + cities * CITY_TROOPS_NERF
+	if kind == KIND_TRIBE: return m / 3.0
+	if kind == KIND_NATION: return m * NATION_TROOP_MULT[clampi(diff, 0, 2)]
+	return m
+
 # troopIncreaseRate per tick: (10 + troops^0.73 / 4) * (1 - troops/max); above the cap the army
 # snaps to the cap (upstream). OVERCAP_DECAY is unused (kept for reference).
 func troop_growth(kind: int, troops: float, cap: float, diff: int) -> float:

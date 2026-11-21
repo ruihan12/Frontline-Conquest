@@ -18,6 +18,8 @@ func owned_count(id: int, k: int) -> int:
 	return _oc_cnt.get(id * 64 + k, 0)
 
 func troop_cap(id: int) -> float:
+	if not tile_pop.is_empty():
+		return sim_rules.max_troops_pop(troop_kind(id), nations[id].land, nations[id].get("pop", 0.0), tile_pop_avg, owned(id, 0), troop_diff(id))
 	return sim_rules.max_troops(troop_kind(id), nations[id].land, owned(id, 0), troop_diff(id))
 
 func gold_rate(id: int) -> float:
@@ -635,7 +637,8 @@ func _economy(dt: float) -> void:
 		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0 if is_nan(n.gold) else 1.0e300
 		var kd := kind_of(id)
 		var tk := troop_kind(id); var tdf := troop_diff(id)  # novice bot players: Easy nation numbers
-		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf)
+		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf) if tile_pop.is_empty() \
+			else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_lv.get(id, 0), tdf)
 		n.regen = sim_rules.troop_growth(tk, n.troops, cap, tdf) * 10.0
 		n.troops += sim_rules.troop_growth_applied(tk, n.troops, cap, tdf)
 		n.gold += sim_rules.gold_per_tick(kd)

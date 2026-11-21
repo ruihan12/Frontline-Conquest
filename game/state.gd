@@ -287,6 +287,15 @@ const RW_MAP_FOR := {0: 0, 1: 1, 2: 6, 3: 2, 4: 3, 5: 4, 6: 5, 7: 7, 8: 8, 9: 9,
 const DEFAULT_K_LIN := 1.1161  # 1792 tiles across = RoWorld's 2000-wide world
 var sim_rules := SimRules.new(DEFAULT_K_LIN)
 const TILE_NORM := (640.0 * 352.0) / float(W * H)
+# ---- TEST ONLY: real-world population per tile (density-test branch; tools/bake_population.py) ----
+# Off by default: with it off nothing below runs and the troop cap is the normal tile formula.
+# On (const, or `--realpop` on the command line, or set use_real_pop before a match) and on a map with a
+# baked maps/upstream/<id>.pop.bin, each nation's `pop` is the sum of the people on the tiles it owns and
+# its troop cap comes from that population instead of its tile count (SimRules.max_troops_pop).
+const USE_REAL_POP := false
+var use_real_pop := USE_REAL_POP
+var tile_pop := PackedFloat32Array()  # people per tile (empty = off / no data for this map)
+var tile_pop_avg := 1.0               # map population / land tiles (people in an "average" tile)
 var sim_atk: SimAttacks
 var sim_ai: SimAI
 var sim_struct: SimStructures
