@@ -135,52 +135,26 @@ func _land_bfs4(from_t: int, to_t: int, max_visit := 30000) -> PackedInt32Array:
 	return out
 
 func _rail_curve(tile_a: int, tile_b: int) -> Array:
-	# Square-grid roads: horizontal/vertical segments only (Manhattan L-shapes), land-only.
+	# Upstream SimStructures.rail_path: a 4-neighbour land path (A* on a uniform grid here).
+	# No custom Manhattan L-shape / MST geometry.
 	var lo_t := mini(tile_a, tile_b)
 	var hi_t := maxi(tile_a, tile_b)
 	var key := "r%d:%d" % [lo_t, hi_t]
 	if rail_cache.has(key):
 		return rail_cache[key]
-	var A := Vector2i(lo_t % W, lo_t / W); var B := Vector2i(hi_t % W, hi_t / W)
-	var corners := []
-	var c1 := Vector2i(B.x, A.y); var c2 := Vector2i(A.x, B.y)
-	if _axis_land(A, c1) and _axis_land(c1, B): corners = [A, c1, B]
-	elif _axis_land(A, c2) and _axis_land(c2, B): corners = [A, c2, B]
-	elif _rail_bfs_left <= 0:
+	if _rail_bfs_left <= 0:
 		_rail_pending = true
 		return []
-	else:
-		_rail_bfs_left -= 1
-		var raw := _land_bfs4(lo_t, hi_t)
-		var man := absi(A.x - B.x) + absi(A.y - B.y)
-		if raw.size() >= 2 and raw.size() <= man * 2 + 24:
-			# collapse to few axis-aligned runs: greedily extend L-shortcuts along the path
-			var cells := []
-			for t in raw: cells.append(Vector2i(t % W, t / W))
-			corners = [cells[0]]
-			var idx := 0
-			while idx < cells.size() - 1:
-				var j := cells.size() - 1
-				var via = null
-				while j > idx + 1:
-					var p0: Vector2i = cells[idx]; var p1: Vector2i = cells[j]
-					if p0.x == p1.x or p0.y == p1.y:
-						if _axis_land(p0, p1): break
-					else:
-						var e1 := Vector2i(p1.x, p0.y); var e2 := Vector2i(p0.x, p1.y)
-						if _axis_land(p0, e1) and _axis_land(e1, p1): via = e1; break
-						if _axis_land(p0, e2) and _axis_land(e2, p1): via = e2; break
-					j -= 1
-				if via != null: corners.append(via)
-				corners.append(cells[j]); idx = j
-	if corners.size() < 2:
+	_rail_bfs_left -= 1
+	var raw := _land_bfs4(lo_t, hi_t)
+	var max_path: float = sim_rules.rail_max_path()
+	if raw.size() < 2 or float(raw.size()) >= max_path:
 		rail_cache[key] = []
 		return []
 	var pts := PackedVector2Array()
-	for c in corners:
-		var v := Vector2(c.x + 0.5, c.y + 0.5)
+	for t in raw:
+		var v := Vector2(t % W + 0.5, t / W + 0.5)
 		if pts.size() >= 1 and pts[pts.size() - 1] == v: continue
-		# merge collinear runs
 		if pts.size() >= 2:
 			var u := pts[pts.size() - 2]; var w := pts[pts.size() - 1]
 			if (u.x == w.x and w.x == v.x) or (u.y == w.y and w.y == v.y): pts[pts.size() - 1] = v; continue
@@ -229,42 +203,58 @@ func _uf_find(par: Array, x: int) -> int:
 		par[x] = par[par[x]]; x = par[x]
 	return x
 
+func _rail_hops(from, to, max_d: int, adj: Dictionary) -> int:
+	if from == to or from.tile == to.tile: return 0
+	var seen := {from.tile: true}
+	var frontier: Array = [from.tile]
+	for d in range(1, max_d + 1):
+		var nxt: Array = []
+		for t in frontier:
+			for nb in adj.get(t, []):
+				if nb.tile == to.tile: return d
+				if not seen.has(nb.tile):
+					seen[nb.tile] = true
+					nxt.append(nb.tile)
+		if nxt.is_empty(): break
+		frontier = nxt
+	return -1
+
+# Port of SimStructures._link_nearby (Rules.luau trainStationMin/MaxRange, RAIL_LINK_HOPS):
+# link stations 15..110 full-size tiles apart, nearest first, when they are not already within
+# 4 hops and a 4-neighbour land path shorter than railroadMaxSize exists. No Kruskal MST.
 func _build_rail_mst(o: int) -> Dictionary:
 	var nodes := []; var facs := []
+	var rmax: float = sim_rules.road_max_tiles()
+	var rmin: float = sim_rules.road_min_tiles()
 	for c in structs:
 		if c.o != o or c.get("bt", 0.0) > 0.0: continue
 		if c.k == 2: facs.append(Vector2(c.tile % W + 0.5, c.tile / W + 0.5))
 		if c.k in RAIL_KINDS: nodes.append(c)
 	var adj := {}
 	if facs.is_empty() or nodes.size() < 2: return adj
-	var R2 := FACTORY_RANGE * FACTORY_RANGE
-	var cov := []  # per node: bitset-ish list of factory indices covering it
+	var R2 := rmax * rmax
+	var cov := []
 	for nd in nodes:
 		var p := Vector2(nd.tile % W + 0.5, nd.tile / W + 0.5); var l := []
 		for fi in facs.size():
 			if facs[fi].distance_squared_to(p) <= R2: l.append(fi)
+		if nd.k == 2: l.append(-1)
 		cov.append(l)
 	var edges := []
 	for i in nodes.size():
 		if cov[i].is_empty(): continue
-		var ti: int = nodes[i].tile
+		var pi := Vector2(nodes[i].tile % W + 0.5, nodes[i].tile / W + 0.5)
 		for j in range(i + 1, nodes.size()):
 			if cov[j].is_empty(): continue
-			var share := false
-			for f in cov[i]:
-				if f in cov[j]: share = true; break
-			if not share: continue
-			var tj: int = nodes[j].tile
-			edges.append([absi(ti % W - tj % W) + absi(ti / W - tj / W), i, j])
+			var pj := Vector2(nodes[j].tile % W + 0.5, nodes[j].tile / W + 0.5)
+			var d: float = pi.distance_to(pj)
+			if d <= rmin or d > rmax: continue
+			edges.append([d, i, j])
 	edges.sort_custom(func(x, y): return x[0] < y[0])
-	var par := []; par.resize(nodes.size())
-	for i in nodes.size(): par[i] = i
 	for e in edges:
-		var ri: int = _uf_find(par, e[1]); var rj: int = _uf_find(par, e[2])
-		if ri == rj: continue
 		var a = nodes[e[1]]; var b = nodes[e[2]]
+		if _rail_hops(a, b, SimRules.RAIL_LINK_HOPS, adj) != -1: continue
 		if _rail_curve(a.tile, b.tile).is_empty(): continue
-		par[ri] = rj
 		if not adj.has(a.tile): adj[a.tile] = []
 		if not adj.has(b.tile): adj[b.tile] = []
 		adj[a.tile].append(b); adj[b.tile].append(a)
@@ -289,7 +279,7 @@ func _rail_len(st_a, st_b) -> float:
 # Port of SimStructures.factories_tick / _spawn_truck / _truck_tick (RoWorld): each finished factory
 # rolls `level` times per tick against trainSpawnRate(owner's factory levels, train units world-wide),
 # at most one train per 10 ticks and 6 in flight per factory; the train runs the station route (over
-# the port's MST roads) to a random reachable city or port, paying trainGold at every city/port stop.
+# the station network) to a random reachable city or port, paying trainGold at every city/port stop.
 func _rail_route(a, b) -> Array:
 	var par := {a.tile: null}
 	var q := [a]

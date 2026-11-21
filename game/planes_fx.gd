@@ -1,5 +1,5 @@
 extends "res://game/draw_helpers.gd"
-# Cargo and transport planes, world effects, notes
+# World effects and notes (cargo/transport planes are not in vanilla / upstream)
 
 func _airfields_of(o: int) -> Array:
 	var out := []
@@ -14,52 +14,12 @@ func _air_path(t0: int, t1: int) -> Array:
 	var pts := PackedVector2Array([_tile_px(t0), _tile_px(t1)])
 	return [pts, PackedFloat32Array([0.0, pts[0].distance_to(pts[1])])]
 
-func launch_plane(a: int, click: int, share: float) -> bool:
-	if a != PLAYER: return false
-	if click < 0 or click >= W * H: return false
-	var o := owner_map[click]
-	if o < 0 or o == a or allied(a, o): return false
-	var fields := _airfields_of(a)
-	if fields.is_empty():
-		notify("Build an Airfield to send transport planes", "info"); return false
-	var inflight := 0
-	for bt in boats:
-		if bt.a == a and bt.get("air", false): inflight += 1
-	if inflight >= MAX_PLANE_TRANSPORTS:
-		notify("Too many transport planes in the air", "info"); return false
-	var troops: float = floor(nations[a].troops * clampf(share, 0.01, 1.0))
-	if troops < 1.0: return false
-	var src = fields[0]; var bd := 1e18
-	for f in fields:
-		var d := _tile_px(f.tile).distance_squared_to(_tile_px(click))
-		if d < bd: bd = d; src = f
-	var ap := _air_path(src.tile, click)
-	_spawn_boat(a, ap[0], click, troops)
-	boats[boats.size() - 1]["air"] = true
-	return true
+# Vanilla: cargo / transport planes are not in upstream RoWorld. Stubs only.
+func launch_plane(_a: int, _click: int, _share: float) -> bool:
+	return false
 
-func _tick_air_cargo(dt: float) -> void:
-	for o in range(1, nations.size()):
-		if not nations[o].alive: continue
-		var t: float = float(_air_cargo_t.get(o, rng.randf() * AIR_CARGO_EVERY)) - dt
-		if t > 0.0: _air_cargo_t[o] = t; continue
-		_air_cargo_t[o] = AIR_CARGO_EVERY
-		var mine := _airfields_of(o)
-		if mine.is_empty(): continue
-		var n_air := 0
-		for tr in traders:
-			if tr.o == o and tr.get("air", false): n_air += 1
-		if n_air >= AIR_CARGO_MAX: continue
-		var others := []
-		for st in structs:
-			if st.k == 14 and st.o != o and st.o > 0 and float(st.get("bt", 0.0)) <= 0.0 and not is_embargoed(o, st.o) and not sim_naval.hostile(o, st.o): others.append(st)
-		if others.is_empty(): continue
-		var a = mine[rng.randi() % mine.size()]; var b = others[rng.randi() % others.size()]
-		var ap := _air_path(a.tile, b.tile)
-		var cum: PackedFloat32Array = ap[1]
-		var dist_tiles: float = cum[1] / TS
-		var lmult: float = 0.7 + 0.25 * float(int(a.get("level", 1)) + int(b.get("level", 1)))
-		traders.append({"o": o, "pts": ap[0], "cum": cum, "d": 0.0, "dst": b, "gold": trade_ship_gold(dist_tiles, lmult), "air": true})
+func _tick_air_cargo(_dt: float) -> void:
+	return
 
 func _plane_glyph(p: Vector2, dir: Vector2, col: Color, scale: float, cargo: bool) -> void:
 	var s := clampf(cam.zoom.x * 3.0, 6.0, 13.0) * scale

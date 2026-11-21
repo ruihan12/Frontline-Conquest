@@ -264,12 +264,19 @@ func strike(m: Dictionary) -> void:
 	var vis_r := maxf(1.5, radius)
 	g.blasts.append({"pos": c * g.TS, "r": vis_r * g.TS, "t": 0.0, "dur": 0.55 if nk == SimRules.N_SHELL else 0.9, "seed": to * 2654435761 % 100000, "kind": "sam"})
 	var victim: int = g.owner_map[to]
-	if nk != SimRules.N_SHELL:
+	# UIAdvisor.on_nuke_detonated: shells play only when on screen; airstrike/slug when on screen or yours.
+	var mine: bool = victim == g.PLAYER or shooter == g.PLAYER
+	var near: bool = g._world_on_screen(c * g.TS)
+	if nk == SimRules.N_SHELL:
+		if near:
+			g.sfx("atom_hit", -6.0 if mine else -11.0, 0.08, g.PLAYER if mine else shooter, c * g.TS)
+	elif nk != SimRules.N_SHELL:
 		if victim == g.PLAYER and shooter != g.PLAYER:
 			g.notify("%s from %s hit your land" % ["An air strike" if nk == SimRules.N_AIRSTRIKE else "A railgun slug", g._nname(shooter)], "bad")
-		if victim == g.PLAYER or shooter == g.PLAYER:
-			g.sfx("atom_hit", -10.0, 0.06, g.PLAYER)
-			g._add_shake(1.2)
+		if near or mine:
+			g.sfx("atom_hit", -10.0, 0.06, g.PLAYER if mine else shooter, c * g.TS)
+			if mine:
+				g._add_shake(1.2)
 
 # land tiles of a disc around tile `c` (tile-centre distances, like SimState.disk_tiles(.., land_only))
 func disk_tiles(c: int, r: float) -> PackedInt32Array:

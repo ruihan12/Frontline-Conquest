@@ -446,6 +446,12 @@ static func train_spawn_rate(owner_factories: int, train_units: int) -> int:
 
 func train_tiles_per_tick() -> float: return TRAIN_SPEED_FULL / k_lin
 
+# Roads (Rules.luau trainStationMin/MaxRange 15..110 full-size tiles, RAIL_LINK_HOPS 4, railroadMaxSize).
+const RAIL_LINK_HOPS := 4
+func road_min_tiles() -> float: return 15.0 / k_lin
+func road_max_tiles() -> float: return 110.0 / k_lin
+func rail_max_path() -> float: return 110.0 * 1.4142 / k_lin
+
 # Rules.DEFAULT_ATTACK_RATIO (Rules.luau 641): the sim fallback when an order carries no ratio. The HUD
 # stops are UICtx.RATIO_STOPS 10/25/35/50/75% with UICtx.DEFAULT_RATIO 25% (main.gd SHARES, share_i 1).
 const DEFAULT_ATTACK_RATIO := 0.2

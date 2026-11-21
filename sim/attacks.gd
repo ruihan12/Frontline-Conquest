@@ -63,8 +63,7 @@ func _push(a: Dictionary, t: int) -> void:
 	if x < W - 1 and om[t + 1] == at: n += 1
 	if t >= W and om[t - W] == at: n += 1
 	if t < om.size() - W and om[t + W] == at: n += 1
-	var gn: PackedByteArray = g.grow_n
-	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * R.priority_f4[int(g.mtn[t]) * 5 + n] + ((gn[t] >> 5) if gn.size() > t else 0)  # low-freq noise: organic frontier order
+	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * R.priority_f4[int(g.mtn[t]) * 5 + n]
 	_hpush(a, key, t)
 	a.front[t] = true
 
@@ -73,16 +72,15 @@ func _add_neighbors(a: Dictionary, t: int) -> void:
 	var tg: int = a.t
 	var W: int = g.W
 	var N := om.size()
-	if _mtn.size() != N: _mtn = g.mtn; _gn = g.grow_n; _pf4 = R.priority_f4
+	if _mtn.size() != N: _mtn = g.mtn; _pf4 = R.priority_f4
 	var x := t % W
 	if t >= W and om[t - W] == tg: _push_fast(a, t - W, om, W, N)
 	if t < N - W and om[t + W] == tg: _push_fast(a, t + W, om, W, N)
 	if x > 0 and om[t - 1] == tg: _push_fast(a, t - 1, om, W, N)
 	if x < W - 1 and om[t + 1] == tg: _push_fast(a, t + 1, om, W, N)
 
-# _push with the map arrays passed in (same key: 4 * tick + priority(terrain, own neighbours) + noise)
+# _push with the map arrays passed in (same key: 4 * tick + priority(terrain, own neighbours))
 var _mtn := PackedByteArray()
-var _gn := PackedByteArray()
 var _pf4: Array = []
 func _push_fast(a: Dictionary, t: int, om: PackedInt32Array, W: int, N: int) -> void:
 	var at: int = a.a
@@ -92,7 +90,7 @@ func _push_fast(a: Dictionary, t: int, om: PackedInt32Array, W: int, N: int) -> 
 	if x < W - 1 and om[t + 1] == at: n += 1
 	if t >= W and om[t - W] == at: n += 1
 	if t < N - W and om[t + W] == at: n += 1
-	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * int(_pf4[int(_mtn[t]) * 5 + n]) + ((_gn[t] >> 5) if _gn.size() > t else 0)
+	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * int(_pf4[int(_mtn[t]) * 5 + n])
 	_hpush(a, key, t)
 	a.front[t] = true
 
@@ -221,7 +219,7 @@ func begin_tick() -> void:
 	_pass = g.attacks.duplicate()
 	_pass_i = 0
 	pass_open = true
-	_mtn = g.mtn; _gn = g.grow_n; _pf4 = R.priority_f4
+	_mtn = g.mtn; _pf4 = R.priority_f4
 
 func run_slice(deadline: int) -> bool:
 	if not pass_open: return true

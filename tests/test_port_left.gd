@@ -84,21 +84,8 @@ func _initialize() -> void:
 		_check(nm2._solo_text.text.begins_with("Another war against the computer, on "), "solo copy names the map: " + nm2._solo_text.text)
 		nm2.close()
 		_check(not nm2.is_open, "closes")
-	# real-pop 1:1 scaling (docs/REAL_POP_1TO1.md): S * f(x / S) for growth, x S for absolute amounts
-	var R1 := SimRules.new(1.1161)
-	var R2 := SimRules.new(1.1161)
-	R2.set_troop_scale(true)
-	var S := SimRules.TROOP_SCALE
-	_check(R1.ts == 1.0 and R2.ts == S, "ts is 1 normally and TROOP_SCALE in 1:1")
-	_check(absf(R2.troop_growth(SimRules.KIND_HUMAN, 20000.0 * S, 100000.0 * S, 1) - S * R1.troop_growth(SimRules.KIND_HUMAN, 20000.0, 100000.0, 1)) < 1e-3 * S, "growth is S * f(troops / S)")
-	_check(R2.start_troops(SimRules.KIND_HUMAN, 1) == SimRules.START_TROOPS_HUMAN * S, "human start x S (%.0f)" % R2.start_troops(SimRules.KIND_HUMAN, 1))
-	_check(SimRules.strike_kill(SimRules.N_SHELL, 10000.0 * S, 1.0, S) == 1440.0 * S, "shell kill floor x S")
-	_check(absf(SimRules.warhead_death(1e5 * S, 1e5 * S, S) - S * SimRules.warhead_death(1e5, 1e5)) < 1e-6 * S, "warhead death x S")
-	R2.pop_cap_mode = 2
-	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 348e6, 1.0, 2, 1) == 348e6 + 2.0 * SimRules.CITY_POP_BONUS, "1:1 cap = people + city levels x CITY_POP_BONUS")
-	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 0.0, 1.0, 0, 1) == SimRules.MIN_CAP_1TO1, "1:1 empty human cap floors at MIN_CAP_1TO1")
-	_check(R2.max_troops_pop(SimRules.KIND_HUMAN, 100, 0.0, 1.0, 0, 1, false) == 0.0, "1:1 spawn cap has no floor (empty spawns start empty)")
-	_check(R2.max_troops_pop(SimRules.KIND_TRIBE, 100, 0.0, 1.0, 0, 1) == 0.0, "1:1 empty tribe has no floor (absorbable)")
-	_check(R1.max_troops(SimRules.KIND_HUMAN, 100, 0, 1) == R2.max_troops(SimRules.KIND_HUMAN, 100, 0, 1), "tile cap untouched by the scale")
+	# vanilla: World is native 2000x1000, k_lin 1.0, troop display /10, no real-pop 1:1 mode
+	_check(absf(m.sim_rules.k_lin - 1.0) < 1e-6 and m.W == 2000 and m.H == 1000, "World is 2000x1000 k_lin 1.0")
+	_check(absf(UITheme.troop_div - 10.0) < 1e-6, "troop display is /10")
 	print("PORT_LEFT fails=%d" % fails)
 	quit(1 if fails > 0 else 0)

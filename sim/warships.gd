@@ -252,7 +252,7 @@ func _safe_from_pirates(tr: Dictionary) -> bool:
 	if pts.size() < 2 or cum.size() != pts.size():
 		return false
 	var d1: float = float(tr.d)
-	var per_tick: float = g.sim_rules.ship_tiles_per_s() / 10.0 * g.boat_speed * g.TS * (g.AIR_SPEED if tr.get("air", false) else 1.0)
+	var per_tick: float = g.sim_rules.ship_tiles_per_s() / 10.0 * g.boat_speed * g.TS
 	var d0 := maxf(0.0, d1 - SimRules.SAFE_FROM_PIRATES_TICKS * per_tick)
 	var step: float = g.TS * 0.5
 	var m := 1

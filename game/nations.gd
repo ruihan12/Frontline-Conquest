@@ -88,7 +88,7 @@ func _start_game() -> void:
 	ally_requests.clear(); ally_req_last.clear(); ally_replies.clear()
 	if not _skip_gen: gen_map()
 	_load_tile_pop()
-	var gnz := FastNoiseLite.new(); gnz.seed = randi(); gnz.frequency = 0.012; gnz.fractal_octaves = 2
+	var gnz := FastNoiseLite.new(); gnz.seed = rng.randi(); gnz.frequency = 0.012; gnz.fractal_octaves = 2
 	grow_n = gnz.get_image(W, H, false, false, true).get_data()
 	nations.clear()
 	_air_cargo_t.clear(); planes.clear(); beams.clear(); air_t = 0.0; rail_cd = 0.0; shake_amp = 0.0; shake_t = 0.0; if cam: cam.offset = Vector2.ZERO

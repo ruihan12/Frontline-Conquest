@@ -405,7 +405,6 @@ func launch_boat(a: int, click: int, share: float, max_nodes := 1000000) -> bool
 	if o < 0 or o == a or allied(a, o): return false
 	# Upstream SimNaval.launch_boat does not redirect to a land attack when a land border exists
 	# (UI already chooses attack vs boat). Vanilla: a boat order stays a boat order.
-	if a == PLAYER and Input.is_key_pressed(KEY_SHIFT) and launch_plane(a, click, share): return true  # Shift+attack: fly it in
 	var dest := -1
 	var best := 1e9
 	var cx := click % W; var cy := click / W
@@ -424,7 +423,7 @@ func launch_boat(a: int, click: int, share: float, max_nodes := 1000000) -> bool
 				if owner_map[i] == o and _coastal(i):
 					var dd := Vector2(x - cx, y - cy).length_squared()
 					if dd < best: best = dd; dest = i
-	if dest < 0: return launch_plane(a, click, share)  # no coast to land on: transport plane
+	if dest < 0: return false  # no coast to land on (vanilla has no transport planes)
 	# RoWorld launch_boat limits: boats at sea (10 for you, 3 for AI), 2 boat orders per second, floored troops
 	if sim_naval.boats_of(a) >= sim_naval.max_boats(a):
 		if a == PLAYER: notify("Too many transports at sea", "info")
@@ -450,7 +449,7 @@ func launch_boat(a: int, click: int, share: float, max_nodes := 1000000) -> bool
 		if nr.is_empty():
 			if path_fail.size() > 2000: path_fail.clear()
 			path_fail[key] = elapsed
-			return launch_plane(a, click, share)  # no sea route: transport plane if an airfield exists
+			return false  # no sea route (vanilla has no transport planes)
 		var npts: PackedVector2Array = sim_nav.to_points(nr, dest, TS)
 		path_cache[key] = [npts, elapsed]
 		if path_cache.size() > 400: path_cache.clear()
@@ -567,7 +566,7 @@ func _tick_boats(dt: float) -> void:
 		if not nations[a0].alive:
 			boats.erase(bt); continue
 		var o0 := owner_map[dest0]
-		bt.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS * (AIR_SPEED if bt.get("air", false) else 1.0)
+		bt.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS
 		var cum: PackedFloat32Array = bt.cum
 		if bt.d >= cum[cum.size() - 1]:
 			boats.erase(bt)

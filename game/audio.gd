@@ -184,10 +184,22 @@ func _try_unlock_web_audio(e: InputEvent = null) -> void:
 
 # who = owner whose event this is (PLAYER for your own actions / things hitting you). Everything
 # except nuke launches & impacts is hard-gated to events involving the player.
-func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER) -> void:
+# Upstream UIAdvisor.on_nuke_detonated / UICtx.tile_screen_pos: a blast or strike plays when it is
+# yours (you launched it, or it hit your land) or the detonation is on screen.
+func _world_on_screen(world: Vector2) -> bool:
+	if get_viewport() == null: return true
+	var sp := _screen_of(world)
+	var vr := get_viewport().get_visible_rect()
+	return sp.x >= 0.0 and sp.y >= 0.0 and sp.x <= vr.size.x and sp.y <= vr.size.y
+
+func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
 	# Upstream UIAdvisor: a bomb's launch sting is the local player's own launch only; blasts play for
-	# anyone's bomb (upstream: on screen or yours). Every other caller here already asks only for the
+	# anyone's bomb when on screen or yours. Every other caller here already asks only for the
 	# player's own events, as upstream does (on_structure / on_unit count only yours).
+	if not is_nan(at_world.x) and who != PLAYER and not _world_on_screen(at_world):
+		if _sfx_log:
+			print("SFX SKIP off-screen t=%.1fs key=%s who=%d" % [(sim_atk.tick / 10.0) if sim_atk else 0.0, key, who])
+		return
 	var allowed := who == PLAYER or not (key in SFX_LAUNCH_KEYS)
 	if _sfx_log:
 		print("SFX %s t=%.1fs key=%s who=%d vol=%.0fdB" % ["PLAY" if allowed else "BLOCK", (sim_atk.tick / 10.0) if sim_atk else 0.0, key, who, vol_db])
@@ -1088,8 +1100,9 @@ func _pt_free_land_near(o: int, c: int, r: int) -> int:
 func _pt_center(o: int) -> int:
 	var n = nations[o]
 	var t := int(n.sy / maxf(1, n.land)) * W + int(n.sx / maxf(1, n.land))
-	if owner_map[t] == o: return t
-	for i in range(0, W * H, 7):
+	if t >= 0 and t < W * H and owner_map[t] == o: return t
+	# Every tile, not a stride: a small nation can otherwise be missed and return -1.
+	for i in W * H:
 		if owner_map[i] == o: return i
 	return -1
 

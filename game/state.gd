@@ -343,8 +343,10 @@ var _oc_cnt := {}
 var def_posts := {}  # owner -> PackedInt32Array of finished defense post tiles (rebuilt each tick)
 var _ai_place_budget := 0  # AI placement searches (flood fills) left this tick
 # ================= v5 systems: weapons, ships, notifications =================
-# (legacy map scale, no longer used for nuke radii)
-const BLAST_S := float(W) / 640.0
+# (legacy map scale, no longer used for nuke radii). W is a var, so this cannot be a const.
+var BLAST_S: float:
+	get:
+		return float(W) / 640.0
 # Outer blast radius per bomb build id in our tiles: upstream Rules.NUKE_OUTER_FULL / k_lin (atom 30,
 # hydrogen 100, warhead 18 for the MIRV, mega 60, scatter 30). game/nukes.gd refreshes it for the map's k_lin.
 var NUKE_R := {7: 30.0, 8: 100.0, 9: 18.0, 11: 60.0, 12: 30.0}
@@ -407,7 +409,7 @@ var _rail_bfs_left := 4  # land BFS route searches allowed per frame (26k nodes 
 var _rail_pending := false
 var rail_cache := {}  # rail geometry, separate from boat path_cache (which is flushed at 400 entries)
 var _rail_nb_ver := ""
-const FACTORY_RANGE := 60.0  # tiles: roads/rails may only link structures inside one factory's range
+const FACTORY_RANGE := 110.0  # trainStationMaxRange at k_lin 1 (Rules.ROAD_MAX_TILES)
 # Minimum spanning tree (Manhattan weight) per owner: each structure joins the road network once.
 # An edge is allowed only if both ends sit inside the same factory's range.
 var _rail_mst := {}  # owner -> [ver, {tile: [structs]}]
@@ -435,7 +437,7 @@ var _tie_vr := Rect2()
 var cap_fx := {}
 # click one of your warships, then the sea, to move it (upstream: Click one of yours, then the sea)
 var sel_ws = null
-# ---------- cargo and transport planes (custom): cargo planes work like trade ships, transport planes like boats ----------
+# ---------- leftover air constants (vanilla has no cargo / transport planes; launch_plane is a stub) ----------
 const AIR_SPEED := 3.0          # x ship speed
 const MAX_PLANE_TRANSPORTS := 3
 const AIR_CARGO_EVERY := 20.0   # s between cargo flights per owner
@@ -796,6 +798,9 @@ func _clamp_cam() -> void:
 func _screen_of(world: Vector2) -> Vector2:
 	return Vector2.ZERO  # forward declaration; implemented in main.gd
 
+func _world_on_screen(world: Vector2) -> bool:
+	return true  # forward declaration; implemented in game/audio.gd
+
 func _mouse_tile() -> int:
 	return 0  # forward declaration; implemented in main.gd
 
@@ -910,7 +915,7 @@ func _init_audio() -> void:
 func _apply_volumes() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
-func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER) -> void:
+func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
 func _play_music() -> void:

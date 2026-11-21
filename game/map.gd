@@ -742,28 +742,6 @@ func _load_tile_pop() -> void:
 	tile_pop = PackedFloat32Array(); tile_pop_avg = 1.0
 	sim_rules.set_troop_scale(false)
 	UITheme.troop_div = 10.0
-	return
-	if not (use_real_pop or OS.get_cmdline_user_args().has("--realpop")): return
-	var id := _pop_map_id()
-	var path := UpstreamMaps.DIR + id + ".pop.bin"
-	if id == "" or not FileAccess.file_exists(path): return
-	var f := FileAccess.open(path, FileAccess.READ)
-	var raw := f.get_buffer(f.get_length()).decompress(W * H * 4, FileAccess.COMPRESSION_DEFLATE)
-	if raw.size() != W * H * 4:
-		push_error("real pop: %s decoded to %d bytes" % [path, raw.size()]); return
-	tile_pop = raw.to_float32_array()
-	var tot := 0.0; var lt := 0
-	for i in W * H:
-		if owner_map[i] != WATER:
-			tot += tile_pop[i]; lt += 1
-		else:
-			tile_pop[i] = 0.0
-	tile_pop_avg = tot / maxf(1.0, float(lt))
-	print("real pop: %s %.3f B people on %d land tiles (avg %.0f per tile)" % [id, tot / 1e9, lt, tile_pop_avg])
-	if sim_rules.pop_cap_mode == 2:
-		sim_rules.set_troop_scale(true)
-		UITheme.troop_div = 1.0
-		print("real pop 1:1: troops are people (TROOP_SCALE %.0f, city level +%.0f)" % [SimRules.TROOP_SCALE, SimRules.CITY_POP_BONUS])
 
 
 func _sim_frame_budget_us() -> int:

@@ -48,7 +48,7 @@ func run(H) -> void:
 	var cap30: float = r.max_troops(SimRules.KIND_HUMAN, 30, 0, 1)
 	H.expect_near(cap30, _up_max(SimRules.KIND_HUMAN, 30.0, 0, 1), 1e-6, "30-tile human cap matches upstream")
 
-	# k_lin 1.1161 (1792-wide world): cap uses tiles * k_area
+	# k_lin != 1 (synthetic): cap uses tiles * k_area. World itself is now native k_lin 1.0.
 	var rmap: SimRules = R.new(1.1161)
 	var tfull := 30.0 * rmap.k_area
 	var want_k: float = 2.0 * (pow(tfull, 0.6) * 1000.0 + 50000.0)

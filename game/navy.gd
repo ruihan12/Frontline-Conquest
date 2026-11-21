@@ -200,7 +200,7 @@ func _tick_trade(dt: float) -> void:
 	# spawning happens per tick in sim_naval.tick() (RoWorld ports_tick)
 	_tick_air_cargo(dt)
 	for tr in traders.duplicate():
-		tr.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS * (AIR_SPEED if tr.get("air", false) else 1.0)
+		tr.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS
 		var cum: PackedFloat32Array = tr.cum
 		if tr.d >= cum[cum.size() - 1]:
 			SimWarships.erase_ref(traders, tr)

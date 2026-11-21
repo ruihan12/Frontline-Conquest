@@ -213,7 +213,8 @@ func _detonate_missile(ms) -> void:
 	var victim: int = int(ms.get("tgt_o", owner_map[tile]))
 	detonate(ms.o, to, float(ms.r), 1.0, nk)
 	var mine: bool = ms.o == PLAYER or owner_map[tile] == PLAYER or victim == PLAYER
-	sfx("hydrogen_hit" if ms.k in [8, 11] and nk != SimRules.N_WARHEAD else "atom_hit", 0.0 if mine else -8.0, 0.04, PLAYER if mine else ms.o)
+	# UIAdvisor.on_nuke_detonated: explosion SFX only when on screen or yours.
+	sfx("hydrogen_hit" if ms.k in [8, 11] and nk != SimRules.N_WARHEAD else "atom_hit", 0.0 if mine else -8.0, 0.04, PLAYER if mine else ms.o, to * TS)
 	if victim > 0 and nk != SimRules.N_WARHEAD and victim == PLAYER and ms.o != PLAYER:
 		notify("A %s from %s hit your land" % [build_data[ms.k][1], _nname(ms.o)], "bad")
 	if nk == SimRules.N_HYDROGEN and victim != PLAYER:
