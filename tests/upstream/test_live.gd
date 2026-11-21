@@ -564,7 +564,7 @@ func _arsenal_strikes() -> void:
 		m.sim_ars.damage_struct(city2, 2000, P)
 		H.expect(lv_after == 1 and not is_same(m.struct_at.get(city2.tile), city2), "structure HP: 0 HP drops a level, then destroys at level 1")
 	# rapid reload is off by default
-	H.expect(m.reload_mult() == 1.0 or not ("reload" in m.save.unlocked), "Rapid Reload stays off unless unlocked")
+	H.expect(m.reload_mult() == (0.5 if "reload" in m.save.unlocked else 1.0), "Rapid Reload stays off unless unlocked", "unlocked=%s mult=%.2f" % ["reload" in m.save.unlocked, m.reload_mult()])
 
 # ---------------- boats / warships / trade ----------------
 func _naval_and_warships() -> void:
