@@ -40,6 +40,11 @@ const TUTORIAL_DELAY_S := 0.9
 var _advise_t := 0.0
 var unit_card: UnitCard
 var map_picker: MapPicker
+var next_match: NextMatch
+var _next_shown := false
+var _next_at := 0
+var _next_from := ""
+var _next_going := ""
 var _hover_seen := -2
 var _state_seen := ""
 var _seen_nukes := {}
@@ -108,6 +113,12 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		g._to_menu())
 	over.open_arsenal.connect(func(key, from) -> void: open_arsenal(key, from))
 	over.spectate.connect(_keep_watching)
+	# NEXT MATCH, over the results of a new player's first match (UIRoot: UI/NextMatch)
+	next_match = NextMatch.new(ctx)
+	root.add_child(next_match)
+	next_match.solo.connect(func() -> void: _next_match_go("solo"))
+	next_match.closed.connect(func() -> void: _next_going = "")
+	over.opened.connect(_maybe_next_match)
 	spectate_pill = _build_spectate_pill()
 	root.add_child(spectate_pill)
 	help = HelpOverlay.new(ctx)
@@ -129,6 +140,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		ctx.set_music(on)
 		topbar.refresh())
 	pause.music_volume_changed.connect(func(v: float, final: bool) -> void: ctx.set_music_volume(v, final))
+	pause.next_match_preview.connect(func() -> void: open_next_match("preview"))
 	pause.pops_toggled.connect(func(on: bool) -> void: ctx.set_pops(on))
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
@@ -274,6 +286,8 @@ func layout() -> void:
 	ctx.airship_bar = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 2.0)
 	ctx.reserved_top_left = Rect2(0, 0, tr.end.x + 8.0, tr.end.y + 8.0)
 	title.apply_layout()
+	if next_match != null and next_match.is_open:
+		next_match.apply_layout()
 	if map_picker != null:
 		map_picker.apply_layout()
 	if arsenal != null:
@@ -352,6 +366,31 @@ func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
 		"match_s": float(g.elapsed),
 	}, reason)
 	over.move_to_front()
+
+
+## UIRoot._maybe_next_match: a new player's first match (a solo one) ended: NEXT MATCH, once,
+## NextMatch.DELAY_S after the results.
+func _maybe_next_match() -> void:
+	if _next_shown or int(ctx.setting("matches", 0)) != 1 or ctx.mode() != UICtx.MODE_SOLO:
+		return
+	_next_shown = true
+	_next_at = Time.get_ticks_msec() + int(NextMatch.DELAY_S * 1000.0)
+
+
+## UIRoot.open_next_match: "first" (after a first match) or "preview" (the game menu on the title).
+func open_next_match(from: String) -> void:
+	_next_from = from
+	_next_going = ""
+	next_match.open(UIMaps.name_of(g), over.is_open)
+
+
+## NEXT MATCH's choice: a solo match on the player's difficulty and map (the only kind here).
+func _next_match_go(kind: String) -> void:
+	_next_going = kind
+	next_match.close()
+	if over.is_open:
+		over.close()
+	g._start_game_ui()  # (g.diff_i and the picked map: the player's own)
 
 
 ## The top bar's ? and the H key.
@@ -768,12 +807,18 @@ func process(dt: float) -> void:
 	if root == null:
 		return
 	var in_match: bool = (g.state == "play" or g.state == "pick" or g.state == "over") and g.nations.size() > g.PLAYER
+	if _next_at > 0 and Time.get_ticks_msec() >= _next_at:
+		_next_at = 0
+		if over.is_open and not next_match.is_open and ctx.mode() == UICtx.MODE_SOLO:
+			open_next_match("first")
 	var play: bool = g.state == "play" and in_match
 	ctx.state_mode = ctx.mode()
 	if g.state != _state_seen:
 		_state_seen = g.state
 		if g.state != "over" and over.is_open:
 			over.close()
+		if g.state != "over" and g.state != "menu" and next_match.is_open:
+			next_match.close()
 		topbar.refresh()
 		layout()
 	var ph: int = ctx.state.phase if in_match else -1
