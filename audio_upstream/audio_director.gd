@@ -345,6 +345,11 @@ var sfx_volume_db: float = 0.0
 ## 0..1 slider; gain is its square (upstream level_gain).
 var _music_level: float = 1.0
 var _music_on: bool = true
+## Web (Sample playback): a sample's playback position always reads 0, so the track's end is timed by
+## the clock there (upstream starts the next track TRACK_OVERLAP_S before the end).
+var _web_samples: bool = OS.has_feature("web")
+var _web_track_t0 := -1
+var _web_track_player: AudioStreamPlayer = null
 var _pops_on: bool = true
 
 var play_log: Array = []
@@ -892,6 +897,18 @@ func _advance() -> void:
 func _track_tick() -> void:
 	if _track == "" or _current == null:
 		return
+	if _web_samples and _current.playing and not bool(_toggle_paused.get(_current, false)):
+		if _web_track_player != _current or _web_track_t0 < 0:
+			_web_track_t0 = Time.get_ticks_msec()
+			_web_track_player = _current
+		var wlen := _current.stream.get_length() if _current.stream != null else 0.0
+		if wlen <= 0.0:
+			wlen = _track_len
+		if wlen > TRACK_OVERLAP_S and float(Time.get_ticks_msec() - _web_track_t0) / 1000.0 >= wlen - TRACK_OVERLAP_S:
+			_web_track_t0 = -1
+			_web_track_player = null
+			_advance()
+		return
 	if bool(_toggle_paused.get(_current, false)):
 		return
 	if not _current.playing:
@@ -1380,3 +1397,15 @@ func _wav_stream(bytes: PackedByteArray) -> AudioStreamWAV:
 	s.stereo = channels >= 2
 	s.data = pcm
 	return s
+
+
+## Music state for diagnostics (game/audio.gd audio_diag).
+func music_diag() -> Dictionary:
+	var pl := []
+	for p in [_music_a, _music_b]:
+		if p == null: continue
+		pl.append({"name": str(p.name), "playing": p.playing, "paused": p.stream_paused, "vol_db": snappedf(p.volume_db, 0.1),
+			"stream": (p.stream.resource_path.get_file() if p.stream != null and p.stream.resource_path != "" else str(p.stream)),
+			"type": int(p.playback_type), "pos": snappedf(p.get_playback_position(), 0.1), "current": p == _current})
+	return {"music_on": _music_on, "master_gain": snappedf(_master_gain, 0.01), "mood": _requested_mood, "track": _track,
+		"tracks": soundtrack_count(), "players": pl, "level": _music_level, "music_volume_db": music_volume_db, "duck_db": _duck_db}

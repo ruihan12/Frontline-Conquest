@@ -1688,3 +1688,34 @@ func _icon_compare_col(title: String, after: bool) -> Control:
 		)
 		v.add_child(cell)
 	return v
+
+
+# ---- audio diagnostics (web: ?audiodbg=1, desktop: --audiodbg): one line every 3 s on the console ----
+var _adbg_on := -1
+var _adbg_acc := 0.0
+
+func _audio_diag_tick(dt: float) -> void:
+	if _adbg_on < 0:
+		_adbg_on = 0
+		if "--audiodbg" in OS.get_cmdline_user_args():
+			_adbg_on = 1
+		elif OS.has_feature("web"):
+			var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
+			if qs.find("audiodbg=1") >= 0: _adbg_on = 1
+	if _adbg_on != 1: return
+	_adbg_acc += dt
+	if _adbg_acc < 3.0: return
+	_adbg_acc = 0.0
+	print("AUDIODBG ", JSON.stringify(audio_diag()))
+
+func audio_diag() -> Dictionary:
+	var d := {"unlocked": _web_audio_unlocked, "armed": _web_audio_armed, "music_on_setting": music_on_setting(), "dir_music": _dir_music}
+	var buses := []
+	for i in AudioServer.bus_count:
+		buses.append([AudioServer.get_bus_name(i), snappedf(AudioServer.get_bus_volume_db(i), 0.1), AudioServer.is_bus_mute(i)])
+	d["buses"] = buses
+	if audio_dir != null and audio_dir.has_method("music_diag"):
+		d["dir"] = audio_dir.music_diag()
+	if music_player:
+		d["legacy"] = {"playing": music_player.playing, "stream": str(music_player.stream)}
+	return d

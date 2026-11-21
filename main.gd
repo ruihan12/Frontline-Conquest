@@ -17,6 +17,7 @@ func _process(dt: float) -> void:
 	map_t += dt
 	if map_mat: map_mat.set_shader_parameter("t_anim", fmod(map_t, 1000.0))
 	_process_inner(dt)
+	_audio_diag_tick(dt)
 	_fp["process"] = Time.get_ticks_usec() - _t0
 	_pf_add("frames", 1.0); _pf_add("process", _fp.process)
 	if _sfx_log and _fp.process > 60000: print("SLOW process ", _fp)
