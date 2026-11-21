@@ -55,6 +55,8 @@ const NAVY := Color(0.07, 0.09, 0.16, 0.94)
 const ORANGE := Color(0.95, 0.52, 0.12)
 
 var owner_map := PackedInt32Array()
+## 4-connected landmass id per tile (0 = water/ice). Filled in gen_map.
+var land_comp := PackedInt32Array()
 var base_col := PackedColorArray()
 var boats := []
 var boat_uid := 0
@@ -709,6 +711,9 @@ func _adj_to(i: int, a: int) -> bool:
 	return false  # forward declaration; implemented in game/economy.gd
 
 func launch_boat(a: int, click: int, share: float, max_nodes := 1000000) -> bool:
+	return false  # forward declaration; implemented in game/economy.gd
+
+func _shares_land_border(a: int, b: int, click_tile: int = -1) -> bool:
 	return false  # forward declaration; implemented in game/economy.gd
 
 func _struct_remove(st) -> void:

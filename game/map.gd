@@ -202,9 +202,13 @@ func intent_attack(id: int, tile: int, ratio: float) -> bool:
 	if tile < 0 or tile >= W * H: return false
 	var o := owner_map[tile]
 	if o < 0 or o == id: return false
-	if o > 0 and _adj_any(tile, id):
+	# The UI issues a land order for any tile in a wilderness region that touches us, or a
+	# nation we already border — not only the four adjacent tiles. Those must stay land
+	# attacks. Sending them to launch_boat made same-continent clicks do nothing (inland)
+	# or spawn a transport (if a coast was nearby).
+	if o > 0 and (_adj_any(tile, id) or _shares_land_border(id, o)):
 		return launch_attack(id, o, ratio)
-	if o == NEUTRAL and _adj_any(tile, id):
+	if o == NEUTRAL and (_adj_any(tile, id) or _shares_land_border(id, NEUTRAL, tile)):
 		return launch_attack(id, NEUTRAL, ratio)
 	return launch_boat(id, tile, ratio if id == PLAYER else SimRules.BOAT_ATTACK_FRACTION, 12000)
 
@@ -375,6 +379,42 @@ func gen_map() -> void:
 	if _async_gen: _load_progress(0.65); await get_tree().process_frame
 	sim_naval.trade_cache.clear()
 	_recompute_base_colors()
+	_build_land_comp()
+
+
+## Label every 4-connected land body (not water or ice). Used so a click on distant
+## wilderness on the same continent is a land expansion, not a boat order that then fails.
+func _build_land_comp() -> void:
+	var n := W * H
+	land_comp.resize(n)
+	land_comp.fill(0)
+	if n <= 0:
+		return
+	var q := PackedInt32Array()
+	q.resize(n)
+	var cid := 0
+	for i in n:
+		if land_comp[i] != 0 or owner_map[i] < 0:
+			continue
+		cid += 1
+		var qh := 0
+		var qt := 0
+		q[qt] = i
+		qt += 1
+		land_comp[i] = cid
+		while qh < qt:
+			var cur: int = q[qh]
+			qh += 1
+			var cx := cur % W
+			for d in [1, -1, W, -W]:
+				if (d == 1 and cx == W - 1) or (d == -1 and cx == 0):
+					continue
+				var j: int = cur + d
+				if j < 0 or j >= n or land_comp[j] != 0 or owner_map[j] < 0:
+					continue
+				land_comp[j] = cid
+				q[qt] = j
+				qt += 1
 
 func _recompute_base_colors() -> void:
 	if owner_map.size() != W * H or elev_map.size() != W * H: return

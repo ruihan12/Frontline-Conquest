@@ -24,6 +24,7 @@ func borders_owner(id: int) -> bool:
 ## The unclaimed region around `tile` touches the local owner: 1 yes, 0 no, -1 unknown (too big to
 ## tell cheaply). Here: asked of the game for the clicked tile.
 func region_touches_me(tile: int) -> int:
+	# 1 = same landmass as the local owner (so the click is a land expansion, not a boat).
 	return 1 if bool(st.g._shares_land_border(st.local_owner, 0, tile)) else 0
 
 

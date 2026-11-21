@@ -297,24 +297,27 @@ func _shares_land_border(a: int, b: int, click_tile: int = -1) -> bool:
 			return false
 		if click_tile < 0 or click_tile >= W * H:
 			return true
-		# Check if click_tile is on the same landmass as 'a' (reachable over land without crossing water)
-		if bfs_par.size() != W * H:
-			bfs_par.resize(W * H); bfs_stamp.resize(W * H); bfs_stamp.fill(0)
-		bfs_gen += 1
-		var gen := bfs_gen
-		var q := PackedInt32Array([click_tile])
-		bfs_stamp[click_tile] = gen
-		var qi := 0
-		while qi < q.size() and qi < 18000:
-			var cur: int = q[qi]; qi += 1
-			if owner_map[cur] == a or _adj_to(cur, a):
-				return true
-			var cx := cur % W
-			for d in [1, -1, W, -W]:
-				if (d == 1 and cx == W - 1) or (d == -1 and cx == 0): continue
-				var j: int = cur + d
-				if j >= 0 and j < W * H and owner_map[j] >= 0 and bfs_stamp[j] != gen:
-					bfs_stamp[j] = gen; q.append(j)
+		# Same landmass as 'a' (4-connected land, not water/ice). A capped BFS is not enough
+		# on World (2000x1000): past ~75 tiles it returned false, the UI offered a boat, and
+		# launch_boat then failed — clicks on same-continent wilderness did nothing.
+		if land_comp.size() != W * H:
+			_build_land_comp()
+		if land_comp.size() != W * H or click_tile >= land_comp.size():
+			return false
+		var cid: int = land_comp[click_tile]
+		if cid == 0:
+			return false
+		if border.size() == nations.size() and a < border.size():
+			for t in border[a]:
+				if land_comp[int(t)] == cid:
+					return true
+			return false
+		var box_c: Rect2i = nations[a].bb.intersection(Rect2i(0, 0, W, H))
+		for y in range(box_c.position.y, box_c.end.y):
+			for x in range(box_c.position.x, box_c.end.x):
+				var i := y * W + x
+				if owner_map[i] == a and land_comp[i] == cid:
+					return true
 		return false
 	return false
 
