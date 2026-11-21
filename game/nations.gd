@@ -254,11 +254,7 @@ func _rw_spawn_all() -> void:
 # Sim.default_tribes: Rules.DEFAULT_TRIBES (400) on a map at scale 1, scaled by the map's area
 # (World 0.896 -> 321). Maps without an upstream scale (random maps) get 400.
 func tribe_count() -> int:
-	var id := _pop_map_id()
-	var s := 1.0
-	if id != "":
-		s = float(UpstreamMaps.meta(id).get("scale", 1.0))
-	return int(floor(SimRules.DEFAULT_TRIBES * s * s + 0.5))
+	return _tribes_for(map_tab, map_i)
 
 # The troop cap `id` has right after spawning (bounds the start troops, as the over-cap snap does).
 func _spawn_cap(id: int, kind: int) -> float:

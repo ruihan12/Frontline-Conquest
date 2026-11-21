@@ -199,13 +199,29 @@ func _get_handcrafted_map_bytes(k: int) -> PackedByteArray:
 
 func _map_sub(k: int, tab: int) -> String:
 	var rm := _real_map(k) if tab != 1 else {}
+	var nt := _tribes_for(tab, k)
 	if tab == 2 and not rm.is_empty():
-		return "RoWorld map  ·  %d nations + %d tribes" % [rm.nations.size(), SimRules.DEFAULT_TRIBES]
+		return "RoWorld map  ·  %d nations + %d tribes" % [rm.nations.size(), nt]
 	if not rm.is_empty() and rm.nations.is_empty():
-		return "Real map  ·  ~40 nations + %d tribes" % SimRules.DEFAULT_TRIBES
+		return "Real map  ·  ~40 nations + %d tribes" % nt
 	if not rm.is_empty():
-		return "Real map  ·  %d nations + %d tribes" % [rm.nations.size(), SimRules.DEFAULT_TRIBES]
-	return "%d × %d  ·  ~40 nations + %d tribes" % [W, H, SimRules.DEFAULT_TRIBES]
+		return "Real map  ·  %d nations + %d tribes" % [rm.nations.size(), nt]
+	return "%d × %d  ·  ~40 nations + %d tribes" % [W, H, nt]
+
+# The upstream map id behind (tab, k) ("" for random / non-upstream maps).
+func _upstream_id_for(tab: int, k: int) -> String:
+	if tab == 0 and k == 0: return "world"
+	if tab == 2: return UpstreamMaps.id_at(k)
+	if tab == 0 and RW_MAP_FOR.has(k): return str(RealMaps.MAPS[RW_MAP_FOR[k]].id)
+	return ""
+
+# Sim.default_tribes for (tab, k): Rules.DEFAULT_TRIBES x the map's scale^2 (400 without one).
+func _tribes_for(tab: int, k: int) -> int:
+	var id := _upstream_id_for(tab, k)
+	var s := 1.0
+	if id != "" and FileAccess.file_exists(UpstreamMaps.DIR + id + ".json"):
+		s = float(UpstreamMaps.meta(id).get("scale", 1.0))
+	return int(floor(SimRules.DEFAULT_TRIBES * s * s + 0.5))
 
 func _active_map_entry(k: int) -> Array:
 	var tbl: Array = _upstream_menu() if map_tab == 2 else (RANDOM_MAPS if map_tab == 1 else MAPS)
@@ -701,11 +717,8 @@ func _set_owner(i: int, o: int) -> void:
 # TEST ONLY (USE_REAL_POP): load maps/upstream/<id>.pop.bin (zlib float32 W*H people per tile) for the
 # current map: World and the continents (tabs 0 and 2); a map without a baked file leaves it off.
 func _pop_map_id() -> String:
-	if map_tab == 0 and map_i == 0: return "world"
-	if map_tab == 2: return UpstreamMaps.id_at(map_i)
-	# the real-maps tab's continents share the upstream grid (land differs on ~0.2% of tiles)
-	if map_tab == 0 and RW_MAP_FOR.has(map_i): return str(RealMaps.MAPS[RW_MAP_FOR[map_i]].id)
-	return ""
+	# (the real-maps tab's continents share the upstream grid: land differs on ~0.2% of tiles)
+	return _upstream_id_for(map_tab, map_i)
 
 func _load_tile_pop() -> void:
 	tile_pop = PackedFloat32Array(); tile_pop_avg = 1.0
