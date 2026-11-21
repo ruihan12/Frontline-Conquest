@@ -1,6 +1,6 @@
 # TEST ONLY (density-test): World match, AI nations only (the human sits passive in Antarctica), with or
 # without USE_REAL_POP. Usage:
-#   godot --headless --path . -s res://tests/density_sim.gd -- [--pop 0|1|off] [--ticks 4000] [--seed 7] [--map 0]  (reporting reads world.pop.bin: World only)
+#   godot --headless --path . -s res://tests/density_sim.gd -- [--pop 0|1|off] [--ticks 4000] [--seed 7] [--map 0] [--k 300 (pop per troop)]  (reporting reads world.pop.bin: World only)
 extends SceneTree
 
 const DENSE := ["India", "China", "Bangladesh", "Pakistan", "Indonesia", "Japan", "Nigeria", "Germany",
@@ -26,6 +26,7 @@ func _run() -> void:
 	var m = hs.m
 	m.use_real_pop = mode != "off"
 	if mode != "off": m.sim_rules.pop_cap_mode = int(mode)
+	if _arg("--k", "") != "": m.sim_rules.pop_k = 1.0 / float(_arg("--k", "300"))
 	m.rng.seed = sd
 	var t0 := Time.get_ticks_msec()
 	hs.start(0, int(_arg("--map", "0")), Vector2(0.62, 0.74), 0, -1.0)
@@ -34,7 +35,7 @@ func _run() -> void:
 	if pop.is_empty():
 		var f := FileAccess.open("res://maps/upstream/world.pop.bin", FileAccess.READ)
 		pop = f.get_buffer(f.get_length()).decompress(m.W * m.H * 4, FileAccess.COMPRESSION_DEFLATE).to_float32_array()
-	print("DSIM mode=%s seed=%d ticks=%d tile_pop=%s start %.1fs" % [mode, sd, ticks, str(not m.tile_pop.is_empty()), (Time.get_ticks_msec() - t0) / 1000.0])
+	print("DSIM k=1/%.0f mode=%s seed=%d ticks=%d tile_pop=%s start %.1fs" % [1.0 / m.sim_rules.pop_k, mode, sd, ticks, str(not m.tile_pop.is_empty()), (Time.get_ticks_msec() - t0) / 1000.0])
 	_report(m, pop, 0)
 	var done := 0
 	while done < ticks:

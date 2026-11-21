@@ -16,8 +16,15 @@ Egypt 117 / 118, Indonesia 281 / 286, Nigeria 239 / 238, Japan 122 / 123, Pakist
 
 Hook (off by default): `USE_REAL_POP` / `use_real_pop` in game/state.gd or `--realpop`. Nations carry
 `pop` (updated in `_set_owner`), and the troop cap uses `SimRules.max_troops_pop`:
-- mode 1 (default, "density"): normal cap curve on tiles_eff = 0.25 * tiles + 0.75 * pop / avg_pop_per_tile
-- mode 0 ("linear"): cap = 5000 + pop / 2500 (+ cities)
+- mode 0 (default, "linear"): cap = 5000 + pop * pop_k (+ 25000 per city level), times the usual nation /
+  tribe multipliers. pop_k = 1/300 matches upstream's cap for a USA-sized country: upstream
+  src/shared/Core/Rules.luau:140 maxTroops = 2 * ((tiles * K_AREA)^0.6 * 1000 + 50000) = 1.17M internal
+  troops for the USA's ~35.3k full-size World tiles (shown as 117K upstream: NumberFormat.luau:36
+  render_troops divides by 10; this port shows raw counts and nerfs its own tile cap to ~150k).
+  Bare caps at 1/300: USA 1.17M, China 4.77M, India 4.99M, Russia 0.50M, whole World 27.3M.
+  At 1/1750: USA 204k, China 822k, India 859k, Russia 89k, World 4.69M. Linear k is per map in effect:
+  Europe averages 653 people per tile vs World's 14.8k.
+- mode 1 ("density"): normal cap curve on tiles_eff = 0.25 * tiles + 0.75 * pop / avg_pop_per_tile
 Growth follows the cap through the existing (1 - troops / cap) term; nothing else changes.
 
 Sim: `godot --headless --path . -s res://tests/density_sim.gd -- --pop off|1|0 --ticks 4000 --seed N`.

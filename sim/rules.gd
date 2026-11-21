@@ -127,22 +127,23 @@ func max_troops(kind: int, tiles: int, cities: int, diff: int) -> float:
 	if kind == KIND_NATION: return m * NATION_TROOP_MULT[clampi(diff, 0, 2)]
 	return m
 
-# TEST ONLY (USE_REAL_POP): troop cap from real population. POP_CAP_MODE
-#   0 "linear":  cap = CAP_BASE + pop * POP_K + cities   (Ruihan's idea: army = people x k)
+# TEST ONLY (USE_REAL_POP): troop cap from real population. pop_cap_mode
+#   0 "linear" (default):  cap = CAP_BASE + pop * pop_k + cities   (Ruihan: army = people x k)
 #   1 "density": the normal concave tile curve, fed population-equivalent tiles
 #                tiles_eff = POP_LAND_W * tiles + (1 - POP_LAND_W) * pop / avg_pop_per_tile
-#                (a tile of average density counts as 1 tile; the whole world caps where it does now)
-# POP_K = 1 soldier per 2,500 people: the USA (348M) -> 139k, about what a USA-sized blob caps at today
-# (~150k); India 1.49B -> 600k, the World 8.2B -> 3.3M. 1:1 would be 348M for the USA, ~2,300x today's
-# caps (and ~1M x the 10-troops/tick base growth), so every attack, nuke and AI threshold would need redoing.
-var pop_cap_mode := 1
-const POP_K := 1.0 / 2500.0
+# pop_k = 1/300 matches upstream's own cap for the USA: upstream Rules.luau:140 maxTroops =
+# 2 * ((tiles * K_AREA)^0.6 * 1000 + 50000) gives 1.17M internal troops for the USA's ~35.3k full-size
+# World tiles (shown as 117K: NumberFormat.render_troops divides by 10; this port shows raw counts).
+# 348M / 300 + 5000 = 1.17M. China 4.77M, India 4.99M, Russia 0.50M, the World 27.3M.
+# (1/1750: USA 204k, China 822k, India 859k, Russia 89k, World 4.69M.)
+var pop_cap_mode := 0
+var pop_k := 1.0 / 300.0
 const POP_LAND_W := 0.25
 
 func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: int, diff: int) -> float:
 	var m: float
 	if pop_cap_mode == 0:
-		m = CAP_BASE + maxf(pop, 0.0) * POP_K + cities * CITY_TROOPS_NERF
+		m = CAP_BASE + maxf(pop, 0.0) * pop_k + cities * CITY_TROOPS_NERF
 	else:
 		var eff := POP_LAND_W * float(tiles) + (1.0 - POP_LAND_W) * maxf(pop, 0.0) / maxf(avg_pop, 1.0)
 		m = CAP_BASE + CAP_K * pow(maxf(eff * tile_norm, 0.0), CAP_EXP) + cities * CITY_TROOPS_NERF
