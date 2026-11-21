@@ -150,10 +150,10 @@ func _growth_and_spawn() -> void:
 		troops += add
 	hs.step(60)
 	var gold_want = gold0 + gtick * 60.0
-	H.expect_near(m.nations[P].gold, gold_want, 1.0, "60 ticks of player gold income = gold_per_tick * 60 (pacing gold_mult included)")
+	H.expect_near(m.nations[P].gold, gold_want, 1.0, "60 ticks of player gold income = gold_per_tick * 60")
 	# troops: land may be unchanged; allow a little if AI stole a tile
 	if m.nations[P].land == land0:
-		H.expect_near(m.nations[P].troops, troops, 2.0, "60 ticks of troop income follows troop_growth_applied (growth_mult included)")
+		H.expect_near(m.nations[P].troops, troops, 2.0, "60 ticks of troop income follows troop_growth_applied")
 	else:
 		H.ok("60 ticks troop income skipped (land changed %d -> %d)" % [land0, m.nations[P].land])
 
@@ -569,7 +569,8 @@ func _arsenal_strikes() -> void:
 # ---------------- boats / warships / trade ----------------
 func _naval_and_warships() -> void:
 	H.section("simsys_naval live", "simsys_naval.luau")
-	# land-border rule: if we share a land border, launch_boat must become a land attack
+	# vanilla / upstream SimNaval.launch_boat: a boat order is never rewritten as a land attack,
+	# even if the two owners already share a land border (the UI picks attack vs boat).
 	var border_foe = -1
 	var overseas = -1
 	for id in range(2, m.nations.size()):
@@ -584,10 +585,26 @@ func _naval_and_warships() -> void:
 	if border_foe > 0:
 		var boats0: int = m.boats.size()
 		var atk0: int = m.attacks.size()
-		var click = _center(border_foe)
+		var click = -1
+		var bb: Rect2i = m.nations[border_foe].bb
+		for y in range(bb.position.y, mini(m.H, bb.end.y)):
+			for x in range(bb.position.x, mini(m.W, bb.end.x)):
+				var i: int = y * m.W + x
+				if m.owner_map[i] == border_foe and m._coastal(i):
+					click = i
+					break
+			if click >= 0:
+				break
+		if click < 0:
+			click = _center(border_foe)
 		var okb = m.launch_boat(P, click, 0.25)
-		H.expect(m.boats.size() == boats0, "shared land border: launch_boat does not spawn a transport", "ok=%s boats %d->%d" % [str(okb), boats0, m.boats.size()])
-		H.expect(m.attacks.size() >= atk0, "shared land border: the order goes via land (launch_attack)")
+		H.expect(m.attacks.size() == atk0, "shared land border: launch_boat does not convert to launch_attack", "ok=%s atk %d->%d" % [str(okb), atk0, m.attacks.size()])
+		if m._coastal(click) and okb:
+			H.expect(m.boats.size() == boats0 + 1, "boat can land on a bordered nation's coast (upstream)", "boats %d->%d" % [boats0, m.boats.size()])
+		elif not m._coastal(click):
+			H.expect(not okb and m.boats.size() == boats0, "launch_boat on inland land does not spawn a transport")
+		else:
+			H.ok("launch_boat to bordered coast failed for a naval reason (no route / cap), not a land redirect (ok=%s boats %d->%d)" % [str(okb), boats0, m.boats.size()])
 	else:
 		H.ok("no land-border neighbour to test the boat rule against")
 	if overseas > 0:

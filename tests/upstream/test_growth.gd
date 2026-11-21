@@ -30,7 +30,7 @@ func run(H) -> void:
 			# already exact vs upstream start_troops
 			pass
 
-	# cap: compare port vs upstream at a grid of sizes, and check the intentional ~30k / Mali-size targets
+	# cap: vanilla uses the upstream formula (k_lin=1 so k_area=1)
 	var worst_rel = 0.0
 	var sample = ""
 	for kind in [SimRules.KIND_HUMAN, SimRules.KIND_NATION, SimRules.KIND_TRIBE]:
@@ -43,40 +43,25 @@ func run(H) -> void:
 					if rel > worst_rel:
 						worst_rel = rel
 						sample = "kind=%d tiles=%d cities=%d diff=%d port=%.1f upstream=%.1f" % [kind, tiles, cities, d, got, want]
-	H.intentional("maxTroops uses the port cap, not 2*(tiles^0.6*1000+50000)+250k*cities", "worst relative delta vs upstream %.3f at %s" % [worst_rel, sample])
+	H.expect(worst_rel < 1e-9, "maxTroops matches 2*((tiles*K_AREA)^0.6*1000+50000)+250k*cities", "worst rel %.3e at %s" % [worst_rel, sample])
 
-	# ~30k for a 30-tile (old-grid / tile_norm 1) human, no cities
 	var cap30: float = r.max_troops(SimRules.KIND_HUMAN, 30, 0, 1)
-	H.expect(cap30 > 25000.0 and cap30 < 35000.0, "troop cap ~30k for a 30-tile country (tile_norm=1)", "cap=%.1f" % cap30)
+	H.expect_near(cap30, _up_max(SimRules.KIND_HUMAN, 30.0, 0, 1), 1e-6, "30-tile human cap matches upstream")
 
-	# actual game tile_norm on 1792x1600
-	var tn = (640.0 * 352.0) / (1792.0 * 1600.0)
+	# k_lin 1.1161 (1792-wide world): cap uses tiles * k_area
 	var rmap: SimRules = R.new(1.1161)
-	rmap.tile_norm = tn
-	var new_tiles_for_30_old = int(round(30.0 / tn))
-	var cap30_map: float = rmap.max_troops(SimRules.KIND_HUMAN, new_tiles_for_30_old, 0, 1)
-	H.expect(cap30_map > 25000.0 and cap30_map < 35000.0, "1792x1600 tile_norm: ~30 old tiles still ~30k", "new_tiles=%d cap=%.1f tile_norm=%.5f" % [new_tiles_for_30_old, cap30_map, tn])
+	var tfull := 30.0 * rmap.k_area
+	var want_k: float = 2.0 * (pow(tfull, 0.6) * 1000.0 + 50000.0)
+	H.expect_near(rmap.max_troops(SimRules.KIND_HUMAN, 30, 0, 1), want_k, 1e-4, "max_troops uses tiles * k_area at k_lin 1.1161")
 
-	# Mali-size: roughly 1.24e6 km^2 / 1.49e8 km^2 of world land. Without a decoded World land count
-	# we check a mid-large band (~300 old tiles + a few city levels) lands near 200k.
-	var cap_mali0: float = rmap.max_troops(SimRules.KIND_HUMAN, int(round(300.0 / tn)), 0, 1)
-	var cap_mali4: float = rmap.max_troops(SimRules.KIND_HUMAN, int(round(300.0 / tn)), 4, 1)
-	H.intentional("Mali-size cap band (300 old-grid tiles)", "0 cities=%.0f, 4 city levels=%.0f (target ~200k with cities)" % [cap_mali0, cap_mali4])
-
-	# troopIncreaseRate vs upstream (no growth_mult, snap-to-cap)
+	# troopIncreaseRate vs upstream (growth_mult 1.0 in vanilla)
 	var mid_cap = _up_max(SimRules.KIND_HUMAN, 1000.0, 0, 1)
 	var mid_troops = floor(mid_cap * 0.5)
 	var up_g = _up_growth(SimRules.KIND_HUMAN, mid_troops, mid_cap, 1)
 	var port_g: float = r.troop_growth(SimRules.KIND_HUMAN, mid_troops, mid_cap, 1)
-	# restore growth_mult to 1 temporarily to see the raw formula, then compare default
+	H.expect_near(r.growth_mult, 1.0, 1e-9, "growth_mult 1.0 (vanilla = upstream)")
+	H.expect_near(port_g, up_g, 1e-6, "troopIncreaseRate matches upstream (50% of a 1000-tile cap)")
 	var saved = r.growth_mult
-	r.growth_mult = 1.0
-	var port_raw: float = r.troop_growth(SimRules.KIND_HUMAN, mid_troops, mid_cap, 1)
-	r.growth_mult = saved
-	H.expect_near(port_raw, up_g, 1e-6, "troopIncreaseRate matches upstream when growth_mult=1 (50% of a 1000-tile cap)")
-	H.expect_near(r.growth_mult, 0.8, 1e-9, "growth_mult 0.8 (intentional pacing)")
-	H.expect_near(port_g, up_g * 0.8, 1e-6, "troopIncreaseRate at default growth_mult is 80% of upstream (intentional)")
-	H.intentional("growth_mult 0.8 pacing (~20 min matches)", "mid-cap human growth %.2f vs upstream %.2f" % [port_g, up_g])
 
 	# over-cap: upstream and port both snap (return cap - troops)
 	var up_over = _up_growth(SimRules.KIND_HUMAN, 200000.0, 100000.0, 1)

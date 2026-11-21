@@ -18,8 +18,6 @@ func owned_count(id: int, k: int) -> int:
 	return _oc_cnt.get(id * 64 + k, 0)
 
 func troop_cap(id: int) -> float:
-	if not tile_pop.is_empty():
-		return sim_rules.max_troops_pop(troop_kind(id), nations[id].land, nations[id].get("pop", 0.0), tile_pop_avg, owned(id, 0), troop_diff(id))
 	return sim_rules.max_troops(troop_kind(id), nations[id].land, owned(id, 0), troop_diff(id))
 
 func gold_rate(id: int) -> float:
@@ -405,11 +403,8 @@ func launch_boat(a: int, click: int, share: float, max_nodes := 1000000) -> bool
 	if click < 0 or click >= W * H: return false
 	var o := owner_map[click]
 	if o < 0 or o == a or allied(a, o): return false
-	# Strict rule: once your country touches someone else's land, it MUST only be raided via land!
-	if o > 0 and _shares_land_border(a, o):
-		return launch_attack(a, o, share)
-	if o == NEUTRAL and _shares_land_border(a, NEUTRAL, click):
-		return launch_attack(a, NEUTRAL, share)
+	# Upstream SimNaval.launch_boat does not redirect to a land attack when a land border exists
+	# (UI already chooses attack vs boat). Vanilla: a boat order stays a boat order.
 	if a == PLAYER and Input.is_key_pressed(KEY_SHIFT) and launch_plane(a, click, share): return true  # Shift+attack: fly it in
 	var dest := -1
 	var best := 1e9
@@ -572,18 +567,6 @@ func _tick_boats(dt: float) -> void:
 		if not nations[a0].alive:
 			boats.erase(bt); continue
 		var o0 := owner_map[dest0]
-		# If attacker 'a0' now touches target nation 'o0' by land while boat is in transit, redirect troops into land raid!
-		if o0 > 0 and o0 != a0 and (ticks_done + int(bt.get("sid", 0))) % 10 == 0 and _shares_land_border(a0, o0):
-			nations[a0].troops += bt.troops
-			boats.erase(bt)
-			launch_attack(a0, o0, 0.05)
-			for at in attacks:
-				if at.a == a0 and at.t == o0:
-					var add_t := minf(nations[a0].troops, float(bt.troops))
-					at.troops += add_t
-					nations[a0].troops -= add_t
-					break
-			continue
 		bt.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS * (AIR_SPEED if bt.get("air", false) else 1.0)
 		var cum: PackedFloat32Array = bt.cum
 		if bt.d >= cum[cum.size() - 1]:

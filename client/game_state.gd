@@ -299,12 +299,13 @@ func borders_owner(a: int, b: int) -> bool:
 	return _bord[k]
 
 
-## Share of the contestable land `id` holds.
+## Share of the contestable land `id` holds (all land, including fallout). SimState.luau:610-611.
 func land_share(id: int) -> float:
-	var o = get_owner(id)
-	if o == null:
-		return 0.0
-	return float(o.tiles) / maxf(float(map.contestable_count), 1.0)
+	return g.land_share(id)
+
+## Progress toward victory: tiles / (contestable land minus fallout). UICtx.luau:1324-1337.
+func win_share(id: int) -> float:
+	return g.win_share(id)
 
 
 ## Passive gold per second.

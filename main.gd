@@ -93,7 +93,7 @@ func _pace_step() -> void:
 			print("PROF t=%dmin ms/tick atk=%.2f ai=%.2f naval=%.2f eco=%.2f units=%.2f attacks=%d" % [sim_atk.tick / 600, _pace.atk / 1200000.0, _pace.ai / 1200000.0, _pace.nav / 1200000.0, _pace.eco / 1200000.0, _pace.units / 1200000.0, attacks.size()])
 			for kk in ["atk", "ai", "nav", "eco", "units"]: _pace[kk] = 0
 			if sim_atk.tick >= 6000: get_tree().quit(); return
-		var win := (land_total - fallout_count) * SimRules.WIN_SHARE
+		var win := win_threshold_tiles()
 		var best := 0; var bid := 0
 		for id in range(1, nations.size()):
 			if nations[id].alive and nations[id].land > best: best = nations[id].land; bid = id
@@ -196,16 +196,15 @@ func _process_inner(dt: float) -> void:
 		prof.boat += Time.get_ticks_usec() - b0
 		_pf_add("boats", Time.get_ticks_usec() - b0)
 		ai_timer += dt
-		# RoWorld win: 80 % of the land that is not fallout
+		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 		var pl = nations[PLAYER]
-		var win_land := (land_total - fallout_count) * SimRules.WIN_SHARE
-		if pl.land >= win_land:
+		if dominates(PLAYER):
 			_game_over(true)
 		elif pl.land <= 0 and not spectating:
 			_game_over(false)
 		elif ticks_done % 10 == 0:
 			for id in range(2, nations.size()):
-				if nations[id].alive and nations[id].land >= win_land:
+				if dominates(id):
 					notify("%s controls 80%% of the land" % nations[id].name, "bad")
 					if spectating and client != null:
 						# the war ended while we watched: the result card, with no second award

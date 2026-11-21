@@ -136,26 +136,39 @@ func is_1to1() -> bool:
 func city_troops_shown() -> float:
 	return CITY_POP_BONUS if is_1to1() else CITY_TROOPS
 
-# Land army cap (user nerf, replaces the source's 2 * (fullTiles^0.6 * 1000 + 50000)):
-# cap = CAP_BASE + CAP_K * ourTiles^CAP_EXP + CITY_TROOPS per city level. ~30 tiles -> ~28k.
+# Upstream Rules.max_troops (Rules.luau:139-148): 2 * ((tiles * K_AREA)^0.6 * 1000 + 50000) + cities * 250k.
+# Kept aliases so leftover references still compile; they are not used by vanilla max_troops.
 const CAP_BASE := 5000.0
 const CAP_K := 6200.0
 const CAP_EXP := 0.41
-# Resolution-independent tile count: tiles are normalised to the old 640x352 grid (main sets this).
 var tile_norm := 1.0
 const CITY_TROOPS_NERF := 25000.0
-const OVERCAP_DECAY := 0.02  # share of the excess lost per tick when above the cap
-# Pacing levers (user: ~20 min matches at 1x). 1.0 = source speed.
-var growth_mult := 0.8
+const OVERCAP_DECAY := 0.02  # unused (upstream snaps over-cap armies to the cap)
+# Pacing multipliers: 1.0 = upstream (vanilla).
+var growth_mult := 1.0
 var attack_speed_mult := 1.0   # >1 = faster conquest (divides tile time cost)
-var gold_mult := 0.85
-var ai_rate_mult := 1.15        # >1 = AI waits longer between attack decisions
+var gold_mult := 1.0
+var ai_rate_mult := 1.0         # 1.0 = upstream AI attack cadence
 
 func max_troops(kind: int, tiles: int, cities: int, diff: int) -> float:
-	var m := CAP_BASE + CAP_K * pow(maxf(float(tiles) * tile_norm, 0.0), CAP_EXP) + cities * CITY_TROOPS_NERF
+	# Rules.luau:140  m = 2 * ((tiles * K_AREA)^0.6 * 1000 + 50000) + cities * 250000
+	var m := 2.0 * (pow(maxf(float(tiles) * k_area, 0.0), 0.6) * 1000.0 + 50000.0) + float(cities) * CITY_TROOPS
 	if kind == KIND_TRIBE: return m / 3.0
 	if kind == KIND_NATION: return m * NATION_TROOP_MULT[clampi(diff, 0, 2)]
 	return m
+
+## Share of all contestable land (SimState.land_share, SimState.luau:610-611).
+static func land_share(tiles: int, contestable: int) -> float:
+	return float(tiles) / maxf(float(contestable), 1.0)
+
+## Progress toward victory: owned tiles / (contestable land minus fallout).
+## UICtx.win_share (UICtx.luau:1324-1337); Sim._check_victory uses the same denominator (Sim.luau:1699).
+static func win_share(tiles: int, contestable: int, fallout: int) -> float:
+	return float(tiles) / maxf(float(contestable - fallout), 1.0)
+
+## True when `tiles` meets Rules.WIN_SHARE of (contestable - fallout). Sim.luau:1699.
+static func dominates(tiles: int, contestable: int, fallout: int) -> bool:
+	return float(tiles) >= WIN_SHARE * float(contestable - fallout)
 
 # TEST ONLY (USE_REAL_POP): troop cap from real population. pop_cap_mode
 #   0 "linear" (default):  cap = CAP_BASE + pop * pop_k + cities   (Ruihan: army = people x k)
@@ -232,7 +245,7 @@ static func build_cost(kind_name: String, n: int) -> float:
 	return -1.0
 
 # user tuning on top of the upstream numbers: SAM radius x0.8, SAM reload x0.6 (reload_ticks in sim/arsenal.gd)
-const SAM_RADIUS_MULT := 0.8
+const SAM_RADIUS_MULT := 1.0
 const SAM_RELOAD_MULT := 0.6
 
 func sam_range(level: int) -> float:

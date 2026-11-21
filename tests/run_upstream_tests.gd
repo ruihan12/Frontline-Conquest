@@ -12,6 +12,7 @@ const SUITES := [
 	"res://tests/upstream/test_naval.gd",
 	"res://tests/upstream/test_structures.gd",
 	"res://tests/upstream/test_attacks.gd",
+	"res://tests/upstream/test_win_share.gd",
 	"res://tests/upstream/test_conquest.gd",
 	"res://tests/upstream/test_bot_ai.gd",
 	"res://tests/upstream/test_parity_godot.gd",

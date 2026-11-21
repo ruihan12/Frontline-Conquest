@@ -19,13 +19,12 @@ func run(H) -> void:
 	H.expect_eq(r.start_troops(SimRules.KIND_NATION, 1), 18750.0, "startManpower Nation Medium")
 	H.expect_eq(r.start_troops(SimRules.KIND_NATION, 2), 25000.0, "startManpower Nation Hard")
 
-	# gold: base rates match upstream; gold_mult 0.85 is an intentional ~20 min pacing lever
+	# gold: vanilla matches upstream exactly (gold_mult 1.0)
 	H.expect_eq(SimRules.GOLD_PER_TICK, 100.0, "goldAdditionRate Human/Nation base is 100/tick")
 	H.expect_eq(SimRules.TRIBE_GOLD_PER_TICK, 50.0, "goldAdditionRate Tribe base is 50/tick")
-	H.expect_near(r.gold_mult, 0.85, 1e-9, "gold_mult 0.85 (intentional pacing)")
-	H.expect_near(r.gold_per_tick(SimRules.KIND_HUMAN), 85.0, 1e-9, "gold_per_tick Human = 100 * 0.85")
-	H.expect_near(r.gold_per_tick(SimRules.KIND_TRIBE), 42.5, 1e-9, "gold_per_tick Tribe = 50 * 0.85")
-	H.intentional("gold_mult 0.85 pacing (~20 min matches)", "port 85/42.5 gold per tick vs upstream 100/50")
+	H.expect_near(r.gold_mult, 1.0, 1e-9, "gold_mult 1.0 (vanilla = upstream)")
+	H.expect_near(r.gold_per_tick(SimRules.KIND_HUMAN), 100.0, 1e-9, "gold_per_tick Human = 100")
+	H.expect_near(r.gold_per_tick(SimRules.KIND_TRIBE), 50.0, 1e-9, "gold_per_tick Tribe = 50")
 
 	# build costs (sim_core_basics + arsenal price ladders)
 	H.expect_eq(SimRules.build_cost("defense", 0), 50000.0, "defense cost first")
@@ -53,8 +52,8 @@ func run(H) -> void:
 	H.expect_near(r.struct_min_dist, 15.0, 1e-9, "STRUCT_MIN_DIST 15")
 	H.expect_near(r.defense_range, 30.0, 1e-9, "DEFENSE_RADIUS 30")
 	H.expect_near(r.spawn_radius, 4.0, 1e-9, "SPAWN_RADIUS 4")
-	H.expect_near(r.sam_range(1), 70.0 * SimRules.SAM_RADIUS_MULT, 1e-6, "sam_range(1) = 70 x 0.8 (intentional)")
-	H.expect_near(r.sam_range(5), (150.0 - 48.0) * SimRules.SAM_RADIUS_MULT, 1e-6, "sam_range(5) = 102 x 0.8 (intentional)")
+	H.expect_near(r.sam_range(1), 70.0, 1e-6, "sam_range(1) = 70 (upstream, no 0.8 nerf)")
+	H.expect_near(r.sam_range(5), 102.0, 1e-6, "sam_range(5) = 102 (upstream)")
 	H.expect_near(r.sam_range_at(2, 0), r.sam_range(1), 1e-6, "sam_range_at(2, 0) = range of level 1")
 	H.expect_near(r.sam_range_at(2, 45), r.sam_range(2), 1e-6, "sam_range_at(2, 45) = range of level 2")
 
@@ -87,11 +86,10 @@ func run(H) -> void:
 	H.expect_eq(SimRules.NATION_GROWTH_MULT[1], 0.95, "nation growth multipliers[1] = 0.95")
 	H.expect_eq(SimRules.NATION_GROWTH_MULT[2], 1.0, "nation growth multipliers[2] = 1.0")
 
-	# max_troops: intentional cap vs upstream formula
+	# max_troops: upstream 2*((tiles*K_AREA)^0.6*1000+50000)+250k*cities (Rules.luau:139-148)
 	var up0 = 2.0 * (0.0 + 50000.0)  # 100000
 	var got0 = r.max_troops(SimRules.KIND_HUMAN, 0, 0, 1)
-	H.intentional("max_troops Human 0 tiles (intentional cap, not upstream 100000)", "port=%.1f  upstream=%.1f" % [got0, up0])
-	H.expect(got0 != up0, "port max_troops differs from upstream at 0 tiles (intentional)", "port=%.1f upstream=%.1f" % [got0, up0])
+	H.expect_near(got0, up0, 1e-6, "max_troops Human 0 tiles = 100000 (upstream)")
 
 	# k_lin scaling: sam range and spawn shrink
 	var r2: SimRules = R.new(2.0)

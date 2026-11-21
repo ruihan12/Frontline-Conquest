@@ -330,22 +330,17 @@ func _process(a: Dictionary) -> void:
 		var tf: float
 		var dloss := 0.0
 		if neutral:
+			# upstream SimAttacks.luau:849-857 — loss = mag * nl; time from TERRA_NULLIUS_* (ts=1 in vanilla)
 			loss = mag * nl
-			if R.is_1to1() and t < g.tile_pop.size():
-				# 1:1 "make land cheaper": cost follows the tile's own people (see SimRules.NEUTRAL_LOSS_FLOOR)
-				loss = mag / (100.0 * R.ts) * (nl / 0.2) * (R.NEUTRAL_LOSS_FLOOR + R.NEUTRAL_LOSS_POP_FRAC * g.tile_pop[t]) / K_AREA
-			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * R.ts * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
+			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
 			tf = v / (border1 * 2.0)
 		else:
 			var dtroops: float = nats[tg].troops
 			dloss = dtroops / maxf(nats[tg].land * K_AREA, 1.0)
 			var ratio: float = dtroops / a.troops
-			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + R.ATTACKER_LOSS_PER_DENSITY / R.ts * dloss)
+			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + R.ATTACKER_LOSS_PER_DENSITY * dloss)
 			tf = clampf(ratio, 0.82, 7.5) * clampf(ratio / 20.0, 1.0, 50.0) * tc * bonus_s * trait_s
-		# light organic speed factor: low-freq noise (+-7%) and jitter (+-3%), clamped to 0.9..1.1, mean 1.0
-		var gw := 1.0
-		if _gn.size() > t: gw = clampf(1.0 + 0.07 * (_gn[t] / 127.5 - 1.0) + g.rng.randf_range(-0.03, 0.03), 0.9, 1.1)
-		tf = maxf(tf * gw / R.attack_speed_mult, 1e-6)
+		tf = maxf(tf, 1e-6)
 		var dfloor := floorf(dloss)
 		var need: float = K_AREA - a.chew
 		var can := ceilf(budget / tf)

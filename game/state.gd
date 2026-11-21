@@ -190,8 +190,8 @@ var sim_speed := 1.0
 var speed_btns := []
 const SPEEDS := [1.0, 2.0, 5.0, 10.0]
 const SPEED_BASE := 0.2  # new 1x == old 0.2x
-var boat_speed := 0.42  # 0.35 x 1.2; transports, trade/cargo; planes inherit via AIR_SPEED * boat_speed
-var warship_speed := 0.84  # 0.7 x 1.2; warships also 1.2x (same request, not left behind)
+var boat_speed := 0.35  # upstream transport speed (vanilla; no 1.2x)
+var warship_speed := 0.7  # upstream warship speed (vanilla; no 1.2x)
 const AI_BOAT_CAP := 12
 const MAX_TICKS_PER_FRAME := 12
 const SIM_BUDGET_US := 12000   # sim time per frame (perf cap); was 28 ms with whole ticks only
@@ -294,8 +294,8 @@ const TILE_NORM := (640.0 * 352.0) / float(W * H)
 # On (const, or `--realpop` on the command line, or set use_real_pop before a match) and on a map with a
 # baked maps/upstream/<id>.pop.bin, each nation's `pop` is the sum of the people on the tiles it owns and
 # its troop cap comes from that population instead of its tile count (SimRules.max_troops_pop).
-const USE_REAL_POP := false
-var use_real_pop := USE_REAL_POP
+const USE_REAL_POP := false  # vanilla: real-pop / 1:1 is off and must stay off
+var use_real_pop := false
 var tile_pop := PackedFloat32Array()  # people per tile (empty = off / no data for this map)
 var tile_pop_avg := 1.0               # map population / land tiles (people in an "average" tile)
 var sim_atk: SimAttacks
@@ -970,3 +970,30 @@ func _porttest() -> void:
 
 func _portshot() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
+
+
+# =============================================================================================
+# World control / victory (upstream SimState.land_share + UICtx.win_share / Sim._check_victory)
+# =============================================================================================
+
+## Share of all contestable land `id` holds. SimState.luau:610-611 — does not exclude fallout.
+func land_share(id: int) -> float:
+	if id <= 0 or id >= nations.size():
+		return 0.0
+	return SimRules.land_share(int(nations[id].land), land_total)
+
+## Progress toward the 80% goal: owned tiles / (contestable land minus fallout).
+## UICtx.luau:1324-1337; the bar rises as fallout spreads because the denominator shrinks.
+func win_share(id: int) -> float:
+	if id <= 0 or id >= nations.size():
+		return 0.0
+	return SimRules.win_share(int(nations[id].land), land_total, fallout_count)
+
+## Tile threshold for domination. Sim.luau:1699  bt >= WIN_SHARE * (contestable_count - fallout_count).
+func win_threshold_tiles() -> float:
+	return SimRules.WIN_SHARE * float(land_total - fallout_count)
+
+func dominates(id: int) -> bool:
+	if id <= 0 or id >= nations.size() or not nations[id].alive:
+		return false
+	return SimRules.dominates(int(nations[id].land), land_total, fallout_count)

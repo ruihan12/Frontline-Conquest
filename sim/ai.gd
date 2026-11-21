@@ -403,7 +403,8 @@ func _defend(id: int) -> bool:
 	return g.intent_attack(id, tile, ratio)
 
 func _land_share(id: int) -> float:
-	return float(g.nations[id].land) / maxf(float(g.land_total - g.fallout_count), 1.0)
+	# SimAI.luau uses sim:land_share — tiles / contestable_count, not excluding fallout.
+	return g.land_share(id)
 
 func _consider_war(id: int, fill: float, age: int) -> bool:
 	var s: Dictionary = st[id]

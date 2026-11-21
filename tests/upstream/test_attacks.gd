@@ -34,7 +34,6 @@ func run(H) -> void:
 	H.expect_eq(SimRules.DEFENSE_POST_COST, 3.0, "defense post tile cost ×3")
 	H.expect_eq(SimRules.WIN_SHARE, 0.8, "WIN_SHARE 0.8")
 
-	H.section("organic borders (intentional)", "growth_rules.luau")
+	H.section("no organic borders (vanilla = upstream attackLogic)", "growth_rules.luau")
 	var atk = _read("res://sim/attacks.gd")
-	H.expect(atk.find("0.9, 1.1") >= 0 or atk.find("0.9,1.1") >= 0, "organic speed factor clamped to 0.9–1.1", "intentional")
-	H.intentional("organic borders 0.9–1.1× per tile (not in upstream attackLogic)", "port: low-freq noise ±7% plus jitter ±3%, clamped 0.9..1.1, mean 1.0")
+	H.expect(atk.find("0.9, 1.1") < 0 and atk.find("0.9,1.1") < 0, "no 0.9–1.1 organic speed factor (upstream has none)")

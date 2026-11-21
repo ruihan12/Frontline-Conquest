@@ -723,10 +723,12 @@ func _pop_map_id() -> String:
 	return _upstream_id_for(map_tab, map_i)
 
 func _load_tile_pop() -> void:
+	# vanilla: real-world population / 1:1 mode is off and hidden. Always the upstream tile cap,
+	# troops displayed /10 (UITheme.troop_div).
 	tile_pop = PackedFloat32Array(); tile_pop_avg = 1.0
-	# the 1:1 mode (troops are people) is per match: off unless this map has baked population
 	sim_rules.set_troop_scale(false)
 	UITheme.troop_div = 10.0
+	return
 	if not (use_real_pop or OS.get_cmdline_user_args().has("--realpop")): return
 	var id := _pop_map_id()
 	var path := UpstreamMaps.DIR + id + ".pop.bin"

@@ -148,7 +148,8 @@ func _ally_count(id: int) -> int:
 	return c
 
 func _land_share(id: int) -> float:
-	return float(nations[id].land) / maxf(1.0, float(land_total - fallout_count))
+	# SimAI / diplomacy use SimState.land_share (all contestable land), not the victory win_share.
+	return land_share(id)
 
 func _grudge_of(me: int, other: int) -> bool:
 	return int(nations[me].get("grudge_" + str(other), -1)) > sim_atk.tick

@@ -258,10 +258,7 @@ func tribe_count() -> int:
 
 # The troop cap `id` has right after spawning (bounds the start troops, as the over-cap snap does).
 func _spawn_cap(id: int, kind: int) -> float:
-	if tile_pop.is_empty():
-		return sim_rules.max_troops(kind, nations[id].land, 0, diff_i)
-	# no MIN_CAP_1TO1 floor here: an empty spawn (Siberia, the Sahara) starts nearly empty and regrows from the floor
-	return sim_rules.max_troops_pop(kind, nations[id].land, float(nations[id].get("pop", 0.0)), tile_pop_avg, 0, diff_i, false)
+	return sim_rules.max_troops(kind, nations[id].land, 0, diff_i)
 
 # Sim._create_nations colour pass (COLOR_NEAR_NATION = 70 legacy tiles): an authored flag colour stays unless a
 # capital nearby is too similar (minimal nudge); a nation without one gets the human-palette colour most
