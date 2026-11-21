@@ -1,4 +1,4 @@
-# Port of tests/simsys_nukes.luau (costs, radii, speeds, SAM, MIRV) plus intentional range/ICBM/blast scale.
+# Port of tests/simsys_nukes.luau (costs, radii, speeds, SAM, MIRV, arc) plus the kept ICBM toggle.
 extends RefCounted
 
 const R := preload("res://sim/rules.gd")
@@ -70,42 +70,57 @@ func run(H) -> void:
 	var want_full = 500.0 * (1.0 - exp(-2.0 * excess / 10000.0))
 	H.expect_near(SimRules.warhead_death(10000.0, 10000.0), want_full, 1e-6, "warhead_death at cap = 500*(1-e^(-2*0.97))")
 
-	# --- intentional deviations, verified in main.gd source (cannot instance the game in this suite) ---
-	H.section("intentional nuke deviations (main.gd)", "simsys_nukes.luau")
+	# SAM range / reload are upstream's (no port multipliers)
+	H.expect_near(r.sam_range(1), 70.0, 1e-6, "sam_range(1) = 150 - 480/6 = 70 full-size tiles")
+	H.expect_near(r.sam_range(3), 90.0, 1e-6, "sam_range(3) = 150 - 480/8 = 90")
+	H.expect_eq(SimRules.RELOAD_TICKS[4], 90, "SAM reload 90 ticks")
+	H.expect_eq(SimRules.RELOAD_TICKS[5], 90, "silo reload 90 ticks")
+
+	# radii in our tiles (Rules.nuke_radii) on a resampled map (k_lin 1.115)
+	var r2: SimRules = R.new(1.115)
+	H.expect_near(r2.nuke_radii(SimRules.N_ATOM).y, 30.0 / 1.115, 1e-4, "atom outer 30 / k_lin")
+	H.expect_near(r2.nuke_radii(SimRules.N_HYDROGEN).x, 80.0 / 1.115, 1e-4, "hydrogen inner 80 / k_lin")
+	H.expect_near(r2.nuke_radii(SimRules.N_WARHEAD).y, 18.0 / 1.115, 1e-4, "warhead outer 18 / k_lin")
+	H.expect_eq(r2.nuke_radii(SimRules.N_MIRV).y, float(int(1500.0 / 1.115)), "MIRV radii: (0, MIRV_SPREAD = trunc(1500 / k_lin))")
+
+	# Rules.nuke_arc / nuke_arc_at / nuke_arc_ticks
+	H.section("Rules.nuke_arc", "Rules.luau 853-916")
+	var sp := Vector2(10.5, 200.5)
+	var dp := Vector2(310.5, 200.5)
+	var arc: Dictionary = r.nuke_arc(400, sp, dp)
+	H.expect((arc.pts as PackedVector2Array).size() == SimRules.NUKE_ARC_SAMPLES + 1, "arc has NUKE_ARC_SAMPLES + 1 points")
+	H.expect(SimRules.nuke_arc_at(arc, 0.0).distance_to(sp) < 1e-4 and SimRules.nuke_arc_at(arc, 1.0).distance_to(dp) < 1e-4, "arc runs silo -> target")
+	var mid: Vector2 = SimRules.nuke_arc_at(arc, 0.5)
+	# control points raised by max(300/3, 50) = 100: the Bezier apex is 0.75 * 100 above the chord
+	H.expect_near(mid.y, 200.5 - 75.0, 0.05, "arc apex: 3/4 of max(dist/3, 50) toward the top of the map")
+	H.expect_near(mid.x, 160.5, 0.05, "arc apex is halfway across")
+	var len: float = arc.length
+	H.expect(len > 300.0 and len < 360.0, "arc length is longer than the chord", "len=%.2f" % len)
+	H.expect_eq(r.nuke_arc_ticks(arc, SimRules.N_ATOM), int(ceil(len / 10.0)), "atom flight ticks = ceil(arc length / 10)")
+	H.expect_eq(r.nuke_arc_ticks(arc, SimRules.N_MIRV), int(ceil(len / 15.0)), "MIRV bus flight ticks = ceil(arc length / 15)")
+	H.expect_eq(r.nuke_arc_ticks(arc, SimRules.N_WARHEAD), int(ceil(len / 22.0)), "warhead flight ticks = ceil(arc length / 22)")
+	H.expect_eq(r2.nuke_arc_ticks(arc, SimRules.N_ATOM), int(ceil(len * 1.115 / 10.0)), "flight ticks scale with k_lin")
+	var short: Dictionary = r.nuke_arc(400, Vector2(50.5, 300.5), Vector2(80.5, 300.5))
+	H.expect_near(SimRules.nuke_arc_at(short, 0.5).y, 300.5 - 37.5, 0.05, "short shots still rise by the 50 full-size tile minimum")
+	var top: Dictionary = r.nuke_arc(400, Vector2(50.5, 5.5), Vector2(950.5, 5.5))
+	H.expect(SimRules.nuke_arc_at(top, 0.5).y >= -1e-4, "arc control points are clamped to the map top")
+	var flat: Dictionary = r.munition_arc(400, sp, dp, SimRules.N_SLUG)
+	H.expect_near(float(flat.length), 300.0, 1e-4, "flat munitions fly a straight line")
+
+	# --- vanilla nukes + the kept ICBM toggle, checked in the game source ---
+	H.section("vanilla nukes (game source)", "simsys_nukes.luau")
 	var src = _read_main()
-	H.expect(src != "", "main.gd readable", "")
-	H.expect(_has(src, "0.5265") and _has(src, "0.5558") and _has(src, "0.585") and _has(src, "0.6435") and _has(src, "1.3"),
-		"NUKE_RANGE_FRAC Atom .5265, Mega .5558, H .585, Scatter .6435, MIRV 1.3", "intentional range system")
-	H.intentional("upstream bombs have no range limit (launch_range 0)", "port ranges are fractions of map land width; not a bug")
-	H.expect(_has(src, "ICBM_FEE_PCT := 0.10") or _has(src, "ICBM_FEE_PCT := 0.1"), "ICBM +10% cost", "intentional")
-	H.expect(_has(src, "icbm_mode"), "ICBM toggle present", "intentional")
-	H.expect(_has(src, "BLAST_S := float(W) / 640.0"), "BLAST_S = W/640 (= 2.8 on 1792-wide maps)", "intentional ×2.8")
-
-	var blast_s = 1792.0 / 640.0
-	H.expect_near(blast_s, 2.8, 1e-9, "1792/640 = 2.8 scale")
-	H.expect_near(7.0 * blast_s, 19.6, 1e-9, "Atom blast 7*2.8 = 19.6 tiles")
-	H.expect_near(25.0 * blast_s, 70.0, 1e-9, "H blast 25*2.8 = 70 tiles")
-	H.expect_near(3.0 * blast_s, 8.4, 1e-9, "MIRV warhead blast 3*2.8 = 8.4 tiles")
-	H.expect_near(15.0 * blast_s, 42.0, 1e-9, "Mega blast 15*2.8 = 42 tiles")
-	# NUKE_R[12] still lists the old custom 19.6, but launch now uses upstream 30 / k_lin (and warheads 18 / k_lin).
-	H.expect_near(7.0 * blast_s, 19.6, 1e-9, "legacy NUKE_R[12] constant 7*2.8 = 19.6 (not used at Scatter launch)")
-	H.expect(_has(src, "7.0 * BLAST_S") and _has(src, "25.0 * BLAST_S") and _has(src, "3.0 * BLAST_S") and _has(src, "15.0 * BLAST_S"),
-		"NUKE_R uses 7/25/3/15/7 * BLAST_S", "intentional radii")
-
-	H.expect(_has(src, "nuke_radii_full_scaled(SimRules.N_SCATTER)") and _has(src, "nuke_radii_full_scaled(SimRules.N_WARHEAD)"),
-		"Scatter launch radii use upstream outer 30 / warhead 18 full-size tiles, scaled by k_lin", "")
-	H.expect(_has(src, "NUKE_SPEED_X := 2.1"),
-		"nukes fly at 2.1x upstream NUKE_SPEED_FULL (atom/H/mega/scatter 10, MIRV bus 15, warhead 22)", "intentional")
-	H.expect(_has(src, "UPSTREAM_NUKE_TILES_PER_S := 100.0"),
-		"nukes fly at upstream speed (10 full-size tiles per tick) times NUKE_SPEED_X", "matches Rules.NUKE_SPEED_FULL atom")
-	H.expect(_has(src, "mirv_bus") or _has(src, "split_done") or _has(src, "branched"),
-		"MIRV bus flies to the aim, then branches", "intentional pattern")
-	H.expect(_has(src, "ONLY creates fallout in the circular crater") or _has(src, "fallout in the circular") or _has(src, "real warhead"),
-		"MIRV fallout only inside real warhead blast circles", "intentional")
+	H.expect(src != "", "game source readable", "")
+	H.expect(not _has(src, "NUKE_RANGE_SCALE") and not _has(src, "NUKE_RANGE_FRAC"), "no custom nuke range (upstream launch_range 0 for bombs)")
+	H.expect(not _has(src, "NUKE_SPEED_X"), "no custom nuke speed-up (upstream NUKE_SPEED_FULL)")
+	H.expect(not _has(src, "7.0 * BLAST_S"), "no custom x2.8 blast radii (upstream NUKE_OUTER_FULL / k_lin)")
+	H.expect(not _has(src, "_nuke_pill"), "no nuke countdown pill (upstream has none)")
+	H.expect(_has(src, "ICBM_FEE_PCT := 0.10") or _has(src, "ICBM_FEE_PCT := 0.1"), "ICBM +10% cost", "kept custom")
+	H.expect(_has(src, "icbm_mode"), "ICBM toggle present", "kept custom")
+	H.expect(_has(src, "func _split_mirv(") and _has(src, "SimRules.MIRV_WARHEADS"), "MIRV splits into up to 350 warheads at the aim (SimNukes._split_mirv)")
+	H.expect(_has(src, "fx_layer.nuke("), "detonations use upstream FxLayer.nuke")
 
 	H.expect_eq(SimRules.nuke_cost_named("mirv", 0), 25000000.0, "first MIRV is 25M")
 	H.expect_eq(SimRules.nuke_cost_named("mirv", 1), 40000000.0, "second MIRV is 40M (+15M step)")
 	H.expect(src.find("MIRV_COST_STEP") >= 0 and src.find("mirvs_launched") >= 0, "main.nuke_cost applies MIRV_COST_STEP * mirvs_launched", "")
-	H.intentional("fallout decays after 60 s (fallout_t stamped at 60, cleared at 0)", "upstream fallout lasts until recapture")
-	H.intentional("nuke flight is 2.1x upstream NUKE_SPEED_FULL in world/tile units (not zoom-dependent), custom missile clock / ballistic arcs, not Rules.nuke_arc", "intentional")
-
+	H.intentional("ICBM toggle (key I): +10% of the player's bomb price; upstream silos already reach the whole map", "kept custom")

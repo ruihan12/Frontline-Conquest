@@ -244,9 +244,9 @@ static func build_cost(kind_name: String, n: int) -> float:
 		"railgun": return minf(7500000.0, 2500000.0 * (n + 1))
 	return -1.0
 
-# user tuning on top of the upstream numbers: SAM radius x0.8, SAM reload x0.6 (reload_ticks in sim/arsenal.gd)
+# Vanilla: SAM range and reload are upstream's (Rules.luau 213 / 235). These stay at 1.0 for old callers.
 const SAM_RADIUS_MULT := 1.0
-const SAM_RELOAD_MULT := 0.6
+const SAM_RELOAD_MULT := 1.0
 
 func sam_range(level: int) -> float:
 	return (150.0 - 480.0 / (maxi(level, 1) + 5)) * SAM_RADIUS_MULT / k_lin
@@ -465,3 +465,71 @@ func launch_range(kind: int) -> float:
 	if kind == N_AIRSTRIKE: return 156.0 / k_lin
 	if kind == N_SHELL: return 45.0 / k_lin
 	return 0.0
+
+
+# ---- Nuke flight (Rules.luau 817-819, 847-916): MIRV spread, arc, flight time. All in OUR tiles.
+const NUKE_ARC_MIN_HEIGHT_FULL := 50.0
+const NUKE_ARC_SAMPLES := 96
+
+# Rules.MIRV_SPREAD = trunc(1500 / K_LIN)
+func mirv_spread() -> int:
+	return int(1500.0 / k_lin)
+
+# Rules.nuke_radii: (inner, outer) in our tiles; MIRV: (0, spread)
+func nuke_radii(kind: int) -> Vector2:
+	if kind == N_MIRV: return Vector2(0.0, float(mirv_spread()))
+	if kind < 0 or kind >= NUKE_OUTER_FULL.size(): return Vector2.ZERO
+	return Vector2(NUKE_INNER_FULL[kind], NUKE_OUTER_FULL[kind]) / k_lin
+
+# Rules.nuke_flight_ticks
+func nuke_flight_ticks(dist_tiles: float, kind := N_ATOM) -> int:
+	return maxi(1, int(ceil(dist_tiles * k_lin / NUKE_SPEED_FULL[clampi(kind, 0, NUKE_SPEED_FULL.size() - 1)])))
+
+# Rules.nuke_arc: cubic Bezier from `sp` to `dp` (tile centres, map space), control points a quarter and
+# three quarters along raised by max(dist / 3, 50 full-size tiles) toward the top of the map (clamped to
+# [0, H - 1]), sampled into an arc-length table. {pts: PackedVector2Array, lens: PackedFloat32Array, length}
+func nuke_arc(H: int, sp: Vector2, dp: Vector2) -> Dictionary:
+	var dd := dp - sp
+	var hmax := maxf(dd.length() / 3.0, NUKE_ARC_MIN_HEIGHT_FULL / k_lin)
+	var p1 := Vector2(sp.x + dd.x / 4.0, clampf(sp.y + dd.y / 4.0 - hmax, 0.0, float(H - 1)))
+	var p2 := Vector2(sp.x + dd.x * 3.0 / 4.0, clampf(sp.y + dd.y * 3.0 / 4.0 - hmax, 0.0, float(H - 1)))
+	var n := NUKE_ARC_SAMPLES
+	var pts := PackedVector2Array(); pts.resize(n + 1)
+	var lens := PackedFloat32Array(); lens.resize(n + 1)
+	var total := 0.0
+	var prev := sp
+	for i in n + 1:
+		var t := float(i) / float(n)
+		var u := 1.0 - t
+		var pt: Vector2 = sp * (u * u * u) + p1 * (3.0 * u * u * t) + p2 * (3.0 * u * t * t) + dp * (t * t * t)
+		if i > 0: total += pt.distance_to(prev)
+		pts[i] = pt; lens[i] = total
+		prev = pt
+	return {"pts": pts, "lens": lens, "length": total}
+
+# Rules.munition_arc: the nuke arc for bombs, a straight line for the flat munitions
+func munition_arc(H: int, sp: Vector2, dp: Vector2, kind: int) -> Dictionary:
+	if kind < 0 or not NUKE_FLAT[kind]: return nuke_arc(H, sp, dp)
+	var len := sp.distance_to(dp)
+	return {"pts": PackedVector2Array([sp, dp]), "lens": PackedFloat32Array([0.0, len]), "length": len}
+
+# Rules.nuke_arc_at: the point at arc-length fraction s in [0, 1] (tile units, map space)
+static func nuke_arc_at(arc: Dictionary, s: float) -> Vector2:
+	var pts: PackedVector2Array = arc.pts
+	var lens: PackedFloat32Array = arc.lens
+	var total: float = arc.length
+	if total <= 0.0: return pts[0]
+	var want := clampf(s, 0.0, 1.0) * total
+	var lo := 0
+	var hi := lens.size() - 1
+	while hi - lo > 1:
+		var mid := (lo + hi) / 2
+		if lens[mid] < want: lo = mid
+		else: hi = mid
+	var seg: float = lens[hi] - lens[lo]
+	var f: float = (want - lens[lo]) / seg if seg > 0.0 else 0.0
+	return pts[lo].lerp(pts[hi], f)
+
+# Rules.nuke_arc_ticks: nukeSpeed full-size tiles along the curve per tick
+func nuke_arc_ticks(arc: Dictionary, kind := N_ATOM) -> int:
+	return maxi(1, int(ceil(float(arc.length) * k_lin / NUKE_SPEED_FULL[clampi(kind, 0, NUKE_SPEED_FULL.size() - 1)])))

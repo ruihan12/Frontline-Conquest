@@ -4,8 +4,8 @@
 # The AI perceives the world through scan_border() and acts through the same entry points as the
 # player (intent_attack, launch_boat, launch_nuke, propose_alliance, break_alliance); builds go
 # through _build_at (the cost and placement rules of try_build without its flood search).
-# Port differences (custom rules kept): nukes must reach the target from a silo (custom range as a
-# fraction of land width, unless ICBM mode is on); radii are the port's x2.8 NUKE_R; INVASION_AGE /
+# Port differences: nukes use upstream radii and whole-map silo reach (vanilla);
+# INVASION_AGE /
 # MOPUP_AGE are halved for the ~20 min pacing; no retint (colour upkeep), no team-mode refusals.
 extends RefCounted
 class_name SimAI
@@ -575,7 +575,7 @@ func _consider_nuke(id: int, age: int) -> void:
 	var t: int = g.sim_atk.tick
 	if t - int(s.last_nuke) < NUKE_GAP: return
 	var gold: float = g.nations[id].gold
-	if gold < g.nuke_cost(K_ATOM): return
+	if gold < g.nuke_cost(K_ATOM, id): return
 	var mine := _troops(id)
 	var best := 0
 	var best_s := 0.0
@@ -598,21 +598,13 @@ func _consider_nuke(id: int, age: int) -> void:
 		if s2 > best_s: best_s = s2; best = p2
 	if best <= 0: return
 	var kind := K_ATOM
-	if g.mirv_enabled and gold >= g.nuke_cost(K_MIRV) and (best == leader or best == runaway_human) and _land_share(best) >= 0.35:
+	if g.mirv_enabled and gold >= g.nuke_cost(K_MIRV, id) and (best == leader or best == runaway_human) and _land_share(best) >= 0.35:
 		kind = K_MIRV
-	elif gold >= g.nuke_cost(K_HYDROGEN) and g.nations[best].land > 2500 * LA:
+	elif gold >= g.nuke_cost(K_HYDROGEN, id) and g.nations[best].land > 2500 * LA:
 		kind = K_HYDROGEN
 	var target := _nuke_target(id, best, kind)
 	if target < 0: return
-	# custom range rule: the chosen bomb must reach from a silo; else the cheapest affordable one that does
-	if not g.icbm_mode:
-		var dd: float = g._any_silo_dist(id, Vector2(target % g.W + 0.5, target / g.W + 0.5))
-		if dd > g.nuke_range(kind):
-			kind = -1
-			for kk in [K_ATOM, K_HYDROGEN, K_MIRV]:
-				if kk == K_MIRV and not g.mirv_enabled: continue
-				if g.nuke_range(kk) >= dd and gold >= g.nuke_cost(kk): kind = kk; break
-			if kind < 0: return
+	# (vanilla: silos reach the whole map, no range rule)
 	s.last_nuke = t
 	if g.launch_nuke(id, kind, target):
 		stats.nukes += 1

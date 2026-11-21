@@ -390,7 +390,7 @@ func _nukes_and_sam() -> void:
 	H.expect(ok, "launch atom")
 	if ok:
 		H.expect_near(g0 - m.nations[P].gold, 825000.0, 1.0, "live atom charged 825K with ICBM on")
-		H.expect(not m.missiles.is_empty(), "atom is in flight on the custom missile clock")
+		H.expect(not m.missiles.is_empty(), "atom is in flight on the sim clock (launch tick + flight ticks)")
 		# silo reloading
 		var silo = _struct(P, 5)
 		if silo != null:
@@ -398,7 +398,9 @@ func _nukes_and_sam() -> void:
 		# fly to impact (or intercept)
 		var flight: int = _fly()
 		H.expect(m.missiles.is_empty(), "atom leaves the missile list after flight / intercept", "ticks=%d" % flight)
-	# foe SAM intercept
+	# foe SAM intercept (ICBM off: with it on, a launch has a 35% chance to evade SAMs; see tests/test_icbm_evade.gd)
+	if m.has_method("set_icbm"):
+		m.set_icbm(false)
 	var fc: int = _center(foe)
 	var fsam_t: int = m._pt_free_land_near(foe, fc, 60)
 	if fsam_t >= 0:
@@ -418,6 +420,8 @@ func _nukes_and_sam() -> void:
 			H.expect(m.sim_ars.ready_missiles(fsam) == 0, "the SAM spent its missile")
 		if fsam != null:
 			m._struct_remove(fsam)
+	if m.has_method("set_icbm"):
+		m.set_icbm(true)
 	# detonation / fallout / troop loss (H-bomb), no SAM
 	for st in m.structs.duplicate():
 		if st.o == foe and st.k == 4:
@@ -458,7 +462,7 @@ func _nukes_and_sam() -> void:
 	H.expect(ok2 and inner_n > 0 and inner_f == inner_n, "H-bomb: whole inner disc is fallout", "inner %d/%d ticks=%d" % [inner_f, inner_n, tl2])
 	var ring_share = float(ring_f) / maxf(1.0, float(ring_n))
 	H.expect(ring_share > 0.30 and ring_share < 0.70, "H-bomb: about half the outer ring is fallout", "share=%.2f ring %d/%d" % [ring_share, ring_f, ring_n])
-	H.expect(stamped > 0, "fallout tiles are stamped at 60 s (decay is on the frame clock, not sim_step)", "stamped=%d" % stamped)
+	H.expect(stamped > 0, "fresh fallout carries the glow clock (60 s, heat only; fallout itself stays until recaptured)", "stamped=%d" % stamped)
 	if b_land > 0:
 		var lost_land: int = b_land - m.nations[foe].land
 		var expect_tr: float = b_tr * pow(float(maxi(b_land - lost_land, 1)) / float(b_land), 5.0)
@@ -765,9 +769,10 @@ func _naval_and_warships() -> void:
 				var secs: float = d_end / (m.sim_rules.ship_tiles_per_s() * m.boat_speed * m.AIR_SPEED * m.TS)
 				hs.step(int(secs * 10.0) + 30)
 				H.expect(not m.boats.has(pl), "transport plane arrives", "secs=%.1f" % secs)
-	# nuke speed: matches upstream Rules.NUKE_SPEED_FULL atom (10 full-size tiles per tick = 100 / k_lin of our tiles per second)
-	var tiles_per_s: float = 43.2 * m.nuke_speed_mult(100.0) * SimArsenal.DT_TICK * 10.0
-	H.expect(absf(tiles_per_s - 100.0 * m.NUKE_SPEED_X / m.sim_rules.k_lin) < 0.01, "atom bomb flies at the upstream speed x NUKE_SPEED_X (custom)", "%.1f tiles/s (k_lin %.3f)" % [tiles_per_s, m.sim_rules.k_lin])
+	# nuke speed: Rules.nuke_arc_ticks, 10 full-size tiles of arc per tick for an atom bomb (no custom speed-up)
+	var arc_t: Dictionary = m.sim_rules.nuke_arc(m.H, Vector2(100.5, 300.5), Vector2(400.5, 360.5))
+	var want_ft: int = maxi(1, int(ceil(float(arc_t.length) * m.sim_rules.k_lin / 10.0)))
+	H.expect(m.sim_rules.nuke_arc_ticks(arc_t, SimRules.N_ATOM) == want_ft, "atom flight ticks = ceil(arc length x k_lin / 10) (upstream speed)", "ft=%d arc=%.1f" % [want_ft, float(arc_t.length)])
 	# vet helpers already unit-tested; peek at init fields
 	if m.warships.size() > 0:
 		var w = m.warships[0]

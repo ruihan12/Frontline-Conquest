@@ -401,12 +401,13 @@ func _tick_fx(dt: float, adt := -1.0) -> void:
 		fallout_tick_t = 0.0
 		# only the tiles that actually carry fallout (was a 2.87M-tile scan every 2 s -> hitch)
 		var q2 := _qual() >= 2
-		for i in fallout_list.keys():
-			if fallout[i] != 1: fallout_list.erase(i); continue
-			fallout_t[i] -= step
+		# (fallout_list loses a tile when it is conquered again: map.gd _set_owner)
+		# fallout_t: counted down from 60 at the bomb for the glow's heat only (FalloutGlow). Upstream
+		# fallout stays until the land is conquered again (SimState: no decay), so nothing is cleared here.
+		for i in fallout_hot.keys():
+			if i >= fallout.size() or fallout[i] != 1 or fallout_t[i] <= 0.0: fallout_hot.erase(i); continue
+			fallout_t[i] = maxf(0.0, fallout_t[i] - step)
 			if fallout_t[i] > 30.0 and q2: _pend_paint[i] = true; dirty = true
-			if fallout_t[i] <= 0.0:
-				fallout[i] = 0; fallout_t[i] = 0.0; fallout_list.erase(i); _repaint(i)
 
 func _tick_notes(rdt: float) -> void:
 	var ch := false

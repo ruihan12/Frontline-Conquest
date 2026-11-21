@@ -26,7 +26,7 @@ func gold_rate(id: int) -> float:
 
 func build_cost(id: int, k: int) -> float:
 	var base: float = build_data[k][2]
-	if k in NUKES: return nuke_cost(k)
+	if k in NUKES: return nuke_cost(k, id)
 	if k == 13: return base
 	var rw_names := {0: "city", 3: "defense", 4: "sam", 5: "silo", 10: "artillery", 14: "airfield", 15: "railgun"}
 	if k == 1 or k == 2: return SimRules.build_cost("port", owned(id, 1) + owned(id, 2))
@@ -136,7 +136,7 @@ func select_build(k: int) -> void:
 	if state != "play" or k < 0 or k >= build_data.size(): return
 	if k == 16:
 		set_icbm(not icbm_mode)
-		notify("ICBM %s: bombs ignore range, +10%% cost per launch" % ("ON" if icbm_mode else "OFF"), "info"); return
+		notify("ICBM %s: +10%% cost per launch, 35%% chance to evade SAMs" % ("ON" if icbm_mode else "OFF"), "info"); return
 	if k == 13:
 		try_build(k, -1); return
 	if k == 6:
