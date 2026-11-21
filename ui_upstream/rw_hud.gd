@@ -784,8 +784,10 @@ func _section(icon: String, cap: String, icon_col := RK.TEXT_3) -> Dictionary:
 
 func _build_bar() -> void:
 	bar = RK.glass(18, 12, RK.R_LG, 22)
+	bar.clip_contents = false
 	root.add_child(bar)
 	bar_root = RK.vbox(10)
+	bar_root.clip_contents = false
 	bar.add_child(bar_root)
 	# nation
 	var nv := RK.vbox(2)
@@ -805,20 +807,29 @@ func _build_bar() -> void:
 	nv.add_child(cb_land)
 	nv.custom_minimum_size = Vector2(150, 0)
 	cb_nation = nv
-	# troops
+	# troops: caption only in the header. Value + cap on one row, rate under them
+	# so "+9.999e99/s" never shares a line with the count or gets covered by gold/slots.
 	var ts := _section("troops", "Troops")
-	cb_growth = RK.label("", 12, 700, RK.GREEN)
-	RK.fix_width(cb_growth, RK.text_width("+9.999e99/s (888%)", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
-	cb_growth.clip_text = false
-	cb_growth.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	ts.head.add_child(cb_growth)
-	var tv := RK.hbox(5)
+	var tv := RK.hbox(6)
 	cb_troops = RK.label("0", 24, 800)
+	cb_troops.clip_text = false
+	cb_troops.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	cb_troops.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	cb_troops.custom_minimum_size.x = RK.hud_num_width(24, 800)
 	tv.add_child(cb_troops)
 	cb_cap = RK.label("", 13, 600, RK.TEXT_3)
+	cb_cap.clip_text = false
+	cb_cap.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	cb_cap.size_flags_vertical = Control.SIZE_SHRINK_END
+	cb_cap.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	cb_cap.custom_minimum_size.x = RK.shaped_width(RK.font(600), "/ 9.999e99", 13)
 	tv.add_child(cb_cap)
 	ts.box.add_child(tv)
+	cb_growth = RK.label("", 12, 700, RK.GREEN)
+	cb_growth.clip_text = false
+	cb_growth.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	cb_growth.custom_minimum_size.x = RK.shaped_width(RK.font(700), "+9.999e99/s (888%)", 12)
+	ts.box.add_child(cb_growth)
 	var tb := RK.hbox(8)
 	cb_troops_bar = RK.fill_bar(4.0, RK.CYAN)
 	cb_troops_bar.custom_minimum_size = Vector2(120, 6)
@@ -829,7 +840,11 @@ func _build_bar() -> void:
 	cb_committed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	tb.add_child(cb_committed)
 	ts.box.add_child(tb)
-	ts.box.custom_minimum_size = Vector2(248, 0)
+	var troops_min := RK.hud_num_width(24, 800) + 6 + RK.shaped_width(RK.font(600), "/ 9.999e99", 13)
+	troops_min = maxf(troops_min, RK.shaped_width(RK.font(700), "+9.999e99/s (888%)", 12))
+	ts.box.custom_minimum_size = Vector2(troops_min, 0)
+	ts.box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	ts.box.clip_contents = false
 	cb_troops_box = ts.box
 	# attack ratio
 	var rs := _section("attack", "Attack")
@@ -845,29 +860,26 @@ func _build_bar() -> void:
 	cb_ratio_sub = RK.label("", 12, 500, RK.TEXT_3)
 	rs.box.add_child(cb_ratio_sub)
 	cb_ratio_box = rs.box
-	# gold
+	# gold: caption only in the header. Value on its own row, +N/s under it so the
+	# rate never collides with the count and the box is as wide as the wider of the two.
 	var gs := _section("gold", "Gold", RK.GOLD)
-	cb_income = RK.label("", 12, 700, RK.GREEN)
-	RK.fix_width(cb_income, RK.text_width("+9.999e99/s", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
-	cb_income.clip_text = false
-	cb_income.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	gs.head.add_child(cb_income)
 	cb_gold = RK.label("0", 24, 800, RK.GOLD)
-	gs.box.add_child(cb_gold)
-	cb_gold.custom_minimum_size.x = RK.text_width("9.999e99", 24, 800) + 6
-	cb_gold.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	gs.box.custom_minimum_size = Vector2(200, 0)
-	gs.box.clip_contents = false
 	cb_gold.clip_text = false
 	cb_gold.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	cb_gold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	cb_troops.clip_text = false
-	cb_troops.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	cb_troops.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cb_gold.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	cb_gold.custom_minimum_size.x = RK.hud_num_width(24, 800)
+	gs.box.add_child(cb_gold)
+	cb_income = RK.label("", 12, 700, RK.GREEN)
+	cb_income.clip_text = false
+	cb_income.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	cb_income.custom_minimum_size.x = RK.hud_rate_width(12, 700)
+	gs.box.add_child(cb_income)
+	var gold_min := maxf(RK.hud_num_width(24, 800), RK.hud_rate_width(12, 700))
+	gs.box.custom_minimum_size = Vector2(gold_min, 0)
+	gs.box.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	gs.box.clip_contents = false
 	cb_gold_box = gs.box
 	cb_gold_box.clip_contents = false
-	if cb_troops_box:
-		cb_troops_box.clip_contents = false
 	# slots
 	cb_builds = RK.hbox(6)
 	cb_builds.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -942,9 +954,27 @@ func _arrange_slots() -> void:
 func _extra_slots() -> int:
 	return _visible_kinds().size() - 10
 
+func _bar_inner_budget() -> float:
+	var vsx := 1600.0
+	if root:
+		var vs := root.get_viewport_rect().size
+		if vs.x >= 200.0:
+			vsx = vs.x
+	# 12 px margin each side + glass pad 18 each side
+	return maxf(400.0, vsx - 24.0 - 36.0)
+
 func _reflow(force := false) -> void:
-	var extra := 62 * _extra_slots() + 58 + 4
-	var wide := 1600 >= 1420 + extra
+	# One row only when nation + troops + attack + gold + slots all fit without shrinking counts.
+	var slots_w := 0.0
+	if cb_builds:
+		slots_w = cb_builds.get_combined_minimum_size().x
+	var stats_w := 0.0
+	for n in [cb_nation, cb_troops_box, cb_ratio_box, cb_gold_box]:
+		if n:
+			stats_w += n.get_combined_minimum_size().x
+	stats_w += 16.0 * 3.0 + 8.0 * 3.0  # separations + dividers
+	var need_one := stats_w + 16.0 + slots_w
+	var wide := need_one <= _bar_inner_budget()
 	var want := 0 if wide else 1
 	if want == _flow and not force: return
 	_flow = want
@@ -953,6 +983,7 @@ func _reflow(force := false) -> void:
 		if n.get_parent(): n.get_parent().remove_child(n)
 	var dh := 44.0 if wide else 40.0
 	var stats := RK.hbox(16)
+	stats.clip_contents = false
 	stats.add_child(cb_nation)
 	stats.add_child(RK.vdivider(dh))
 	stats.add_child(cb_troops_box)
@@ -971,6 +1002,7 @@ func _reflow(force := false) -> void:
 		stats.alignment = BoxContainer.ALIGNMENT_CENTER
 		bar_root.add_child(stats)
 		var row := RK.hbox(0)
+		row.clip_contents = false
 		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		row.add_child(cb_builds)
 		bar_root.add_child(row)
@@ -1125,7 +1157,7 @@ func refresh_bar(ema_regen: float, ema_gold: float, txt: bool) -> void:
 		var cap_pct := int(round(100.0 * pl.troops / maxf(1.0, cap)))
 		RK.fit_label(cb_growth, "%s%s/s (%d%%)" % ["+" if ema_regen >= 0 else "", m._fmt_hud(ema_regen), clampi(cap_pct, 0, 999)], maxf(90.0, cb_growth.custom_minimum_size.x), 12, 8)
 		RK.fit_label(cb_income, "+%s/s" % m._fmt_hud(ema_gold), maxf(80.0, cb_income.custom_minimum_size.x), 12, 8)
-	RK.fit_label(cb_cap, "/ %s" % m._fmt_hud(cap), 110.0, 13, 8)
+	RK.fit_label(cb_cap, "/ %s" % m._fmt_hud(cap), maxf(cb_cap.custom_minimum_size.x, RK.shaped_width(RK.font(600), "/ 9.999e99", 13)), 13, 8)
 	RK.fill_set(cb_troops_bar, clampf(pl.troops / maxf(cap, 1.0), 0.0, 1.0))
 	var at_war := 0.0
 	for at in m.attacks: if at.a == m.PLAYER: at_war += at.troops
@@ -1448,15 +1480,74 @@ func process(dt: float) -> void:
 	_tick_feed(dt)
 	_tick_alert(dt)
 	if m.state == "play" and m.nations.size() > m.PLAYER:
-		RK.fit_label(cb_troops, UITheme.hud_num(m.shown_troops), maxf(RK.text_width("9.999e99", 24, 800) + 6, cb_troops.size.x), 24, 10)
-		var gold_w := maxf(RK.text_width("9.999e99", 24, 800) + 6, cb_gold.size.x if cb_gold else 0.0)
-		RK.fit_label(cb_gold, UITheme.hud_num(m.shown_gold), gold_w, 24, 10)
+		_fit_count_labels()
 	if m.state == "pick" or m.state == "play":
 		var cs := int(m.elapsed) if m.elapsed >= m.peace or m.state == "pick" else int(ceilf(m.peace - m.elapsed))
 		if cs != _clock_s:
 			_clock_s = cs
 			refresh_top()
 	if _dirty: layout()
+
+func _count_avail(box: Control, extra := 0.0) -> float:
+	if box == null:
+		return 1.0
+	return maxf(1.0, maxf(box.size.x, box.custom_minimum_size.x) - RK.label_pad_x(box) - extra)
+
+func _fit_count_labels() -> void:
+	if cb_gold:
+		RK.fit_label(cb_gold, UITheme.hud_num(m.shown_gold), _count_avail(cb_gold_box), 24, 10)
+	if cb_income and str(cb_income.text) != "":
+		RK.fit_label(cb_income, cb_income.text, _count_avail(cb_gold_box), 12, 8)
+	if cb_troops:
+		var cap_w := 0.0
+		if cb_cap:
+			cap_w = maxf(cb_cap.get_combined_minimum_size().x, cb_cap.size.x) + 6.0
+		RK.fit_label(cb_troops, UITheme.hud_num(m.shown_troops), _count_avail(cb_troops_box, cap_w), 24, 10)
+	if cb_cap and str(cb_cap.text) != "":
+		RK.fit_label(cb_cap, cb_cap.text, maxf(cb_cap.size.x, cb_cap.custom_minimum_size.x), 13, 8)
+	if cb_growth and str(cb_growth.text) != "":
+		RK.fit_label(cb_growth, cb_growth.text, _count_avail(cb_troops_box), 12, 8)
+
+func apply_count_texts(gold: String, troops: String, cap: String, income: String, growth: String) -> void:
+	if cb_gold:
+		RK.fit_label(cb_gold, gold, _count_avail(cb_gold_box), 24, 10)
+	if cb_troops:
+		var cap_w := 0.0
+		if cb_cap:
+			cap_w = maxf(cb_cap.get_combined_minimum_size().x, cb_cap.size.x) + 6.0
+		RK.fit_label(cb_troops, troops, _count_avail(cb_troops_box, cap_w), 24, 10)
+	if cb_cap:
+		RK.fit_label(cb_cap, cap, maxf(cb_cap.custom_minimum_size.x, RK.shaped_width(RK.font(600), cap, 13)), 13, 8)
+	if cb_income:
+		RK.fit_label(cb_income, income, _count_avail(cb_gold_box), 12, 8)
+	if cb_growth:
+		RK.fit_label(cb_growth, growth, _count_avail(cb_troops_box), 12, 8)
+	_reflow(true)
+	if has_method("layout"):
+		layout()
+
+func counts_fit() -> Dictionary:
+	# Used by --hudfit / tests: measured drawn width vs the label's allocated rect.
+	var out := {"ok": true, "gold": {}, "troops": {}, "income": {}, "growth": {}}
+	for pair in [["gold", cb_gold], ["troops", cb_troops], ["income", cb_income], ["growth", cb_growth]]:
+		var key: String = pair[0]
+		var l: Label = pair[1]
+		var rec := {"text": "", "need": 0.0, "rect": 0.0, "ok": true}
+		if l and l.is_inside_tree():
+			var f := RK.label_font_of(l)
+			var fs := int(l.get_theme_font_size("font_size"))
+			var outline := l.get_theme_constant("outline_size") if l.has_theme_constant("outline_size") else 0
+			rec.text = l.text
+			rec.need = RK.shaped_width(f, l.text, fs, outline) + RK.label_pad_x(l)
+			rec.rect = l.size.x
+			var box: Control = cb_gold_box if key in ["gold", "income"] else cb_troops_box
+			if box:
+				rec["box"] = box.size.x
+			rec.ok = rec.need <= rec.rect + 0.5
+			if not rec.ok:
+				out.ok = false
+		out[key] = rec
+	return out
 
 func refresh_all(ema_regen: float, ema_gold: float, txt: bool) -> void:
 	refresh_top()

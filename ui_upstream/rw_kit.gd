@@ -89,6 +89,46 @@ static func font(weight := 500, spacing := 0.0) -> Font:
 static func text_width(t: String, size: int, weight := 500, spacing := 0.0) -> float:
 	return font(weight, spacing).get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
 
+# Worst-case HUD count strings (3-decimal sci, Qd, sign). "1.000e100" is the widest sci.
+const HUD_NUM_CASES := ["9.999e99", "999.9Qd", "1.000e100", "-9.999e99"]
+const HUD_RATE_CASE := "+9.999e99/s"
+
+## Measured pixel width: shaped width + outline + subpixel/hinting/content-scale slack.
+static func shaped_width(font: Font, text: String, fs: int, outline := 0, slack := 4.0) -> float:
+	if font == null or text == "":
+		return 0.0
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+	w += float(maxi(0, outline)) * 2.0
+	# Ceil so a fractional glyph never rounds into a clip; slack covers hinting and 0.8x stretch.
+	return ceilf(w) + slack
+
+static func label_font_of(l: Label) -> Font:
+	var f: Font = l.get_theme_font("font") if l else null
+	return f if f else ThemeDB.fallback_font
+
+static func label_pad_x(l: Control) -> float:
+	var pad := 0.0
+	if l == null:
+		return pad
+	var sb: StyleBox = l.get_theme_stylebox("normal") if l.has_theme_stylebox("normal") else null
+	if sb:
+		pad += sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+	if l is PanelContainer or l is Panel:
+		var ps: StyleBox = l.get_theme_stylebox("panel")
+		if ps:
+			pad += ps.get_margin(SIDE_LEFT) + ps.get_margin(SIDE_RIGHT)
+	return pad
+
+static func hud_num_width(fs := 24, weight := 800) -> float:
+	var f := font(weight)
+	var w := 0.0
+	for s in HUD_NUM_CASES:
+		w = maxf(w, shaped_width(f, s, fs, 0, 4.0))
+	return w
+
+static func hud_rate_width(fs := 12, weight := 700) -> float:
+	return shaped_width(font(weight), HUD_RATE_CASE, fs, 0, 4.0)
+
 # --- style factories (UITheme.flat / empty_box / shadow_box) ---
 static func flat(bg: Color, radius := R_MD, border := CLEAR, bw := 0, mh := 0.0, mv := 0.0) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
@@ -138,19 +178,29 @@ static func fix_width(l: Label, w: float, align := HORIZONTAL_ALIGNMENT_LEFT) ->
 	l.horizontal_alignment = align
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if align == HORIZONTAL_ALIGNMENT_LEFT else TextServer.OVERRUN_NO_TRIMMING
 
-## Shrink font so `text` fits in `max_w`. clip_text stays off (no cutoff).
-static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> void:
+## Shrink font so the *drawn* string is <= `max_w` (padding, outline, and slack included).
+## clip_text stays off. If it still cannot fit at `min_size`, the label's minimum width grows
+## so the parent can expand instead of clipping.
+static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> float:
 	l.text = text
 	l.clip_text = false
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	var font: Font = l.get_theme_font("font")
-	if font == null:
-		font = ThemeDB.fallback_font
+	var f := label_font_of(l)
+	var outline := 0
+	if l.has_theme_constant("outline_size"):
+		outline = l.get_theme_constant("outline_size")
+	var pad := label_pad_x(l)
+	var budget := maxf(1.0, max_w)
 	var fs := max_size
-	while fs > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > max_w:
+	var need := shaped_width(f, text, fs, outline) + pad
+	while fs > min_size and need > budget:
 		fs -= 1
+		need = shaped_width(f, text, fs, outline) + pad
 	l.add_theme_font_size_override("font_size", fs)
+	# Grow rather than clip when even the min font is wider than the budget.
+	l.custom_minimum_size.x = need
+	return need
 
 static func hbox(sep := S2) -> HBoxContainer:
 	var b := HBoxContainer.new()

@@ -47,4 +47,12 @@ func _refresh() -> void:
 	else:
 		var r := _shown
 		t = UITheme.big(floorf(r + 0.5) if r >= 0 else -floorf(-r + 0.5))
-	text = t
+	clip_text = false
+	autowrap_mode = TextServer.AUTOWRAP_OFF
+	text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var budget := maxf(custom_minimum_size.x, size.x)
+	var fs := int(get_meta("base_fs", get_theme_font_size("font_size")))
+	if budget >= 8.0:
+		UITheme.fit_label(self, t, budget, fs, 9)
+	else:
+		text = t

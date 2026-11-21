@@ -278,8 +278,9 @@ func layout() -> void:
 		vp = Vector2(1600, 900)
 	ctx.vp = vp
 	ctx.compact = vp.y < 560.0 or vp.x < 900.0
-	# (the single-row bar: ten slots, plus the Arsenal's SHOP slot and a slot per unlocked kind)
-	ctx.wide = vp.x >= 1420.0 + bar.extra_width() + 62.0 * bar.port_slots.size()
+	# One row only when nation + troops + attack + gold + slots actually fit (boxes are reserved
+	# for the widest HUD strings, including scientific notation).
+	ctx.wide = vp.x >= bar.wide_threshold()
 	# the top-left corner belongs to the top-bar buttons (and the speed chip under them)
 	topbar.layout()
 	var tr := topbar.topbar_rect()

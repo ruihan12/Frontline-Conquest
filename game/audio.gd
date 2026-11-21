@@ -1494,6 +1494,7 @@ func _cycle_report() -> String:
 func _hudfit() -> void:
 	shots_dir = "/workspace/shots/hudfit"
 	DirAccess.make_dir_recursive_absolute(shots_dir)
+	DirAccess.make_dir_recursive_absolute(shots_dir + "/crops")
 	if play_dialog: play_dialog.visible = false
 	map_tab = 0
 	map_i = 0
@@ -1505,44 +1506,29 @@ func _hudfit() -> void:
 	peace = 1e9
 	sim_paused = true
 	_claim_blob(PLAYER, st, 40)
-	nations[PLAYER].gold = 2.345346e23
-	nations[PLAYER].troops = 9.999999e99
-	shown_gold = nations[PLAYER].gold
-	shown_troops = nations[PLAYER].troops
-	if hud:
-		if hud.has_method("show_match"):
-			hud.show_match()
-		if hud.has_method("_toast_now"):
-			hud._toast_now("Pakistan launched Atom Bomb at Vietnam", "alert")
-			hud._toast_now("Huge gold 2.345346e23 / troops 9.999999e99 / 123.4Qd", "info")
-	if has_method("_update_hud"):
-		_update_hud()
-	for _f in 20:
+	if hud and hud.has_method("show_match"):
+		hud.show_match()
+	if hud and hud.has_method("_toast_now"):
+		hud._toast_now("Pakistan launched Atom Bomb at Vietnam", "alert")
+		hud._toast_now("Huge gold 2.345346e23 / troops 9.999999e99 / 123.4Qd", "info")
+	for _f in 16:
 		await get_tree().process_frame
-	nations[PLAYER].gold = 2.345346e23
-	nations[PLAYER].troops = 9.999999e99
-	shown_gold = nations[PLAYER].gold
-	shown_troops = nations[PLAYER].troops
-	if hud and hud.has_method("refresh_all"):
-		hud.refresh_all(0.0, 0.0, true)
-	for _f in 2:
-		await get_tree().process_frame
-	if hud and hud.cb_gold:
-		print("HUDFIT label gold='%s' troops='%s' shown_gold=%s fmt=%s" % [hud.cb_gold.text, hud.cb_troops.text if hud.cb_troops else "?", shown_gold, _fmt_hud(shown_gold)])
-	# After (live HUD + toast) at both resolutions.
-	await _capture_at("after_hud_toast", 1280, 720)
-	await _capture_at("after_hud_toast", 2560, 1440)
-	# Side-by-side before/after icon comparison (old 14 px nearest vs new 20 px mip-linear).
-	_show_icon_compare()
-	for _f in 8:
-		await get_tree().process_frame
-	await _capture_at("icon_compare", 1280, 720)
-	await _capture_at("icon_compare", 2560, 1440)
-	print("HUDFIT wrote shots under ", shots_dir)
-	get_tree().quit()
+	var fail := 0
+	# Live 2.345e23 (the overflow the user saw) plus the worst-case string set, at each size.
+	for pair in [[2.345346e23, 9.999999e99, "live"], [9.999999e99, 9.999999e99, "worst"]]:
+		nations[PLAYER].gold = float(pair[0])
+		nations[PLAYER].troops = float(pair[1])
+		shown_gold = nations[PLAYER].gold
+		shown_troops = nations[PLAYER].troops
+		if client and client.bar:
+			client.bar._hold_count_texts = false
+			client.bar.snap_counts(float(pair[0]), float(pair[1]))
+		for res in [[1280, 720], [1920, 1080], [2560, 1440]]:
+			fail += await _hudfit_res(str(pair[2]), int(res[0]), int(res[1]))
+	print("HUDFIT done fails=%d shots under %s" % [fail, shots_dir])
+	get_tree().quit(1 if fail else 0)
 
-func _capture_at(tag: String, w: int, h: int) -> void:
-	# Same layout as a player window: 1600x900 UI stretched (keep aspect) into a w x h framebuffer.
+func _hudfit_res(tag: String, w: int, h: int) -> int:
 	var win := get_window()
 	if win:
 		win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
@@ -1551,20 +1537,114 @@ func _capture_at(tag: String, w: int, h: int) -> void:
 		win.size = Vector2i(w, h)
 	if get_viewport():
 		get_viewport().size = Vector2i(w, h)
-	nations[PLAYER].gold = 2.345346e23
-	nations[PLAYER].troops = 9.999999e99
+	# Re-apply values after the resize (some layout paths rebuild).
 	shown_gold = nations[PLAYER].gold
 	shown_troops = nations[PLAYER].troops
-	if hud and hud.has_method("refresh_all"):
-		hud.refresh_all(0.0, 0.0, true)
-	for _f in 14:
+	var bar: CommandBar = client.bar if client else null
+	if client and client.has_method("layout"):
+		client.layout()
+	if bar:
+		bar.apply_layout()
+		if tag == "worst":
+			# Exact strings requested, including a negative gold and 999.9Qd cap / rate.
+			bar.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s")
+		else:
+			bar.snap_counts(nations[PLAYER].gold, nations[PLAYER].troops)
+			bar._income.text = UITheme.hud_rate(850.0)
+			bar._growth.text = "+0/s"
+			bar._fit_count_labels()
+	if hud:
+		if tag == "worst" and hud.has_method("apply_count_texts"):
+			hud.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s (999%)")
+		elif hud.has_method("refresh_all"):
+			hud.refresh_all(9.999e99, 9.999e99, true)
+		if hud.has_method("_fit_count_labels"):
+			hud._fit_count_labels()
+		if hud.has_method("layout"):
+			hud.layout()
+	for _f in 16:
 		await get_tree().process_frame
-	if hud and hud.cb_gold:
-		print("HUDFIT %s_%dx%d label gold='%s' troops='%s'" % [tag, w, h, hud.cb_gold.text, hud.cb_troops.text if hud.cb_troops else "?"])
+		if client and client.has_method("layout"):
+			client.layout()
+		if bar:
+			if tag == "worst":
+				bar.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s")
+			else:
+				bar.snap_counts(nations[PLAYER].gold, nations[PLAYER].troops)
+				bar._income.text = UITheme.hud_rate(850.0)
+				bar._growth.text = "+0/s"
+				bar._fit_count_labels()
+		if hud and hud.has_method("_fit_count_labels"):
+			hud._fit_count_labels()
+	if client and client.has_method("layout"):
+		client.layout()
+	if hud and hud.has_method("layout"):
+		hud.layout()
+	await get_tree().process_frame
+	var fail := 0
+	var rec: Dictionary = {}
+	if bar and bar.has_method("counts_fit"):
+		rec = bar.counts_fit()
+	elif hud and hud.has_method("counts_fit"):
+		rec = hud.counts_fit()
+	if rec:
+		var ok: bool = bool(rec.get("ok", false))
+		print("HUDFIT %s_%dx%d %s gold='%s' need=%.1f rect=%.1f box=%.1f | troops='%s' need=%.1f rect=%.1f" % [
+			tag, w, h, "PASS" if ok else "FAIL",
+			str(rec.get("gold", {}).get("text", "")),
+			float(rec.get("gold", {}).get("need", 0)),
+			float(rec.get("gold", {}).get("rect", 0)),
+			float(rec.get("gold", {}).get("box", 0)),
+			str(rec.get("troops", {}).get("text", "")),
+			float(rec.get("troops", {}).get("need", 0)),
+			float(rec.get("troops", {}).get("rect", 0))])
+		if not ok:
+			fail = 1
+			print("HUDFIT DETAIL ", rec)
 	_shot("%s_%dx%d.png" % [tag, w, h])
+	_hudfit_crops(tag, w, h)
+	return fail
+
+func _hudfit_crops(tag: String, w: int, h: int) -> void:
 	var im: Image = get_viewport().get_texture().get_image()
-	if im:
-		print("HUDFIT %s_%dx%d framebuffer=%dx%d" % [tag, w, h, im.get_width(), im.get_height()])
+	if im == null:
+		return
+	var dest := shots_dir + "/crops"
+	DirAccess.make_dir_recursive_absolute(dest)
+	var bar: CommandBar = client.bar if client else null
+	var bar_ctrl: Control = bar.panel if bar else (hud.bar if hud else null)
+	var gold_ctrl: Control = bar._gold_box if bar else (hud.cb_gold_box if hud else null)
+	var troops_ctrl: Control = bar._troops_box if bar else (hud.cb_troops_box if hud else null)
+	if bar_ctrl:
+		_crop_ctrl(im, bar_ctrl, 8, "%s/bar_%s_%dx%d.png" % [dest, tag, w, h])
+	if gold_ctrl:
+		_crop_ctrl(im, gold_ctrl, 10, "%s/gold_%s_%dx%d.png" % [dest, tag, w, h])
+	if troops_ctrl:
+		_crop_ctrl(im, troops_ctrl, 10, "%s/troops_%s_%dx%d.png" % [dest, tag, w, h])
+
+func _crop_ctrl(im: Image, c: Control, pad: int, path: String) -> void:
+	if c == null or not is_instance_valid(c):
+		print("HUDFIT crop skip (null) ", path)
+		return
+	var r := c.get_global_rect()
+	var xf := c.get_viewport_transform()
+	var p0: Vector2 = xf * r.position
+	var p1: Vector2 = xf * (r.position + r.size)
+	var x0 := mini(int(floor(p0.x)), int(floor(p1.x)))
+	var y0 := mini(int(floor(p0.y)), int(floor(p1.y)))
+	var x1 := maxi(int(ceil(p0.x)), int(ceil(p1.x)))
+	var y1 := maxi(int(ceil(p0.y)), int(ceil(p1.y)))
+	var x := maxi(0, x0 - pad)
+	var y := maxi(0, y0 - pad)
+	var w := mini(im.get_width() - x, (x1 - x0) + pad * 2)
+	var h := mini(im.get_height() - y, (y1 - y0) + pad * 2)
+	print("HUDFIT crop-src ", path, " global=", r, " fb=", Rect2i(x, y, w, h), " img=", im.get_size())
+	if w <= 2 or h <= 2:
+		print("HUDFIT crop skip (empty) ", path)
+		return
+	var crop := im.get_region(Rect2i(x, y, w, h))
+	crop.save_png(path)
+	print("HUDFIT crop ", path, " ", crop.get_size())
 
 func _show_icon_compare() -> void:
 	var layer := CanvasLayer.new()

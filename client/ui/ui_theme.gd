@@ -432,9 +432,10 @@ static func set_font_color(ctl: Control, col: Color, prop: String = "font_color"
 
 # Lock a label to a fixed width: it clips instead of growing its container and (tabular) draws digits
 # in equal-width cells so animated numbers do not jitter.
-static func fix_width(l: Label, w: float, align: int = HORIZONTAL_ALIGNMENT_LEFT, tabular: bool = true) -> void:
-	l.clip_text = true
-	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING if tabular else TextServer.OVERRUN_TRIM_ELLIPSIS
+static func fix_width(l: Label, w: float, align: int = HORIZONTAL_ALIGNMENT_LEFT, tabular: bool = true, clip: bool = true) -> void:
+	l.clip_text = clip
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING if (tabular or not clip) else TextServer.OVERRUN_TRIM_ELLIPSIS
 	l.custom_minimum_size.x = w
 	l.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	l.horizontal_alignment = align
@@ -629,6 +630,12 @@ static func fmt_rate(v: float) -> String:
 		return "±0/s"
 	return ("+" if v > 0 else "−") + _format_troops(absf(v)) + "/s"
 
+## HUD rate: 3-decimal scientific past Qd, so it matches the count labels.
+static func hud_rate(v: float) -> String:
+	if absf(v) < 0.5:
+		return "±0/s"
+	return ("+" if v > 0 else "−") + hud_num(absf(v)) + "/s"
+
 # Tight HUD / map labels: same suffixes as big(), but scientific notation uses 3 decimals.
 static func hud_num(v: float) -> String:
 	return big(v, 3)
@@ -642,16 +649,52 @@ static func render_number_hud(num: float) -> String:
 	if num >= 1_000_000_000.0: return big(num, 3)
 	return render_number(num)
 
-## Shrink a label's font until `text` fits in `max_w` pixels. clip_text stays off.
-static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> void:
+## Worst-case HUD count / rate strings (3-decimal sci past Qd). Used to reserve box width.
+const HUD_NUM_CASES: PackedStringArray = ["9.999e99", "999.9Qd", "1.000e100", "-9.999e99"]
+const HUD_RATE_CASE := "+9.999e99/s"
+const HUD_CAP_CASE := "/ 1.000e100"
+
+## Tabular width of the widest HUD count, plus slack for hinting / content-scale.
+static func hud_count_width(size: float, weight: float = 700.0) -> float:
+	var w := 0.0
+	for s in HUD_NUM_CASES:
+		w = maxf(w, text_width(s, size, weight) + 4.0)
+	return w
+
+static func hud_rate_width(size: float, weight: float = 700.0) -> float:
+	return text_width(HUD_RATE_CASE, size, weight) + 4.0
+
+static func hud_cap_width(size: float, weight: float = 500.0) -> float:
+	return text_width(HUD_CAP_CASE, size, weight) + 4.0
+
+## Drawn width of `text` on `l` at font size `fs` (the font actually used to draw, plus outline, stylebox pad, slack).
+static func label_need_width(l: Label, text: String, fs: int) -> float:
+	var f: Font = l.get_theme_font("font")
+	if f == null:
+		f = ThemeDB.fallback_font
+	var outline := 0
+	if l.has_theme_constant("outline_size"):
+		outline = l.get_theme_constant("outline_size")
+	var pad := 0.0
+	var sb: StyleBox = l.get_theme_stylebox("normal") if l.has_theme_stylebox("normal") else null
+	if sb:
+		pad += sb.get_margin(SIDE_LEFT) + sb.get_margin(SIDE_RIGHT)
+	return ceilf(f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + float(outline) * 2.0) + 4.0 + pad
+
+## Shrink a label's font until the measured string is <= `max_w`. clip_text stays off.
+## If the string is still wider at min_size, the label's custom_minimum_size grows rather than clipping.
+## An already-reserved min width is kept when the string is shorter, so the bar does not jiggle.
+static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> float:
 	l.text = text
 	l.clip_text = false
 	l.autowrap_mode = TextServer.AUTOWRAP_OFF
 	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
-	var font: Font = l.get_theme_font("font")
-	if font == null:
-		font = ThemeDB.fallback_font
 	var fs := max_size
-	while fs > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > max_w:
+	var need := label_need_width(l, text, fs)
+	while fs > min_size and need > max_w:
 		fs -= 1
+		need = label_need_width(l, text, fs)
 	l.add_theme_font_size_override("font_size", fs)
+	if need > maxf(max_w, l.custom_minimum_size.x):
+		l.custom_minimum_size.x = need
+	return need
