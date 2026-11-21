@@ -55,5 +55,20 @@ func _init() -> void:
 	# Qa/Qi and the later names must be gone; 1e18 is already scientific, not a suffix.
 	_check(str("Qa" in UITheme.big(1e18) or "Qi" in UITheme.big(1e18) or "Qt" in UITheme.big(1e18)), "false", "no Qa/Qi/Qt at 1e18")
 
+	# Troops: /10 normally (upstream render_troops), /1 in the real-pop 1:1 mode (troops are people).
+	UITheme.troop_div = 10.0
+	_check(UITheme.fmt_troops(25000.0), "2.50K", "fmt_troops normal 25000")
+	_check(UITheme.fmt_troops(1170000.0), "117K", "fmt_troops normal 1.17M")
+	UITheme.troop_div = 1.0
+	_check(UITheme.fmt_troops(348e6), "348.0M", "fmt_troops 1:1 USA 348M (upstream render_number: one decimal from 10M)")
+	_check(UITheme.fmt_troops(7425000.0), "7.42M", "fmt_troops 1:1 human start")
+	_check(UITheme.fmt_troops(309416.0), "309K", "fmt_troops 1:1 city level")
+	_check(UITheme.fmt_troops(1.43e9), "1.43B", "fmt_troops 1:1 China")
+	_check(UITheme.fmt_troops(8.192e9), "8.19B", "fmt_troops 1:1 World")
+	_check(UITheme.fmt_troops(2.5e12), "2.50T", "fmt_troops 1:1 2.5T")
+	_check(UITheme.fmt_troops(4.2e15), "4.20Qd", "fmt_troops 1:1 Qd")
+	_check(UITheme.fmt_troops(1.343452e23), "1.343452e23", "fmt_troops 1:1 e-notation")
+	UITheme.troop_div = 10.0
+
 	print("NUMBER_FORMAT_TEST %s fails=%d" % ["PASS" if fails == 0 else "FAIL", fails])
 	quit(1 if fails else 0)
