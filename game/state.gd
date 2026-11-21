@@ -750,6 +750,9 @@ func _tick_air_cargo(dt: float) -> void:
 func _akey(a: int, b: int) -> int:
 	return 0  # forward declaration; implemented in game/diplomacy.gd
 
+func shielded(id: int) -> bool:
+	return false  # forward declaration; implemented in game/nations.gd
+
 func allied(a: int, b: int) -> bool:
 	return false  # forward declaration; implemented in game/diplomacy.gd
 
