@@ -418,7 +418,7 @@ func _audiotest() -> void:
 	print("AUDIOTEST gameplay_ms=%d tick=%d boats=%d attacks=%d" % [Time.get_ticks_msec() - t0, sim_atk.tick if sim_atk else -1, boats.size(), attacks.size()])
 	print("AUDIOTEST map=%dx%d blast_s=%.4f" % [W, H, BLAST_S])
 	for k in [7, 8, 9, 11, 12]:
-		print("AUDIOTEST nuke k=%d frac=%.4f radius=%.2f" % [k, float(NUKE_RANGE_FRAC[k]), float(NUKE_R[k])])
+		print("AUDIOTEST nuke k=%d radius=%.2f" % [k, float(NUKE_R[k])])
 	var slow := clampf(snappedf(0.4, 0.5), 0.5, 10.0)
 	var fast := clampf(snappedf(12.0, 0.5), 0.5, 10.0)
 	print("AUDIOTEST speed_lo=%.1f speed_hi=%.1f" % [slow, fast])

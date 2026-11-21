@@ -176,6 +176,7 @@ func _process_inner(dt: float) -> void:
 			a0 = Time.get_ticks_usec()
 			_economy(0.1)
 			sim_ars.tick()
+			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
 			_requests_tick()
 			sim_ws.tick()
 			_trains_tick()
@@ -183,7 +184,7 @@ func _process_inner(dt: float) -> void:
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
-		_tick_missiles(dt); _fp["missiles"] = Time.get_ticks_usec() - u0; _pf_add("missiles", _fp.missiles); u0 = Time.get_ticks_usec()
+		_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
 		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 		_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
@@ -1025,7 +1026,7 @@ func _draw_overlay_inner() -> void:
 			var ok: bool = build_req(build_sel, mt) == "" and nations[PLAYER].gold >= build_cost(PLAYER, build_sel)
 			var mp := get_viewport().get_mouse_position()
 			var rr := {3: sim_rules.defense_range, 4: sim_rules.sam_range(1), 10: sim_rules.artillery_range()}.get(build_sel, 0.0) as float
-			if build_sel in NUKES: rr = float(NUKE_R[build_sel]) if build_sel != 12 else sim_rules.scatter_far()
+			if build_sel in NUKES: rr = sim_rules.nuke_radii(SimRules.NUKE_KIND_OF[build_sel]).y if build_sel == 9 else float(NUKE_R[build_sel])  # (MapView.set_aim: the kind's outer radius; MIRV its spread)
 			var strike_aim := _is_strike_click(build_sel, mt, PLAYER)
 			if strike_aim: rr = sim_rules.strike_radius(SimRules.N_AIRSTRIKE if build_sel == 14 else SimRules.N_SLUG)
 			if build_sel == 14 and ranges == null:
@@ -1039,18 +1040,11 @@ func _draw_overlay_inner() -> void:
 				overlay.draw_arc(mp, rr * TS * z, 0, TAU, 64, Color(cc, 0.85), 2.0)
 			if build_sel in NUKES:
 				var tpw := Vector2(mt % W + 0.5, mt / W + 0.5)
-				var inr := icbm_mode or not silo_for(PLAYER, build_sel, tpw).is_empty()
-				if not icbm_mode:
-					var rpx := nuke_range(build_sel) * TS * z
-					for st in structs:
-						if st.o == PLAYER and st.k == 5 and st.get("bt", 0.0) <= 0.0:
-							var sp0 := _screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)
-							overlay.draw_circle(sp0, rpx, Color(1, 0.55, 0.2, 0.06))
-							overlay.draw_arc(sp0, rpx, 0, TAU, 128, Color(1, 0.6, 0.25, 0.9), 2.0, true)
+				var inr := not silo_for(PLAYER, build_sel, tpw).is_empty()
 				var tgt := _tex("ui_icons/target.png")
 				if tgt: overlay.draw_texture_rect(tgt, Rect2(mp - Vector2(14, 14), Vector2(28, 28)), false, Color(1, 0.3, 0.25) if inr else Color(0.5, 0.5, 0.5, 0.8))
-				var lbl := ("ICBM  +10%%  (%s)" % _fmt(nuke_cost(build_sel)) if icbm_mode else nuke_range_label(build_sel)) + ("" if inr else "  ·  OUT OF RANGE")
-				overlay.draw_string(f_bold, mp + Vector2(18, -14), lbl, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.5) if inr else Color(1, 0.4, 0.35))
+				if icbm_mode:
+					overlay.draw_string(f_bold, mp + Vector2(18, -14), "ICBM  +10%%  (%s)" % _fmt(nuke_cost(build_sel)), HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(1, 0.8, 0.5))
 			if build_sel == 2:
 				for st in structs:
 					if st.o == PLAYER and st.k == 2:

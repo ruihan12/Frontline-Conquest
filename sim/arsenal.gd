@@ -1,14 +1,13 @@
-# Port of RoWorld src/shared/Core/SimNukes.luau + SimArsenal.luau (AGPL-3.0, lukechatton/roworld @ae7a350).
-# Runs on the sim clock (10 ticks/s). Missile *flight* stays on the port's own clock (user: faster nukes,
-# countdown); everything the source times in ticks (SAM / silo / airfield / railgun reloads, battery gaps,
-# SAM missile flight, construction, reinforcements) is ticked here.
-# Kept custom (user): blast radii (main.NUKE_R, x2.8), nuke range fractions + ICBM, MIRV bus/branch pattern.
+# Port of RoWorld src/shared/Core/SimNukes.luau + SimArsenal.luau (AGPL-3.0, lukechatton/roworld).
+# Runs on the sim clock (10 ticks/s): bomb flight (game/nukes.gd: launch tick + flight ticks), SAM / silo /
+# airfield / railgun reloads, battery gaps, SAM missile flight, construction, reinforcements.
+# Blast radii, SAM range / reload and the MIRV are upstream's.
 extends RefCounted
 class_name SimArsenal
 
 var g
 var R: SimRules
-const DT_TICK := 0.02   # port missile clock seconds per sim tick (0.1 s * SPEED_BASE 0.2)
+const DT_TICK := 0.02   # missile.t / missile.dur units per sim tick (the old missile-clock view)
 var munitions := []     # shells / air strikes / slugs in flight: {nk,o,from:Vector2,to:Vector2,tile,t0,t1}
 var sam_shots := []     # SAM missiles in flight (visual): {from:Vector2, to:Vector2, t0, t1, o}
 var stats := {"sam_fired": 0, "sam_hits": 0, "shells": 0, "strikes": 0, "struct_dmg": 0, "struct_down": 0, "killed": 0}
@@ -290,8 +289,8 @@ func disk_tiles(c: int, r: float) -> PackedInt32Array:
 # ---------------------------------------------------------------- nuke blasts (SimNukes._detonate)
 # Every land tile of the inner radius and a random half of the outer ring is relinquished and left as
 # fallout; each hit owner loses troops by nukeDeathFactor (its attacks and transports too); every
-# structure and unit inside the outer radius is destroyed. Radius `r` is the port's (custom) radius,
-# the inner disc is the source's inner/outer share for that kind.
+# structure and unit inside the outer radius is destroyed. `r`: the outer radius (Rules.nuke_radii, or a
+# console-edited NUKE_R); the inner disc is the source's inner/outer share for that kind.
 func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 	var W: int = g.W; var H: int = g.H
 	var cx := int(c.x); var cy := int(c.y)
@@ -312,7 +311,7 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 			lost[ow] += 1
 			g._set_owner(tt, g.NEUTRAL)
 		g.fallout[tt] = 1; g.fallout_list[tt] = true
-		g.fallout_t[tt] = 60.0
+		g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
 		if g.fallout_glow != null: g.fallout_glow.on_fallout(tt)
 		fallout_n += 1
 		g._repaint(tt)
@@ -422,10 +421,24 @@ func interceptable(ms) -> bool:
 	return SimRules.NUKE_INTERCEPT_P[int(ms.get("nk", 0))] > 0.0
 
 func flight_ticks(ms) -> int:
-	return maxi(1, int(ceil(float(ms.dur) / DT_TICK)))
+	return maxi(1, int(ms.get("ft", ceili(float(ms.dur) / DT_TICK))))
 
+func _cur_k(ms) -> int:
+	return now() - int(ms.lt) if ms.has("lt") else int(floor(float(ms.t) / DT_TICK))
+
+# SimNukes._sam_candidates traj: the tile under the missile at tick k of its flight, along its arc
+# (Rules.nuke_arc_at(arc, k / flight), floored to the tile), as that tile's centre
 func _traj(ms, k: int) -> Vector2:
-	return (ms.from as Vector2).lerp(ms.to, clampf(k * DT_TICK / maxf(0.001, float(ms.dur)), 0.0, 1.0))
+	var traj = ms.get("traj")
+	if traj == null:
+		var ft := flight_ticks(ms)
+		var arc: Dictionary = g._missile_arc(ms)
+		traj = PackedVector2Array(); traj.resize(ft + 1)
+		for i in ft + 1:
+			var p: Vector2 = SimRules.nuke_arc_at(arc, float(i) / float(ft))
+			traj[i] = Vector2(clampf(floorf(p.x), 0.0, g.W - 1) + 0.5, clampf(floorf(p.y), 0.0, g.H - 1) + 0.5)
+		ms["traj"] = traj
+	return traj[clampi(k, 0, traj.size() - 1)]
 
 func _sam_candidates(ms, sams: Array) -> void:
 	ms["cand_tick"] = now() + SimRules.SAM_CAND_REFRESH_TICKS
@@ -444,7 +457,7 @@ func _man_v(a: Vector2, b: Vector2) -> float:
 
 func _sam_plan(ms, st) -> void:
 	var t := now()
-	var cur := maxi(0, int(floor(float(ms.t) / DT_TICK)))
+	var cur := maxi(0, _cur_k(ms))
 	var last := flight_ticks(ms)
 	var zone := SimRules.NUKE_TARGETABLE_FULL / R.k_lin
 	var z2 := zone * zone
@@ -500,7 +513,7 @@ func _sam_tick(t: int) -> void:
 				_sam_plan(ms, st)
 				plan = int(ms.plan_fire[key])
 			if plan >= 0 and plan <= t + 1:
-				var rem := flight_ticks(ms) - int(floor(float(ms.t) / DT_TICK))
+				var rem := flight_ticks(ms) - _cur_k(ms)
 				var score := (70001 if int(ms.get("nk", 0)) == SimRules.N_HYDROGEN else 0) \
 					+ maxi(0, 200000 - int(_man_v(tpos(st.tile, g.W), ms.to) * R.k_lin) * 1000) \
 					+ maxi(0, 10000 - rem * 100)
@@ -534,11 +547,14 @@ func sam_resolve(ms) -> bool:
 	ms["shot_down"] = true  # (read by the client's alert banner: it turns green)
 	SimWarships.erase_ref(g.missiles, ms)
 	stats.sam_hits += 1
-	var f := clampf(int(ms.get("sam_k", 0)) * DT_TICK / maxf(0.001, float(ms.dur)), 0.0, 1.0)
-	var ip: Vector2 = g._missile_world_pos(ms, f)
-	g.blasts.append({"pos": ip, "r": 6.0 * g.BLAST_S * g.TS, "t": 0.0, "dur": 0.7, "seed": int(ms.to.x * 31 + ms.to.y * 17), "kind": "sam"})
+	# MapView._on_nuke_detonated (radius 0): an airburst where the nuke was, a pop ring and the SAM burst
+	var f := clampf(float(int(ms.get("sam_k", 0))) / float(flight_ticks(ms)), 0.0, 1.0)
+	var ip: Vector2 = g._missile_world_pos(ms, f) / g.TS
+	if g.fx_layer != null:
+		g.fx_layer.pop(int(floor(ip.y)) * g.W + int(floor(ip.x)), Color(1, 0.85, 0.5))
+		g.fx_layer.burst("sam", ip.x, ip.y)
 	if st.o == g.PLAYER or ms.o == g.PLAYER:
-		g.sfx("sam_hit", 0.0, 0.04, g.PLAYER); g._add_shake(1.8)
+		g.sfx("sam_hit", 0.0, 0.04, g.PLAYER)
 	if int(ms.get("nk", 0)) != SimRules.N_WARHEAD:
 		var title: String = g.build_data[ms.k][1]
 		if st.o == g.PLAYER: g.notify("Your SAM shot down %s from %s" % [title, g._nname(ms.o)], "good")

@@ -495,15 +495,14 @@ func nukes() -> Dictionary:
 		var to: Vector2 = ms.to
 		var tx := int(to.x)
 		var ty := int(to.y)
-		var left_ticks := maxf(0.0, float(ms.dur) - float(ms.t)) / SimArsenal.DT_TICK
 		_nukes[int(ms.cuid)] = {
 			"uid": int(ms.cuid),
 			"owner": int(ms.o),
 			"kind": int(ms.get("nk", SimRules.NUKE_KIND_OF.get(int(ms.k), 0))),
 			"to_tile": ty * w + tx if (tx >= 0 and ty >= 0 and tx < w and ty < g.H) else -1,
 			"target_owner": int(ms.get("tgt_o", -1)),
-			"launch_tick": t,
-			"flight_ticks": left_ticks,
+			"launch_tick": int(ms.get("lt", t)),
+			"flight_ticks": int(ms.get("ft", 1)),
 			"raw": ms,
 		}
 	return _nukes

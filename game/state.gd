@@ -343,9 +343,11 @@ var _oc_cnt := {}
 var def_posts := {}  # owner -> PackedInt32Array of finished defense post tiles (rebuilt each tick)
 var _ai_place_budget := 0  # AI placement searches (flood fills) left this tick
 # ================= v5 systems: weapons, ships, notifications =================
-# RoWorld radii (7/25/3/15/7 at 640x352) scaled by the map's linear scale so each bomb covers the same share of the map
+# (legacy map scale, no longer used for nuke radii)
 const BLAST_S := float(W) / 640.0
-var NUKE_R := {7: 7.0 * BLAST_S, 8: 25.0 * BLAST_S, 9: 3.0 * BLAST_S, 11: 15.0 * BLAST_S, 12: 7.0 * BLAST_S}
+# Outer blast radius per bomb build id in our tiles: upstream Rules.NUKE_OUTER_FULL / k_lin (atom 30,
+# hydrogen 100, warhead 18 for the MIRV, mega 60, scatter 30). game/nukes.gd refreshes it for the map's k_lin.
+var NUKE_R := {7: 30.0, 8: 100.0, 9: 18.0, 11: 60.0, 12: 30.0}
 var mirv_enabled := true
 var god_mode := false
 var inf_gold := false
@@ -371,6 +373,7 @@ const PROT_NAMES := [
 var fallout := PackedByteArray()
 var fallout_list := {}  # tiles with fallout == 1
 var fallout_t := PackedFloat32Array()
+var fallout_hot := {}  # tiles whose fallout_t (glow heat clock) is still counting down
 var struct_at := {}
 var missiles := []   # {o,k,from:Vector2,to:Vector2,t,dur,tile,r,mirv}
 var warships := []   # {o,pos:Vector2(tile),home,hp,vet,kills,tgt:Vector2,cd}
@@ -390,19 +393,10 @@ var art_t := 0.0
 var neigh_cache := [-1, 0]
 
 # ---------- nukes ----------
-# ---- weapon ranges (IRL ranges scaled to map: World map = 1792 tiles for ~40,000 km => ~22.3 km/tile) ----
-const KM_PER_TILE := 40000.0 / 1792.0
-# 7 Atom: IRBM-class 3,000 km | 8 Hydrogen: 5,500 km (ICBM threshold) | 9 MIRV: 13,000 km (Minuteman III-class ICBM)
-# 11 Mega Nuke: 4,000 km | 12 Scattershot: 1,000 km (tactical/SRBM class)
-const NUKE_RANGE_KM := {7: 21060.0, 8: 23400.0, 9: 52000.0, 11: 22230.0, 12: 25740.0}
-const ICBM_FEE_PCT := 0.10  # ICBM upgrade: +10% of the launched bomb's price, any range
+# Vanilla: silos reach the whole map (Rules.launch_range 0 for bombs) and bombs fly upstream's speeds.
+const ICBM_FEE_PCT := 0.10  # ICBM toggle (key I, kept custom): +10% of the player's bomb price
 var icbm_mode := false
-# range = fraction of the current map's playable (land) width; World ratios over 40,000 km
-const NUKE_RANGE_FRAC := {7: 0.5265, 8: 0.585, 9: 1.3, 11: 0.5558, 12: 0.6435}
-const NUKE_RANGE_SCALE := 0.375  # user: all bomb ranges x0.375 (ICBM mode still ignores range)
 var _land_w := -1.0
-# nukes fly 1.5x (short shots) up to 2.5x (>= 1000 tiles) faster
-# NUKE_SPEED_MULT removed: nuke speed now matches upstream (see game/nukes.gd nuke_speed_mult)
 var mirvs_launched := 0  # Rules.nuke_cost: MIRV +15M per MIRV already launched in the match (Rules.luau 785-789)
 const RAIL_KINDS := [0, 1, 2, 3, 4, 5]  # city, port, factory, defense post, SAM, silo: any two can be linked
 var _rail_nb_cache := {}
@@ -725,7 +719,7 @@ func notify(text: String, kind := "info") -> void:
 func _nname(id: int) -> String:
 	return ""  # forward declaration; implemented in game/economy.gd
 
-func nuke_cost(k: int) -> float:
+func nuke_cost(k: int, o := -1) -> float:
 	return 0.0  # forward declaration; implemented in game/nukes.gd
 
 func set_icbm(on: bool) -> void:

@@ -12,7 +12,7 @@
 #   * shells, air strikes and slugs (the Arsenal's munitions) and SAM missiles are small sprites
 #     flying straight to their target;
 #   * a selected warship wears a white ring two sprites wide.
-# (nukes: draw_nukes; the countdown pill and the contrail-free extras stay in game/planes_fx.gd)
+# (nukes: draw_nukes, called from game/planes_fx.gd)
 # (The sim here moves ships, trains and warships itself: main.gd's lists. This layer draws them; the
 # bomb missiles keep the game's own contrail drawing in game/planes_fx.gd.)
 class_name UnitLayer
@@ -37,7 +37,11 @@ const COL_MIRV := 5
 const COL_WARHEAD := 8
 const TRAIL_STEP := 2.0
 const TRAIL_WIDTH := 0.9
-const TRAIL_MAX := 90
+## Map/TrailBudget.luau: the most dots one trail has, dots for all trails per redraw, MIRV warheads keep
+## their target rings only while at most RING_MAX munitions fly
+const TRAIL_MAX := 160
+const TRAIL_BUDGET := 800
+const TRAIL_RING_MAX := 24
 const MEGA_SCALE := 1.5
 const COL_SHELL := 7
 const COL_TRAIN := 9
@@ -191,10 +195,11 @@ func draw(ci: CanvasItem) -> void:
 
 
 
-## Upstream's nukes: the curve flown so far as a solid trail (a line through points every TRAIL_STEP
-## full-size tiles, TRAIL_WIDTH tiles thick, at least 2 px, in the owner's colour), the bomb's sprite at its
-## head and, for the atom, hydrogen bomb and warhead, the blast ring on the target, pulsing (red when it
-## falls on the local player). Returns each missile's head position by index for the countdown pill.
+## Upstream's nukes (UnitLayer.luau 566-660): the curve flown so far as a solid trail (a line through points
+## every TRAIL_STEP full-size tiles, TRAIL_WIDTH tiles thick, at least 2 px, in the owner's colour; the newest
+## TrailBudget dots only), the bomb's sprite at its head and, for every kind but the MIRV bus, the blast ring
+## on the target, pulsing (red when it falls on the local player); warheads lose their rings while many fly.
+## Positions come from the flight fraction (sim ticks + the tick in progress) on the map, then the camera.
 func draw_nukes(ci: CanvasItem) -> Dictionary:
 	var heads := {}
 	var vp: Vector2 = g.get_viewport_rect().size
@@ -203,10 +208,11 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 	var ppt: float = g.cam.zoom.x * g.TS
 	var thick := maxf(2.0, roundf(ppt / k * TRAIL_WIDTH))
 	var now := FrameClock.now()
+	var flying: int = g.missiles.size()
+	var trail_dots: int = mini(TRAIL_MAX, TRAIL_BUDGET / maxi(flying, 1))
+	var rings_for_warheads: bool = flying <= TRAIL_RING_MAX
 	for ms in g.missiles:
-		if ms.t < 0.0:
-			continue
-		var f: float = clampf(ms.t / maxf(0.01, ms.dur), 0.0, 1.0)
+		var f: float = g.missile_frac(ms)
 		var nk := int(ms.get("nk", SimRules.N_ATOM))
 		var col_i := COL_ATOM
 		match nk:
@@ -218,9 +224,9 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 		var steps := clampi(int(floor((dist * 1.4 + 1.0) * k / TRAIL_STEP)), 2, TRAIL_MAX)
 		var newest := int(floor(float(steps) * f))
 		var pts := PackedVector2Array()
-		for i in range(0, newest + 1):
-			pts.append(g._missile_screen_pos(ms, float(i) / float(steps), 1.0))
-		var head: Vector2 = g._missile_screen_pos(ms, f, 1.0)
+		for i in range(maxi(0, newest - trail_dots + 1), newest + 1):
+			pts.append(g._missile_screen_pos(ms, float(i) / float(steps)))
+		var head: Vector2 = g._missile_screen_pos(ms, f)
 		pts.append(head)
 		if pts.size() >= 2:
 			ci.draw_polyline(pts, Color(c.r, c.g, c.b, TRAIL_ALPHA), thick, false)
@@ -228,10 +234,12 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 		if _on_screen(head, spx, vp):
 			sprite(ci, col_i, c, head, spx)
 		heads[ms] = head
-		if nk == SimRules.N_MIRV or ms.get("mirv_bus", false):
+		if nk == SimRules.N_WARHEAD and not rings_for_warheads:
+			continue
+		if nk == SimRules.N_MIRV:
 			continue
 		var tgt: Vector2 = g._screen_of((ms.to as Vector2) * g.TS)
-		var rad := maxf(4.0, float(ms.r) * g.TS * g.cam.zoom.x)
+		var rad := maxf(4.0, float(ms.r) * ppt)
 		if tgt.x < -rad or tgt.y < -rad or tgt.x > vp.x + rad or tgt.y > vp.y + rad:
 			continue
 		var tile: int = int(ms.to.y) * int(g.W) + int(ms.to.x)

@@ -28,7 +28,7 @@ func gold_rate(id: int) -> float:
 
 func build_cost(id: int, k: int) -> float:
 	var base: float = build_data[k][2]
-	if k in NUKES: return nuke_cost(k)
+	if k in NUKES: return nuke_cost(k, id)
 	if k == 13: return base
 	var rw_names := {0: "city", 3: "defense", 4: "sam", 5: "silo", 10: "artillery", 14: "airfield", 15: "railgun"}
 	if k == 1 or k == 2: return SimRules.build_cost("port", owned(id, 1) + owned(id, 2))

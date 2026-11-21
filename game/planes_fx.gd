@@ -250,76 +250,9 @@ func _draw_world_fx(z: float) -> void:
 		overlay.draw_polyline(hull + PackedVector2Array([hull[0]]), col.darkened(0.6), 1.5)
 		if ws.vet > 0:
 			for v in ws.vet: overlay.draw_circle(p + Vector2(-8 + v * 4, -12), 1.6, GOLD_C)
-	# missiles: smooth rounded contrails with rounded end-caps, soft glow, and hot inner core
-	var q_lvl := int(save.get("settings", {}).get("qual_i", 3))
-	var nuke_heads := {}
-	if client != null and unit_layer != null: nuke_heads = unit_layer.draw_nukes(overlay)
-	for ms in missiles:
-		if ms.t < 0: continue
-		var f: float = clampf(ms.t / maxf(0.01, ms.dur), 0.0, 1.0)
-		var hcol: Color = nations[ms.o].color if (ms.o > 0 and ms.o < nations.size()) else Color(1, 0.4, 0.3)
-		var is_br: bool = ms.get("branched", false) or (ms.get("mirv", false) and not ms.get("mirv_bus", false))
-		var w_scale: float = 0.5 if is_br else 1.0
-		if nuke_heads.has(ms):
-			# the ported layer drew the trail, the bomb and its target ring; the countdown pill stays
-			_nuke_pill(nuke_heads[ms], ms, hcol, is_br)
-			continue
-		# Subtle ground-track shadow line from launch pad to current ground shadow point
-		var g0 := _screen_of(ms.from * TS)
-		var g_cur := _screen_of(ms.from.lerp(ms.to, f) * TS)
-		overlay.draw_line(g0, g_cur, Color(0, 0, 0, 0.20 * w_scale), 2.0 * w_scale)
-		overlay.draw_circle(g_cur, 2.4 * w_scale, Color(0, 0, 0, 0.26))
-		var trail_pts := PackedVector2Array()
-		var base_seg: int = [20, 32, 46, 60][clampi(q_lvl, 0, 3)]
-		var n_seg: int = int(base_seg * 0.75) if is_br else base_seg
-		for m in range(n_seg + 1):
-			var s_i: float = f * float(m) / float(n_seg)
-			trail_pts.append(_missile_screen_pos(ms, s_i, z))
-		var sp := trail_pts[trail_pts.size() - 1]
-		_nuke_pill(sp, ms, hcol, is_br)
-		if trail_pts.size() >= 2:
-			var w_outer: float = 6.6 * w_scale
-			var w_main: float = 4.5 * w_scale
-			var w_core: float = 1.9 * w_scale
-			var c_dark := Color(hcol.darkened(0.58), 0.90)
-			var c_main := Color(hcol.r, hcol.g, hcol.b, 0.94)
-			var c_glow := Color(hcol.lightened(0.25), 0.24)
-			var c_core := Color(hcol.lightened(0.55), 0.92)
-			if q_lvl >= 2:
-				overlay.draw_polyline(trail_pts, c_glow, w_outer * 1.45, true)
-				overlay.draw_circle(trail_pts[0], w_outer * 0.70, c_glow)
-				overlay.draw_circle(sp, w_outer * 0.72, c_glow)
-			overlay.draw_polyline(trail_pts, c_dark, w_outer, true)
-			# Rounded end-caps on dark border and main host-country trail
-			overlay.draw_circle(trail_pts[0], w_outer * 0.5, c_dark)
-			overlay.draw_circle(sp, w_outer * 0.5, c_dark)
-			overlay.draw_polyline(trail_pts, c_main, w_main, true)
-			overlay.draw_circle(trail_pts[0], w_main * 0.5, c_main)
-			overlay.draw_circle(sp, w_main * 0.5, c_main)
-			if q_lvl < 2:
-				overlay.draw_polyline(trail_pts, c_core, w_core, true)
-				overlay.draw_circle(sp, w_core * 0.55, c_core)
-		# faint projected remainder of the ballistic arc to target
-		if not ms.get("mirv_bus", false):
-			var proj_pts := PackedVector2Array()
-			for m in range(15):
-				var s_p: float = lerpf(f, 1.0, float(m) / 14.0)
-				proj_pts.append(_missile_screen_pos(ms, s_p, z))
-			if proj_pts.size() >= 2:
-				overlay.draw_polyline(proj_pts, Color(hcol.r, hcol.g, hcol.b, 0.26), 1.6 * w_scale, true)
-		var prev_sp := _missile_screen_pos(ms, maxf(0.0, f - 0.04), z)
-		var mdir := (sp - prev_sp).normalized()
-		if mdir == Vector2.ZERO: mdir = Vector2.UP
-		var mnrm := Vector2(-mdir.y, mdir.x)
-		var hs: float = 0.75 if is_br else 1.0
-		# Rounded warhead capsule + glowing nose cone
-		var warhead := PackedVector2Array([sp + mdir * 8.0 * hs, sp - mdir * 4.2 * hs + mnrm * 4.0 * hs, sp - mdir * 4.2 * hs - mnrm * 4.0 * hs])
-		overlay.draw_colored_polygon(warhead, hcol.lightened(0.28))
-		overlay.draw_polyline(warhead + PackedVector2Array([warhead[0]]), Color(0.08, 0.08, 0.12), 1.3 * hs)
-		overlay.draw_circle(sp - mdir * 3.2 * hs, 2.8 * hs, hcol.lightened(0.22))
-		overlay.draw_circle(sp, 2.8 * hs, Color(1, 0.96, 0.80))
-		if not ms.get("mirv_bus", false):
-			overlay.draw_arc(_screen_of(ms.to * TS), ms.r * TS * z, 0, TAU, 48, Color(hcol.r, hcol.g, hcol.b, 0.62), 2.0 * w_scale)
+	# nukes: upstream UnitLayer (trail, sprite, target ring), client/map/unit_layer.gd draw_nukes
+	if unit_layer == null: unit_layer = UnitLayer.new(self)
+	unit_layer.draw_nukes(overlay)
 	var rw_fx := _qual() >= 2
 	if rw_fx: _draw_rw_blasts(z)
 	for b in ([] if rw_fx else blasts):
@@ -473,16 +406,3 @@ func _draw_notes() -> void:
 			ly += 20
 		y += h + 8
 
-func _nuke_pill(sp: Vector2, ms, hcol: Color, is_br: bool) -> void:
-	# Countdown stays on the MIRV bus and on normal nukes / H-bombs / scatter cores.
-	# Branched MIRV sub-warheads (and other branched warheads) have no pill.
-	if is_br:
-		return
-	# whole game-seconds (10 ticks) until the bomb detonates; the missile clock runs DT_TICK per sim tick
-	var ticks_left := maxi(0, ceili((ms.dur - ms.t) / SimArsenal.DT_TICK - 0.001))
-	var etxt := "%ds" % ceili(ticks_left / 10.0)
-	var efs := 11 if is_br else 13
-	var esz := f_bold.get_string_size(etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs)
-	var er := Rect2(sp + Vector2(8, -10 - esz.y), esz + Vector2(10, 4))
-	overlay.draw_style_box(_flat(Color(0.07, 0.085, 0.15, 0.85), int(er.size.y / 2), Color(hcol, 0.7), 1), er)
-	overlay.draw_string(f_bold, er.position + Vector2(5, esz.y - 1), etxt, HORIZONTAL_ALIGNMENT_LEFT, -1, efs, Color(1, 0.92, 0.75))
