@@ -255,6 +255,12 @@ func _on_screen(p: Vector2, m: float) -> bool:
 
 
 func _draw() -> void:
+	var _pt0 := Time.get_ticks_usec()
+	_draw_body()
+	g._pf_add("fxl", Time.get_ticks_usec() - _pt0)
+
+
+func _draw_body() -> void:
 	var now := FrameClock.now()
 	var scale_px: float = g.cam.zoom.x * g.TS
 	var k := k_lin()

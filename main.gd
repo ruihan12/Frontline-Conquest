@@ -7,6 +7,10 @@ func _pf_line() -> String:
 	var out := "frames=%d ms/frame:" % int(f)
 	for k in ["process", "sim", "atk", "ai", "eco", "missiles", "fx", "boats", "paint", "draw", "wfx", "w_cap", "w_meta", "w_rail", "hud", "nv_bfs"]:
 		out += " %s=%.1f" % [k, _pf.get(k, 0.0) / f / 1000.0]
+	out += " state=%s paused=%s tick=%d pland=%d" % [state, str(sim_paused), sim_atk.tick if sim_atk else -1, nations[PLAYER].land if nations.size() > PLAYER else -1]
+	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
+	for k2 in ["names", "names_place", "fronts", "fxl", "ranges", "fallout", "uploads", "flush_n", "labels_anim", "alliances", "dominates", "cam_paint", "tooltip", "anim_ui", "hud_proc", "client_proc", "notes", "pre", "c_world", "c_ranges", "c_advisor", "c_top", "c_hover", "c_feed", "c_bar_s", "c_nukes", "c_alert", "c_bar", "c_board", "c_attacks"]:
+		if _pf.has(k2): out += " %s=%.2f" % [k2, _pf[k2] / f / (1.0 if k2 in ["uploads", "flush_n"] else 1000.0)]
 	out += " ticks/frame=%.2f tiles/tick=%.0f atk_per_tick=%.0f set_owner_ms/tick=%.1f naval=%.1f" % [_pf.get("ticks", 0.0) / f, _pf.get("tiles", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)), _pf.get("atk_n", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)), _pf.get("set_owner", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)) / 1000.0, _pf.get("naval", 0.0) / f / 1000.0]
 	_pf = {}
 	return out
@@ -19,7 +23,7 @@ func _process(dt: float) -> void:
 	_process_inner(dt)
 	_audio_diag_tick(dt)
 	_fp["process"] = Time.get_ticks_usec() - _t0
-	_pf_add("frames", 1.0); _pf_add("process", _fp.process)
+	_pf_add("frames", 1.0); _pf_add("process", _fp.process); _pf_add("dt", dt); _pf["dt_max"] = maxf(_pf.get("dt_max", 0.0), dt)
 	if _sfx_log and _fp.process > 60000: print("SLOW process ", _fp)
 	if _webprof_on:
 		_webprof_acc += dt
@@ -107,7 +111,9 @@ func _pace_step() -> void:
 			print("  t=%dmin lead=%.2f" % [sim_atk.tick / 600, float(best) / maxf(1.0, land_total)])
 
 func _process_inner(dt: float) -> void:
+	var _qp := Time.get_ticks_usec()
 	_pump_previews()
+	_pf_add("pre", Time.get_ticks_usec() - _qp)
 	if not _pace.is_empty() or OS.get_cmdline_user_args().has("--pacetest") : _pace_step(); return
 	boat_launched_frame = false
 	if state == "pick":
@@ -135,7 +141,9 @@ func _process_inner(dt: float) -> void:
 			_fade_out(pick_panel)
 			if hud: hud.show_match()
 	var rdt := dt
+	var _q0 := Time.get_ticks_usec()
 	_animate_labels(rdt)
+	_pf_add("labels_anim", Time.get_ticks_usec() - _q0)
 	dt *= sim_speed
 	if sim_paused: dt = 0.0
 	if state == "play":
@@ -192,13 +200,16 @@ func _process_inner(dt: float) -> void:
 		_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
 		donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
 		donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
+		var _q1 := Time.get_ticks_usec()
 		if ai_timer == 0.0 or rng.randf() < 0.2: _tick_alliances()
+		_pf_add("alliances", Time.get_ticks_usec() - _q1)
 		var b0 := Time.get_ticks_usec()
 		_tick_boats(tdt)
 		prof.boat += Time.get_ticks_usec() - b0
 		_pf_add("boats", Time.get_ticks_usec() - b0)
 		ai_timer += dt
 		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
+		var _q2 := Time.get_ticks_usec()
 		var pl = nations[PLAYER]
 		if dominates(PLAYER):
 			_game_over(true)
@@ -214,7 +225,9 @@ func _process_inner(dt: float) -> void:
 					else:
 						_game_over(false)
 					break
+		_pf_add("dominates", Time.get_ticks_usec() - _q2)
 	dt = rdt
+	var _q3 := Time.get_ticks_usec()
 	_pan(dt)
 	_cam_tick(dt)
 	if shake_amp > 0.05:
@@ -227,14 +240,15 @@ func _process_inner(dt: float) -> void:
 	if dirty:
 		var more := false
 		var p0 := Time.get_ticks_usec()
-		if not _pend_paint.is_empty(): more = _flush_paint_budget(PAINT_BUDGET_US)  # spread big repaints over frames
+		if _paint_pending(): more = _flush_paint_budget(_paint_budget_us())  # spread big repaints over frames (time budget)
 		var up := 0
 		for k in chunk_dirty.size():
 			if chunk_dirty[k] == 1:
 				if up >= (8 if OS.has_feature("web") else 24): more = true; break
-				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1
+				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1; _pf_add("uploads", 1)
 		dirty = more
 		_pf_add("paint", Time.get_ticks_usec() - p0)
+	_pf_add("cam_paint", Time.get_ticks_usec() - _q3)
 	ui_timer += dt
 	if ui_timer > 0.25 and state != "menu":
 		ui_timer = 0
@@ -242,12 +256,19 @@ func _process_inner(dt: float) -> void:
 		_tick_music_mood()
 		_update_hud()
 		_pf_add("hud", Time.get_ticks_usec() - h0)
+	var _q4 := Time.get_ticks_usec()
 	_update_tooltip()
+	var _q5 := Time.get_ticks_usec()
 	_animate_ui(rdt)
+	var _q6 := Time.get_ticks_usec()
 	if hud: hud.process(rdt)
+	var _q7 := Time.get_ticks_usec()
 	if client: client.process(rdt)
+	var _q8 := Time.get_ticks_usec()
 	if note_box: _tick_notes(rdt)
 	_tick_ally_card()
+	var _q9 := Time.get_ticks_usec()
+	_pf_add("tooltip", _q5 - _q4); _pf_add("anim_ui", _q6 - _q5); _pf_add("hud_proc", _q7 - _q6); _pf_add("client_proc", _q8 - _q7); _pf_add("notes", _q9 - _q8)
 	ov_t += rdt
 	if overlay and state != "menu":
 		_last_cam = cam.position; _last_zoom = cam.zoom
@@ -262,6 +283,8 @@ func _animate_labels(dt: float) -> void:
 		at.vel += acc * dt
 		at.disp += at.vel * dt
 		at.shown = lerpf(at.shown, at.troops, 1.0 - exp(-8.0 * dt))
+	# (the nation springs only feed the fallback names in _draw_overlay_inner; NameLayer has its own)
+	if names != null: return
 	for id in range(1, nations.size()):
 		var n = nations[id]
 		if n.land <= 0: continue
