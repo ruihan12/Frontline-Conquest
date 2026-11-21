@@ -1,10 +1,11 @@
-# 1:1 real-population troops (design note, not implemented)
+# 1:1 real-population troops (implemented on density-test)
 
 Goal: a mode where a nation's troop cap is the real number of people on the land it owns (the USA
 about 348M, China 1.43B, India 1.50B, the World 8.19B, from the GHSL 2025 bake in
 maps/upstream/<id>.pop.bin), and the HUD shows people, not game units.
 
-Status: design only. Line numbers are for branch density-test as of this note (after 28555b7).
+Status: implemented as pop_cap_mode 2 (the default whenever real-pop is on). Line numbers below are
+from the design pass (after 28555b7) and may have drifted. See "As built" at the end.
 
 ## Where the numbers stand today
 
@@ -124,8 +125,8 @@ Donations and diplomacy
 - sim/rules.gd:68 CAPITULATE_RATIO 8.0 (sim/ai.gd:364): ratio, stays.
 
 AI thresholds
-- sim/ai.gd:487 `tile_troops := 60.0 * _LA()` and :566 `land * 60.0 * LA`: troops per tile
-  assumed for a target, x S. sim/ai.gd:501 follows from :487.
+- sim/ai.gd:566 `land * 60.0 * LA`: troops per tile assumed for a target, x S. (Correction: :487
+  `tile_troops := 60.0 * _LA()` is compared against a tile count, not troops, so it stays unscaled.)
 - sim/ai.gd:326, :333 `send * troops >= 1.0`: stays.
 - sim/ai.gd:256-257 reserve keep, :318 fill, :361-364, :397-402, :425, :445, :526, :556, :589,
   :620, :679: ratios between armies, stay.
@@ -181,3 +182,38 @@ UI
 4. AI per-tile troop guesses x S.
 5. Sims (tests/density_sim.gd): compare the 1:1 mode with the ÷300 mode. With S = 297 they should
    match tick for tick apart from display and the city bonus.
+
+## As built
+
+- Toggle: real-pop on (USE_REAL_POP or `--realpop`) on a map with a baked pop file and
+  `pop_cap_mode == 2` (default) calls `sim_rules.set_troop_scale(true)` and sets `UITheme.troop_div = 1`.
+  Every other case (real-pop off, random maps, modes 0/1) runs with ts = 1 and troop_div = 10, i.e.
+  normal mode unchanged. Real-pop is not available on random maps (no baked population).
+- sim/rules.gd: TROOP_SCALE 297, `ts`, start troops x ts, growth `ts * f(troops / ts)`, strike_kill and
+  warhead_death take a scale argument; mode 2 cap = population owned + city levels x CITY_POP_BONUS
+  (tribe /3 and nation difficulty multipliers still apply).
+- sim/attacks.gd: ATTACK_MAG x ts, TERRA_NULLIUS_COST_SCALE x ts, ATTACKER_LOSS_PER_DENSITY / ts.
+  sim/arsenal.gd passes ts to the strike/warhead formulas. sim/ai.gd:566 x ts.
+- City bonus: CITY_POP_BONUS = 309,416 people per city level, the mean population of a Chinese urban
+  centre in GHSL GHS-POP 2025 (30"). Method (tools/china_city_pop.py): GHSL Degree of Urbanisation
+  urban-centre rule: 4-connected cells with density >= 1,500/km2 (latitude-corrected cell area), holes
+  filled, cluster population >= 50,000; a cluster is Chinese if its population-weighted centroid lies in
+  Natural Earth CHN. Result: 2,021 centres, 625.3M people, mean 309,416, median 102,801, largest 41.3M.
+- Tests: tests/test_port_left.gd checks the scaling identities; tests/test_number_format.gd checks
+  troop display at troop_div 1 (348.0M, 8.19B, 4.20Qd, 1.343452e23) and 10.
+
+## Sim results (World, 4,000 ticks, density_sim `--pop off` vs `--pop 2`)
+
+| Seed | Mode | Alive | Owned tiles | Dense / sparse tiles | Biggest cap | USA / China / India capital owner troops |
+|---|---|---|---|---|---|---|
+| 1 | off | 99 | 552k | 67k / 145k | Antarctica 179k | US 58.8k / China 32.6k / India 75.2k |
+| 1 | 1:1 | 180 | 370k | 144k / 3.7k | India 1.50B | US 9.35M / Vietnam 254M / India 508M |
+| 2 | off | 100 | 551k | 69k / 158k | E. Antarctica 182k | US 45k / China 63k / India 57k |
+| 2 | 1:1 | 150 | 398k | 102k / 845 | Taiwan 1.35B | Texas 12.1M / Taiwan 363M / India 268M |
+| 3 | off | 89 | 550k | 39k / 154k | E. Antarctica 184k | US 42.7k / China 43k / Nepal 75.7k |
+| 3 | 1:1 | 141 | 421k | 59k / 691 | Sri Lanka 2.21B | Mexico 56.9M / Sri Lanka 1.76B (both) |
+
+Known balance problems in 1:1: South/East Asia snowball (caps 1.1-2.2B); 0-pop land (Antarctica,
+Siberia, Sahara) stays neutral (~130-180k tiles) since a 0-pop nation has 0 cap and neutral land costs
+~6k people a tile; 0-cap tribes sit frozen, inflating the alive count; the US capital often falls to a
+neighbour; difficulty multipliers keep caps below population; the city bonus is negligible at national scale.
