@@ -238,10 +238,46 @@ func _find_target(ws: Dictionary):
 		if dst_o == ws.o or (dst_o > 0 and g.allied(dst_o, ws.o)): continue
 		var tp: Vector2 = g._path_pos(tr)[0] / g.TS
 		var d3 := tp.distance_squared_to(ws.pos)
-		if d3 > r2 or tp.distance_squared_to(ws.patrol) > pr * pr: continue
+		if d3 > r2 or tp.distance_squared_to(ws.patrol) > pr * pr or _safe_from_pirates(tr): continue
 		if best == null or d3 < bd:
 			best = {"kind": "trade", "ref": tr}; bd = d3
 	return best
+
+# SimWarships._safe_from_pirates: a trade ship that sailed a shoreline tile (water 4-adjacent to land)
+# in the last SAFE_FROM_PIRATES_TICKS ticks is safe. The port's ships keep the distance sailed (tr.d,
+# px along tr.pts), so the last ticks' stretch of the route is sampled about every half tile.
+func _safe_from_pirates(tr: Dictionary) -> bool:
+	var cum: PackedFloat32Array = tr.get("cum", PackedFloat32Array())
+	var pts: PackedVector2Array = tr.get("pts", PackedVector2Array())
+	if pts.size() < 2 or cum.size() != pts.size():
+		return false
+	var d1: float = float(tr.d)
+	var per_tick: float = g.sim_rules.ship_tiles_per_s() / 10.0 * g.boat_speed * g.TS * (g.AIR_SPEED if tr.get("air", false) else 1.0)
+	var d0 := maxf(0.0, d1 - SimRules.SAFE_FROM_PIRATES_TICKS * per_tick)
+	var step: float = g.TS * 0.5
+	var m := 1
+	var d := d0
+	while true:
+		while m < cum.size() - 1 and cum[m] < d: m += 1
+		var seg := maxf(0.001, cum[m] - cum[m - 1])
+		var p: Vector2 = pts[m - 1].lerp(pts[m], clampf((d - cum[m - 1]) / seg, 0.0, 1.0)) / g.TS
+		if _shore_water(_tile_of(p)):
+			return true
+		if d >= d1: break
+		d = minf(d + step, d1)
+	return false
+
+# SimWarships.shore_water: 1 on water tiles 4-adjacent to land.
+func _shore_water(t: int) -> bool:
+	var om: PackedInt32Array = g.owner_map
+	var W: int = g.W
+	if t < 0 or t >= om.size() or om[t] != g.WATER: return false
+	var x := t % W
+	if x > 0 and om[t - 1] != g.WATER: return true
+	if x < W - 1 and om[t + 1] != g.WATER: return true
+	if t >= W and om[t - W] != g.WATER: return true
+	if t + W < om.size() and om[t + W] != g.WATER: return true
+	return false
 
 func _shoot(ws: Dictionary, tg, t: int) -> void:
 	if t - int(ws.last_shot) <= SimRules.WARSHIP_FIRE_TICKS: return
