@@ -57,7 +57,8 @@ SimWarships.luau (1121)
   patrol radius (388). -> sim/warships.gd (per sim tick).
 - DIFF: ships steer straight with coast sliding (no _build_ship_grid / SimNav path 448), captured trade ships keep their
   route (upstream reroutes to captor's port 809).
-- LACK: _posts_tick (1027, coastal defense posts vs ships), _safe_from_pirates (616), move_warship command path.
+- LACK: _posts_tick (1027, coastal defense posts vs ships), move_warship command path. (both later done: phase 2 posts, click-to-move)
+- MATCH (port-left pass): _safe_from_pirates (616): trade ships that sailed shore water in the last 20 ticks are skipped (sim/warships.gd).
 SimAttacks.luau (1067) - port: sim/attacks.gd. Not re-audited in phase 1 (land-border attack rule + never-slow conquest
   are custom). LACK audit: _process_attack (736) tile cost, _annex (927), merges (710), retreat (631).
 SimAI.luau (1589) / SimAIEconomy.luau (767) - port: sim/ai.gd. Phase 1 only changed the AI build order (main.gd) to
@@ -106,3 +107,15 @@ SimWarships - coastal defense posts shoot transports first then warships (100-ti
 Perf (10x): attacks pass time-sliced across frames (begin_tick/run_slice, Coop-style), sim 12 ms/frame, paint 5 ms/frame,
   24 chunk uploads, capture flashes capped 2000, naval hostile() cached per tick, inlined attack neighbour pushes.
 Camera clamp: map bounds incl. Antarctica, slack only for the top/bottom bars.
+
+## Port-left pass (2026-11-20, upstream c422466)
+- Sim._create_tribes / default_tribes: tribes take Data/Tribes names (maps/upstream/index.json tribe_names, 480) in a
+  shuffled order (" 2", " 3" on later laps); count = DEFAULT_TRIBES x map scale^2 (World 321, Europe 635...; 400 on maps
+  without an upstream scale). Tribe colour stays the port's lighter grey (user).
+- Spawn troops: nations Rules.start_troops(diff), tribes START_TROOPS_TRIBE, the player START_TROOPS_HUMAN, each bounded
+  by the spawn cap (upstream snaps an over-cap army to the cap). With the normal nerfed caps the cap is lower, so nothing
+  changes in a normal match; in the real-pop test mode armies no longer start at a huge population cap.
+- SimWarships._safe_from_pirates: done (above). UI/NextMatch: done (docs/REMAKE.md).
+- Not ported, on purpose: ArsenalDemo (animated shop previews: 1462 lines of Roblox instance animation plus 14 generated
+  art files), Teams / team games and Sim.take_over (public multiplayer only), TouchRouter / HoldRing driving (phones),
+  AudioDirector._retry_unloaded (Roblox asset permission retry), Dev/ and server/ (Studio tools, backend).

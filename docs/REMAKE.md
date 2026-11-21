@@ -53,7 +53,7 @@ RangeLayer, RoadLayer, NameLayer, FrontLayer) -> screens (TitleScreen, PauseMenu
 | src/client/UI/Leaderboard.luau | 663 | client/ui/leaderboard.gd | done, live (head shots / cosmetic flags left out) |
 | src/client/UI/Locker.luau | 964 | - | not applicable: cosmetics locker (accounts) |
 | src/client/UI/MapPicker.luau | 340 | client/ui/map_picker.gd | done, live (tabs are the port's three map tables; REROLL chip on Random) |
-| src/client/UI/NextMatch.luau | 161 | - | not applicable: multiplayer lobby |
+| src/client/UI/NextMatch.luau | 161 | client/ui/next_match.gd | done, live (after a first solo match and from the title's game menu; solo only: the ONLINE card is hidden, no public matches) |
 | src/client/UI/PartyPanel.luau | 471 | - | not applicable: Roblox parties |
 | src/client/UI/PauseMenu.luau | 853 | client/ui/pause_menu.gd | done, live (Settings row opens the port's own Settings window) |
 | src/client/UI/PlaceConfirm.luau | 221 | client/ui/place_confirm.gd | done, wired (touch placement; dormant with a mouse) |

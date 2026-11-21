@@ -28,3 +28,5 @@ Hook (off by default): `USE_REAL_POP` / `use_real_pop` in game/state.gd or `--re
 Growth follows the cap through the existing (1 - troops / cap) term; nothing else changes.
 
 Sim: `godot --headless --path . -s res://tests/density_sim.gd -- --pop off|1|0 --ticks 4000 --seed N`.
+
+Note (2026-11-20): spawns now start at Rules.start_troops (bounded by the cap) instead of at the cap, as upstream, so real-pop sims from before this date started dense spawns with far bigger armies. See docs/REAL_POP_1TO1.md for the 1:1 design.
