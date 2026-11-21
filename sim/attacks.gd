@@ -331,6 +331,9 @@ func _process(a: Dictionary) -> void:
 		var dloss := 0.0
 		if neutral:
 			loss = mag * nl
+			if R.is_1to1() and t < g.tile_pop.size():
+				# 1:1 "make land cheaper": cost follows the tile's own people (see SimRules.NEUTRAL_LOSS_FLOOR)
+				loss = mag / (100.0 * R.ts) * (nl / 0.2) * (R.NEUTRAL_LOSS_FLOOR + R.NEUTRAL_LOSS_POP_FRAC * g.tile_pop[t]) / K_AREA
 			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * R.ts * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
 			tf = v / (border1 * 2.0)
 		else:

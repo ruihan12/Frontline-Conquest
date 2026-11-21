@@ -116,6 +116,14 @@ const TROOP_SCALE := 297.0
 # 30" cells >= 1500 people/km2, holes filled, cluster >= 50,000 people; GHS-POP 2025; 2021 centres in China,
 # 625.3M people; tools/china_city_pop.py).
 const CITY_POP_BONUS := 309416.0
+# "make land cheaper" (1:1 only): taking a neutral tile costs the attacker
+#   (terrain mag / 100) * (nl / 0.2) * (NEUTRAL_LOSS_FLOOR + NEUTRAL_LOSS_POP_FRAC * people on the tile)
+# instead of the flat mag * ts * nl (~5.9k people a plains tile), so empty land is nearly free and dense land
+# stays expensive. MIN_CAP_1TO1 is a cap floor (before the tribe /3 and difficulty multipliers) so 0-pop
+# nations (not tribes) still regrow and expand slowly instead of freezing at a 0 cap.
+const NEUTRAL_LOSS_FLOOR := 60.0
+const NEUTRAL_LOSS_POP_FRAC := 0.25
+const MIN_CAP_1TO1 := 300000.0
 var ts := 1.0
 
 func set_troop_scale(on: bool) -> void:
@@ -163,10 +171,13 @@ var pop_cap_mode := 2
 var pop_k := 1.0 / 300.0
 const POP_LAND_W := 0.25
 
-func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: int, diff: int) -> float:
+func max_troops_pop(kind: int, tiles: int, pop: float, avg_pop: float, cities: int, diff: int, with_floor := true) -> float:
 	var m: float
 	if pop_cap_mode == 2:
 		m = maxf(pop, 0.0) + cities * CITY_POP_BONUS
+		# floor for nations and humans only (spawns bound start troops without it: empty spawns start empty);
+		# 0-pop tribes keep a 0 cap so they stay absorbable and die out
+		if with_floor and kind != KIND_TRIBE: m = maxf(m, MIN_CAP_1TO1)
 	elif pop_cap_mode == 0:
 		m = CAP_BASE + maxf(pop, 0.0) * pop_k + cities * CITY_TROOPS_NERF
 	else:
