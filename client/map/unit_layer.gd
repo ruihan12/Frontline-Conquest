@@ -2,9 +2,8 @@
 #   * sprites from the unit atlas (13 x 13 px cells, UNIT_SIZE = 13 full-size tiles wide so they scale
 #     with the map, at least MIN_PX device px, never rotated, snapped to whole device pixels): light
 #     pixels in the owner's territory colour, dark pixels in its border colour (HSV value - 0.16);
-#   * the ships use RoWorld's old atlas (assets/units_old.png, the look this game keeps: small diamond
-#     "specks", with a dark halo so they show on the sea), every other sprite the current one
-#     (assets/rw/map_sprites/units_one.png, both of its colours in one tint);
+#   * every sprite (ships included) from the current atlas (assets/rw/map_sprites/units_one.png, both of
+#     its colours in one tint);
 #   * a transport leaves a wake: the way sailed so far along its route, one full-size tile wide
 #     (at least TRAIL_MIN_PX) in the owner's territory colour at alpha 0.588, gone with the ship;
 #   * a train is the engine, TRAIN_CARRIAGES carriages and a tail engine, TRAIN_SPACING full-size
@@ -71,16 +70,8 @@ func sprite(ci: CanvasItem, col: int, owner_col: Color, p: Vector2, px: float, s
 	var ds: float = g.hud._device_scale() if g.hud and g.hud.has_method("_device_scale") else 1.0
 	var c := Vector2(roundf(p.x * ds), roundf(p.y * ds)) / ds
 	var dst := Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px))
-	if ship and _old != null:
-		# the old atlas' ships are thin specks; a dark halo (the sprite in black, a device pixel out in
-		# the four directions) keeps them readable on the sea in any owner colour
-		var o := 1.0 / ds
-		var src := Rect2(col * CELL * 4.0, 0, CELL * 4.0, CELL * 4.0)
-		for d in [Vector2(o, 0), Vector2(-o, 0), Vector2(0, o), Vector2(0, -o)]:
-			ci.draw_texture_rect_region(_old, Rect2(dst.position + d, dst.size), src, Color(0, 0, 0, 0.85))
-		ci.draw_texture_rect_region(_old, dst, src, owner_col)
-		ci.draw_texture_rect_region(_old, dst, Rect2(col * CELL * 4.0, CELL * 4.0, CELL * 4.0, CELL * 4.0), border_of(owner_col))
-	elif _one != null:
+	# upstream: ships use the current atlas like every other unit (Sprites.units_one, one tint)
+	if _one != null:
 		ci.draw_texture_rect_region(_one, dst, Rect2(col * CELL * 4.0, 0, CELL * 4.0, CELL * 4.0), owner_col)
 
 
@@ -120,7 +111,6 @@ func _wake(ci: CanvasItem, bt: Dictionary, cur: Vector2, w: float, col: Color, v
 func draw(ci: CanvasItem) -> void:
 	var vp: Vector2 = g.get_viewport_rect().size
 	var px: float = sprite_px()
-	var px_civil: float = g._ship_px(true)
 	var k: float = maxf(0.01, float(g.sim_rules.k_lin))
 	var ppt: float = g.cam.zoom.x * g.TS / k
 	var wake_w := maxf(TRAIL_MIN_PX, ppt)
@@ -133,8 +123,8 @@ func draw(ci: CanvasItem) -> void:
 			g._plane_glyph(p0, g._sdir(bt, bp[1]), col, 1.0, false)
 			continue
 		_wake(ci, bt, p0, wake_w, col, vp)
-		if _on_screen(p0, px_civil, vp):
-			sprite(ci, COL_TRANSPORT, col, p0, px_civil, true)
+		if _on_screen(p0, px, vp):
+			sprite(ci, COL_TRANSPORT, col, p0, px, true)
 	# trains: cars back to front, the engine on top
 	var cars_shown := ppt * DEVICE_RATIO >= CARS_MIN_ZOOM
 	for tr in g.trains:
@@ -166,7 +156,7 @@ func draw(ci: CanvasItem) -> void:
 			var rd: Vector2 = bp[1] if bp[1] != Vector2.ZERO else Vector2.RIGHT
 			g._plane_glyph(p0, g._sdir(tr, rd), ocol, 0.85, true)
 			continue
-		sprite(ci, COL_TRADE, ocol, p0, px_civil, true)
+		sprite(ci, COL_TRADE, ocol, p0, px, true)
 	# warships (smoothed toward their sim position), the selected one ringed
 	for ws in g.warships:
 		var dp: Vector2 = ws.get("dp", ws.pos)

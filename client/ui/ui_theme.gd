@@ -265,6 +265,24 @@ static func flat(bg: Color, radius: float = R_MD, border: Variant = null, bw: in
 	s.corner_detail = 16
 	return s
 
+## A round badge behind an icon (upstream: a Frame with a full UICorner and a UIStroke). Drawn as a real
+## circle: a StyleBoxFlat whose radius is half its size, in translucent colours, shows its seams (a
+## dashed rim and a line down the middle where the anti-aliased pieces overlap).
+static func set_disc(p: Control, fill: Color, border: Color, bw: float = 1.0) -> void:
+	p.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	p.set_meta("disc", [fill, border, bw])
+	if not p.has_meta("disc_hooked"):
+		p.set_meta("disc_hooked", true)
+		p.draw.connect(func() -> void:
+			var d: Array = p.get_meta("disc")
+			var c := p.size * 0.5
+			var r := minf(p.size.x, p.size.y) * 0.5
+			var w: float = d[2]
+			p.draw_circle(c, r - w * 0.5, d[0], true, -1.0, true)
+			if w > 0.0:
+				p.draw_circle(c, r - w * 0.5, d[1], false, w, true))
+	p.queue_redraw()
+
 static func empty_box(mh: float = 0.0, mv: float = 0.0) -> StyleBoxEmpty:
 	var s := StyleBoxEmpty.new()
 	s.content_margin_left = mh
@@ -444,14 +462,11 @@ static func fix_width(l: Label, w: float, align: int = HORIZONTAL_ALIGNMENT_LEFT
 		l.add_theme_font_override("font", font(float(l.get_meta("weight", 500.0)), 0, true))
 
 static func icon_rect(icon_name: String, px: float, color: Variant = null) -> TextureRect:
-	var r := TextureRect.new()
-	r.texture = icon_texture(icon_name)
-	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	r.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	r.custom_minimum_size = Vector2(px, px)
+	# (CrispIcon: the glyph resampled to the device pixels it covers, drawn 1:1)
+	var r := CrispIcon.new()
+	r.setup(icon_texture(icon_name), px)
 	r.modulate = color if color != null else TEXT
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return r
 
 static func hbox(sep: int = S2) -> HBoxContainer:
@@ -525,8 +540,6 @@ static func _format_troops(value: float) -> String:
 	var v := absf(value)
 	var s: String
 	if is_nan(v): return "0"
-	if v >= 1000000000.0:
-		return big(value)
 	if v >= 1000000.0:
 		s = ("%.2fM" % (v / 1000000.0)) if v < 10000000.0 else ("%.1fM" % (v / 1000000.0))
 	elif v >= 1000.0:
@@ -586,25 +599,24 @@ static func big(v: float, decimals: int = 6) -> String:
 static func render_number(num: float) -> String:
 	if is_nan(num): num = 0.0
 	num = maxf(num, 0.0)
-	if num >= 1_000_000_000.0: return big(num)
+	if num >= 10_000_000_000.0: return "%.1fB" % (floorf(num / 100000000.0) / 10.0)
+	if num >= 1_000_000_000.0: return "%.2fB" % (floorf(num / 10000000.0) / 100.0)
 	if num >= 10_000_000.0: return "%.1fM" % (floorf(num / 100000.0) / 10.0)
 	if num >= 1_000_000.0: return "%.2fM" % (floorf(num / 10000.0) / 100.0)
-	if num >= 100000.0: return "%dK" % int(floorf(num / 1000.0))
+	if num >= 100000.0: return "%d" % int(floorf(num / 1000.0)) + "K"
 	if num >= 10000.0: return "%.1fK" % (floorf(num / 100.0) / 10.0)
 	if num >= 1000.0: return "%.2fK" % (floorf(num / 10.0) / 100.0)
 	return str(int(floorf(num)))
 
 # Troops as players see them (render_troops = the internal count / 10, floored, so a 25,000-troop start
-# reads "2.50K"). Gold and other numbers use fmt_num. In the real-pop 1:1 mode troops are people and the
-# divisor is 1 (game/map.gd _load_tile_pop sets it per match), so the USA reads "348M".
+# reads "2.50K"). Gold and other numbers use fmt_num.
+## (kept for old callers; the display divisor is upstream's 10 whatever this says)
 static var troop_div := 10.0
 static func fmt_troops(v: float) -> String:
-	return render_number(v / troop_div)
+	return render_number(v / 10.0)
 
-# Compact price: 50K, 125K, 1M, 1.5M, 25M. Past 1B it uses the shared big() formatter (Qd, then e-notation).
+# Compact price: 50K, 125K, 1M, 1.5M, 25M.
 static func fmt_cost(v: float) -> String:
-	if v >= 1_000_000_000.0:
-		return big(v)
 	if v >= 1000000.0:
 		var m := v / 1000000.0
 		return ("%dM" % _round(m)) if absf(m - _round(m)) < 0.05 else ("%.1fM" % m)
@@ -630,42 +642,18 @@ static func fmt_rate(v: float) -> String:
 		return "±0/s"
 	return ("+" if v > 0 else "−") + _format_troops(absf(v)) + "/s"
 
-## HUD rate: 3-decimal scientific past Qd, so it matches the count labels.
+## Old names some port code still calls: upstream's formatters (no scientific notation, no extra suffixes).
 static func hud_rate(v: float) -> String:
-	if absf(v) < 0.5:
-		return "±0/s"
-	return ("+" if v > 0 else "−") + hud_num(absf(v)) + "/s"
+	return fmt_rate(v)
 
-# Tight HUD / map labels: same suffixes as big(), but scientific notation uses 3 decimals.
 static func hud_num(v: float) -> String:
-	return big(v, 3)
+	return fmt_num(v)
 
 static func hud_troops(v: float) -> String:
-	return render_number_hud(v / troop_div)
+	return fmt_troops(v)
 
 static func render_number_hud(num: float) -> String:
-	if is_nan(num): num = 0.0
-	num = maxf(num, 0.0)
-	if num >= 1_000_000_000.0: return big(num, 3)
 	return render_number(num)
-
-## Worst-case HUD count / rate strings (3-decimal sci past Qd). Used to reserve box width.
-const HUD_NUM_CASES: PackedStringArray = ["9.999e99", "999.9Qd", "1.000e100", "-9.999e99"]
-const HUD_RATE_CASE := "+9.999e99/s"
-const HUD_CAP_CASE := "/ 1.000e100"
-
-## Tabular width of the widest HUD count, plus slack for hinting / content-scale.
-static func hud_count_width(size: float, weight: float = 700.0) -> float:
-	var w := 0.0
-	for s in HUD_NUM_CASES:
-		w = maxf(w, text_width(s, size, weight) + 4.0)
-	return w
-
-static func hud_rate_width(size: float, weight: float = 700.0) -> float:
-	return text_width(HUD_RATE_CASE, size, weight) + 4.0
-
-static func hud_cap_width(size: float, weight: float = 500.0) -> float:
-	return text_width(HUD_CAP_CASE, size, weight) + 4.0
 
 ## Drawn width of `text` on `l` at font size `fs` (the font actually used to draw, plus outline, stylebox pad, slack).
 static func label_need_width(l: Label, text: String, fs: int) -> float:

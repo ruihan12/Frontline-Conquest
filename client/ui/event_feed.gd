@@ -261,7 +261,7 @@ func _icon_disc(icon_name: String, col: Color, px: float) -> PanelContainer:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.custom_minimum_size = Vector2(px, px)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	p.add_theme_stylebox_override("panel", T.flat(T.c(col, 0.16), floorf(px * 0.5), T.c(col, 0.4), 1))
+	T.set_disc(p, T.c(col, 0.16), T.c(col, 0.4), 1.0)  # (upstream: flat(c(col, 0.16), px / 2, c(col, 0.4), 1))
 	var ic := T.icon_rect(icon_name, px * 0.52, col)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER

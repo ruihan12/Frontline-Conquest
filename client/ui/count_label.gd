@@ -46,7 +46,7 @@ func _refresh() -> void:
 		t = formatter.call(_shown)
 	else:
 		var r := _shown
-		t = UITheme.big(floorf(r + 0.5) if r >= 0 else -floorf(-r + 0.5))
+		t = str(int(floorf(r + 0.5) if r >= 0 else -floorf(-r + 0.5)))
 	clip_text = false
 	autowrap_mode = TextServer.AUTOWRAP_OFF
 	text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING

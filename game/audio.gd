@@ -185,14 +185,15 @@ func _try_unlock_web_audio(e: InputEvent = null) -> void:
 # who = owner whose event this is (PLAYER for your own actions / things hitting you). Everything
 # except nuke launches & impacts is hard-gated to events involving the player.
 func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER) -> void:
-	# Player's own actions, anything aimed at / hitting the player (callers pass who=PLAYER),
-	# and nuke launches/impacts from anyone. AI boat, conquer, build and SAM stay silent.
-	var allowed := who == PLAYER or key in SFX_ANY_OWNER
+	# Upstream UIAdvisor: a bomb's launch sting is the local player's own launch only; blasts play for
+	# anyone's bomb (upstream: on screen or yours). Every other caller here already asks only for the
+	# player's own events, as upstream does (on_structure / on_unit count only yours).
+	var allowed := who == PLAYER or not (key in SFX_LAUNCH_KEYS)
 	if _sfx_log:
 		print("SFX %s t=%.1fs key=%s who=%d vol=%.0fdB" % ["PLAY" if allowed else "BLOCK", (sim_atk.tick / 10.0) if sim_atk else 0.0, key, who, vol_db])
 	if not allowed: return
 	if audio_dir != null and _audio_dir_known.get(key, false):
-		audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, key == "click")
+		audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
 		return
 	if not sfx_streams.has(key) or sfx_pool.is_empty(): return
 	var now := Time.get_ticks_msec()
@@ -1491,9 +1492,11 @@ func _cycle_report() -> String:
 			if r != "": return r
 	return ""
 
+## --hudfit: the vanilla HUD at 1280x720 and 1920x1080 (full shots, plus crops of the command bar,
+## the event feed with its toasts, the leaderboard and the top status), saved under
+## /workspace/shots/van_ui. Needs a display (xvfb-run), not --headless.
 func _hudfit() -> void:
-	shots_dir = "/workspace/shots/hudfit"
-	DirAccess.make_dir_recursive_absolute(shots_dir)
+	shots_dir = "/workspace/shots/van_ui"
 	DirAccess.make_dir_recursive_absolute(shots_dir + "/crops")
 	if play_dialog: play_dialog.visible = false
 	map_tab = 0
@@ -1504,123 +1507,46 @@ func _hudfit() -> void:
 	deploy_t = 0.0
 	state = "play"
 	peace = 1e9
-	sim_paused = true
 	_claim_blob(PLAYER, st, 40)
-	if hud and hud.has_method("show_match"):
-		hud.show_match()
-	if hud and hud.has_method("_toast_now"):
-		hud._toast_now("Pakistan launched Atom Bomb at Vietnam", "alert")
-		hud._toast_now("Huge gold 2.345346e23 / troops 9.999999e99 / 123.4Qd", "info")
-	for _f in 16:
+	nations[PLAYER].gold = 251000.0
+	nations[PLAYER].troops = 1120000.0
+	_focus_player(0.8)
+	for _f in 30:
 		await get_tree().process_frame
-	var fail := 0
-	# Live 2.345e23 (the overflow the user saw) plus the worst-case string set, at each size.
-	for pair in [[2.345346e23, 9.999999e99, "live"], [9.999999e99, 9.999999e99, "worst"]]:
-		nations[PLAYER].gold = float(pair[0])
-		nations[PLAYER].troops = float(pair[1])
-		shown_gold = nations[PLAYER].gold
-		shown_troops = nations[PLAYER].troops
-		if client and client.bar:
-			client.bar._hold_count_texts = false
-			client.bar.snap_counts(float(pair[0]), float(pair[1]))
-		for res in [[1280, 720], [1920, 1080], [2560, 1440]]:
-			fail += await _hudfit_res(str(pair[2]), int(res[0]), int(res[1]))
-	print("HUDFIT done fails=%d shots under %s" % [fail, shots_dir])
-	get_tree().quit(1 if fail else 0)
+	sim_paused = true
+	if client:
+		for k in 5:
+			client._toast_now("Hydrogen Bomb launched at the wilds", "info")
+		client._toast_now("Senegal has been eliminated", "info")
+		client._toast_now("Your warship sank a transport from Chad", "good")
+		client._toast_now("You captured a City from Senegal", "good")
+		client._toast_now("Pakistan launched an Atom Bomb at you", "bad")
+	for _f in 20:
+		await get_tree().process_frame
+	for res in [[1280, 720], [1920, 1080]]:
+		await _hudfit_res(int(res[0]), int(res[1]))
+	print("VANSHOT done: shots under %s" % shots_dir)
+	get_tree().quit(0)
 
-func _hudfit_res(tag: String, w: int, h: int) -> int:
+func _hudfit_res(w: int, h: int) -> void:
 	var win := get_window()
 	if win:
-		win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
-		win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
-		win.content_scale_size = Vector2i(1600, 900)
 		win.size = Vector2i(w, h)
-	if get_viewport():
-		get_viewport().size = Vector2i(w, h)
-	# Re-apply values after the resize (some layout paths rebuild).
-	shown_gold = nations[PLAYER].gold
-	shown_troops = nations[PLAYER].troops
-	var bar: CommandBar = client.bar if client else null
-	if client and client.has_method("layout"):
-		client.layout()
-	if bar:
-		bar.apply_layout()
-		if tag == "worst":
-			# Exact strings requested, including a negative gold and 999.9Qd cap / rate.
-			bar.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s")
-		else:
-			bar.snap_counts(nations[PLAYER].gold, nations[PLAYER].troops)
-			bar._income.text = UITheme.hud_rate(850.0)
-			bar._growth.text = "+0/s"
-			bar._fit_count_labels()
-	if hud:
-		if tag == "worst" and hud.has_method("apply_count_texts"):
-			hud.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s (999%)")
-		elif hud.has_method("refresh_all"):
-			hud.refresh_all(9.999e99, 9.999e99, true)
-		if hud.has_method("_fit_count_labels"):
-			hud._fit_count_labels()
-		if hud.has_method("layout"):
-			hud.layout()
-	for _f in 16:
+	for _f in 30:
 		await get_tree().process_frame
-		if client and client.has_method("layout"):
-			client.layout()
-		if bar:
-			if tag == "worst":
-				bar.apply_count_texts("1.000e100", "1.000e100", "/ 999.9Qd", "+9.999e99/s", "+9.999e99/s")
-			else:
-				bar.snap_counts(nations[PLAYER].gold, nations[PLAYER].troops)
-				bar._income.text = UITheme.hud_rate(850.0)
-				bar._growth.text = "+0/s"
-				bar._fit_count_labels()
-		if hud and hud.has_method("_fit_count_labels"):
-			hud._fit_count_labels()
 	if client and client.has_method("layout"):
 		client.layout()
-	if hud and hud.has_method("layout"):
-		hud.layout()
-	await get_tree().process_frame
-	var fail := 0
-	var rec: Dictionary = {}
-	if bar and bar.has_method("counts_fit"):
-		rec = bar.counts_fit()
-	elif hud and hud.has_method("counts_fit"):
-		rec = hud.counts_fit()
-	if rec:
-		var ok: bool = bool(rec.get("ok", false))
-		print("HUDFIT %s_%dx%d %s gold='%s' need=%.1f rect=%.1f box=%.1f | troops='%s' need=%.1f rect=%.1f" % [
-			tag, w, h, "PASS" if ok else "FAIL",
-			str(rec.get("gold", {}).get("text", "")),
-			float(rec.get("gold", {}).get("need", 0)),
-			float(rec.get("gold", {}).get("rect", 0)),
-			float(rec.get("gold", {}).get("box", 0)),
-			str(rec.get("troops", {}).get("text", "")),
-			float(rec.get("troops", {}).get("need", 0)),
-			float(rec.get("troops", {}).get("rect", 0))])
-		if not ok:
-			fail = 1
-			print("HUDFIT DETAIL ", rec)
-	_shot("%s_%dx%d.png" % [tag, w, h])
-	_hudfit_crops(tag, w, h)
-	return fail
-
-func _hudfit_crops(tag: String, w: int, h: int) -> void:
+	for _f in 10:
+		await get_tree().process_frame
+	_shot("hud_%dx%d.png" % [w, h])
 	var im: Image = get_viewport().get_texture().get_image()
-	if im == null:
+	if im == null or client == null:
 		return
 	var dest := shots_dir + "/crops"
-	DirAccess.make_dir_recursive_absolute(dest)
-	var bar: CommandBar = client.bar if client else null
-	var bar_ctrl: Control = bar.panel if bar else (hud.bar if hud else null)
-	var gold_ctrl: Control = bar._gold_box if bar else (hud.cb_gold_box if hud else null)
-	var troops_ctrl: Control = bar._troops_box if bar else (hud.cb_troops_box if hud else null)
-	if bar_ctrl:
-		_crop_ctrl(im, bar_ctrl, 8, "%s/bar_%s_%dx%d.png" % [dest, tag, w, h])
-	if gold_ctrl:
-		_crop_ctrl(im, gold_ctrl, 10, "%s/gold_%s_%dx%d.png" % [dest, tag, w, h])
-	if troops_ctrl:
-		_crop_ctrl(im, troops_ctrl, 10, "%s/troops_%s_%dx%d.png" % [dest, tag, w, h])
+	_crop_ctrl(im, client.bar.panel, 8, "%s/bar_%dx%d.png" % [dest, w, h])
+	_crop_ctrl(im, client.feed._stack, 8, "%s/feed_%dx%d.png" % [dest, w, h])
+	_crop_ctrl(im, client.board.panel, 8, "%s/board_%dx%d.png" % [dest, w, h])
+	_crop_ctrl(im, client.top.panel, 8, "%s/top_%dx%d.png" % [dest, w, h])
 
 func _crop_ctrl(im: Image, c: Control, pad: int, path: String) -> void:
 	if c == null or not is_instance_valid(c):
@@ -1688,3 +1614,34 @@ func _icon_compare_col(title: String, after: bool) -> Control:
 		)
 		v.add_child(cell)
 	return v
+
+
+# ---- audio diagnostics (web: ?audiodbg=1, desktop: --audiodbg): one line every 3 s on the console ----
+var _adbg_on := -1
+var _adbg_acc := 0.0
+
+func _audio_diag_tick(dt: float) -> void:
+	if _adbg_on < 0:
+		_adbg_on = 0
+		if "--audiodbg" in OS.get_cmdline_user_args():
+			_adbg_on = 1
+		elif OS.has_feature("web"):
+			var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
+			if qs.find("audiodbg=1") >= 0: _adbg_on = 1
+	if _adbg_on != 1: return
+	_adbg_acc += dt
+	if _adbg_acc < 3.0: return
+	_adbg_acc = 0.0
+	print("AUDIODBG ", JSON.stringify(audio_diag()))
+
+func audio_diag() -> Dictionary:
+	var d := {"unlocked": _web_audio_unlocked, "armed": _web_audio_armed, "music_on_setting": music_on_setting(), "dir_music": _dir_music}
+	var buses := []
+	for i in AudioServer.bus_count:
+		buses.append([AudioServer.get_bus_name(i), snappedf(AudioServer.get_bus_volume_db(i), 0.1), AudioServer.is_bus_mute(i)])
+	d["buses"] = buses
+	if audio_dir != null and audio_dir.has_method("music_diag"):
+		d["dir"] = audio_dir.music_diag()
+	if music_player:
+		d["legacy"] = {"playing": music_player.playing, "stream": str(music_player.stream)}
+	return d

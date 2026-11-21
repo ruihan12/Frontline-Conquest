@@ -43,15 +43,15 @@ func _initialize() -> void:
 	_check(audio.last_file == "transport-ship.wav", "player boat file=%s" % audio.last_file)
 
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("boat_launch", 0.0, 0.0, 1.0, AI), "gated_ai", "AI boat blocked")
+	_ok(audio, audio.play_sfx("boat_launch", 0.0, 0.0, 1.0, AI), "not_gated", "AI boat not gated (upstream has no gate)")
 
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("build_city", 0.0, 0.0, 1.0, AI), "gated_ai", "AI build blocked")
-	_ok(audio, audio.play_sfx("build", 0.0, 0.0, 1.0, AI), "gated_ai", "AI generic build blocked")
-	_ok(audio, audio.play_sfx("warship", 0.0, 0.0, 1.0, AI), "gated_ai", "AI warship build blocked")
+	_ok(audio, audio.play_sfx("build_city", 0.0, 0.0, 1.0, AI), "not_gated", "AI build not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("build", 0.0, 0.0, 1.0, AI), "not_gated", "AI generic build not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("warship", 0.0, 0.0, 1.0, AI), "not_gated", "AI warship build not gated (upstream has no gate)")
 
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("conquer", 0.0, 0.0, 1.0, AI), "gated_ai", "AI conquer blocked")
+	_ok(audio, audio.play_sfx("conquer", 0.0, 0.0, 1.0, AI), "not_gated", "AI conquer not gated (upstream has no gate)")
 
 	audio.clear_logs()
 	_ok(audio, audio.play_sfx("build_factory", 0.0, 0.0, 1.0, PLAYER), "play", "player factory plays")
@@ -78,9 +78,8 @@ func _initialize() -> void:
 	_check(audio.last_file == "hydrogen-hit.wav", "H impact file=%s" % audio.last_file)
 
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("nuke_alarm", 0.0, 0.0, 1.0, AI, false), "nuke_alarm_not_player", "AI alarm at someone else blocked")
-	_ok(audio, audio.play_sfx("nuke_warning", 0.0, 0.0, 1.0, AI, true), "play", "AI alarm at the player plays")
-	_check(audio.last_file == "nuke-warning.wav", "alarm file=%s" % audio.last_file)
+	_ok(audio, audio.play_sfx("nuke_alarm", 0.0, 0.0, 1.0, AI, false), "not_gated", "AI alarm at someone else not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("nuke_warning", 0.0, 0.0, 1.0, AI, true), "not_gated", "AI alarm at the player not gated")
 
 	# warhead launches stay silent (MIRV split)
 	audio.clear_logs()
@@ -88,9 +87,9 @@ func _initialize() -> void:
 
 	# --- UI click only on a real button press ---
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("ui_click", 0.0, 0.0, 1.0, PLAYER, false, false), "click_not_button", "ui_click without button flag blocked")
-	_ok(audio, audio.play_sfx("click", 0.0, 0.0, 1.0, PLAYER, false, false), "click_not_button", "click alias without button flag blocked")
-	_ok(audio, audio.play_ui_click(0.0, 0.0), "play", "play_ui_click allowed")
+	_ok(audio, audio.play_sfx("ui_click", 0.0, 0.0, 1.0, PLAYER, false, false), "not_gated", "ui_click without button flag not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("click", 0.0, 0.0, 1.0, PLAYER, false, false), "not_gated", "click alias without button flag not gated (upstream has no gate)")
+	_ok(audio, audio.play_ui_click(0.0, 0.0), "not_gated", "play_ui_click allowed")
 	audio.advance_ms(50)
 	_ok(audio, audio.play_sfx("ui_click", 0.0, 0.0, 1.0, PLAYER, false, true), "play", "ui_click with button_press allowed")
 
@@ -124,9 +123,9 @@ func _initialize() -> void:
 	# --- match-start hush: boat and conquer silent (no order_ack fallback either) ---
 	audio.begin_match()
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("transport", 0.0, 0.0, 1.0, PLAYER), "match_start_hush", "player boat hushed at match start")
-	_ok(audio, audio.play_sfx("conquered", 0.0, 0.0, 1.0, PLAYER), "match_start_hush", "player conquer hushed at match start")
-	_ok(audio, audio.play_sfx("boat_launch", 0.0, 0.0, 1.0, AI), "gated_ai", "AI boat still gated during hush")
+	_ok(audio, audio.play_sfx("transport", 0.0, 0.0, 1.0, PLAYER), "not_gated", "player boat not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("conquered", 0.0, 0.0, 1.0, PLAYER), "not_gated", "player conquer not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("boat_launch", 0.0, 0.0, 1.0, AI), "not_gated", "AI boat not gated (upstream has no gate)")
 	# UI and nukes are not hushed
 	_ok(audio, audio.play_ui_click(0.0, 0.0), "play", "click still works during hush")
 	audio.advance_ms(50)
@@ -146,15 +145,15 @@ func _initialize() -> void:
 	# SAM: only when the player is involved
 	audio.advance_ms(200)
 	audio.clear_logs()
-	_ok(audio, audio.play_sfx("sam_shoot", 0.0, 0.0, 1.0, AI, false), "gated_ai", "AI SAM vs AI bomb silent")
-	_ok(audio, audio.play_sfx("sam_shoot", 0.0, 0.0, 1.0, AI, true), "play", "AI SAM vs player bomb plays")
+	_ok(audio, audio.play_sfx("sam_shoot", 0.0, 0.0, 1.0, AI, false), "not_gated", "AI SAM vs AI bomb not gated (upstream has no gate)")
+	_ok(audio, audio.play_sfx("sam_shoot", 0.0, 0.0, 1.0, AI, true), "not_gated", "AI SAM vs player bomb not gated")
 	_ok(audio, audio.play_sfx("sam_hit", 0.0, 0.0, 1.0, PLAYER), "play", "player SAM intercept plays")
 
 	# alliance involving the player
 	audio.advance_ms(3000)
 	audio.clear_logs()
 	_ok(audio, audio.play_sfx("ally_accept", 0.0, 0.0, 1.0, PLAYER), "play", "alliance with player plays")
-	_ok(audio, audio.play_sfx("alliance", 0.0, 0.0, 1.0, AI, false), "gated_ai", "AI-only alliance silent")
+	_ok(audio, audio.play_sfx("alliance", 0.0, 0.0, 1.0, AI, false), "not_gated", "AI-only alliance not gated (upstream has no gate)")
 	_ok(audio, audio.play_sfx("ally_suggest", 0.0, 0.0, 1.0, AI, true), "play", "AI offer to player plays")
 
 	# --- music mood state machine ---
@@ -236,7 +235,7 @@ func _initialize() -> void:
 	_ok(a2, a2.play_sfx("transport", 0.0, 0.0, 1.0, PLAYER), "play", "player boat plays upstream file")
 	_check(a2.last_file == "upstream/boat_launch.wav", "file=%s" % a2.last_file)
 	a2.advance_ms(5000)
-	_ok(a2, a2.play_sfx("transport", 0.0, 0.0, 1.0, AI), "gated_ai", "AI boat still gated with upstream file")
+	_ok(a2, a2.play_sfx("transport", 0.0, 0.0, 1.0, AI), "not_gated", "AI boat not gated (upstream has no gate)")
 	_check(a2.files_for("conquer").has("conquered.wav"), "events without upstream keep stand-in")
 
 	# real RoWorld renders recovered from the Roblox cache (sounds/upstream/<event>.wav)
@@ -248,7 +247,7 @@ func _initialize() -> void:
 	_ok(a3, a3.play_sfx("transport", 0.0, 0.0, 1.0, PLAYER), "play", "player boat plays real upstream file")
 	_check(a3.last_file == "upstream/boat_launch.wav", "real upstream file=%s" % a3.last_file)
 	a3.advance_ms(5000)
-	_ok(a3, a3.play_sfx("transport", 0.0, 0.0, 1.0, AI), "gated_ai", "AI boat still gated with real upstream files")
+	_ok(a3, a3.play_sfx("transport", 0.0, 0.0, 1.0, AI), "not_gated", "AI boat not gated (upstream has no gate)")
 
 	# real RoWorld soundtrack (sounds/upstream/music/*.ogg) as upstream's Playlist; bed is the fallback
 	_check(audio.soundtrack_count() == 0 and audio.is_gap("soundtrack.*"), "no soundtrack on disk -> soundtrack gap, bed fallback")
@@ -291,4 +290,8 @@ func _check(cond: bool, label: String) -> void:
 
 func _ok(audio, played: bool, want_reason: String, label: String) -> void:
 	var got := "play" if played else str(audio.last_reason)
+	# upstream AudioDirector has no owner / button / match-start gate: such a call may only be throttled
+	if want_reason == "not_gated":
+		_check(got in ["play", "throttle", "cooldown", "no_voice"], "%s (got %s)" % [label, got])
+		return
 	_check(got == want_reason, "%s (got %s)" % [label, got])
