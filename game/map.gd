@@ -9,7 +9,7 @@ func _ready() -> void:
 		if x.begins_with("--pace="): _pace = {"init": true}
 	rng.randomize()
 	if autoshot or bench: save_path = "user://save_test.json"
-	Engine.max_fps = 180
+	Engine.max_fps = 0 if OS.has_feature("web") else 180
 	load_save()
 	RenderingServer.set_default_clear_color(Color(0.20, 0.42, 0.62))
 	if autoshot: Engine.time_scale = 4.0
@@ -75,6 +75,8 @@ func _ready() -> void:
 	if "--porttest" in OS.get_cmdline_user_args(): _porttest.call_deferred()
 	if "--portshot" in OS.get_cmdline_user_args(): _portshot.call_deferred()
 	if "--speedshot" in OS.get_cmdline_user_args(): _speedshot.call_deferred()
+	if _want_webprof(): _webprof_start.call_deferred()
+	if "--hudfit" in OS.get_cmdline_user_args(): _hudfit.call_deferred()
 
 func _map_material() -> ShaderMaterial:
 	if map_mat == null:
@@ -746,3 +748,23 @@ func _load_tile_pop() -> void:
 		sim_rules.set_troop_scale(true)
 		UITheme.troop_div = 1.0
 		print("real pop 1:1: troops are people (TROOP_SCALE %.0f, city level +%.0f)" % [SimRules.TROOP_SCALE, SimRules.CITY_POP_BONUS])
+
+
+func _sim_frame_budget_us() -> int:
+	# Web frames are vsync/rAF (~16.6 ms). Leave headroom for paint/draw so a 12 ms sim slice cannot hitch.
+	if OS.has_feature("web"):
+		return 8000
+	return SIM_BUDGET_US
+
+func _want_webprof() -> bool:
+	if "--webprof" in OS.get_cmdline_user_args():
+		return true
+	if OS.has_feature("web"):
+		var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
+		return qs.find("prof=1") >= 0 or qs.find("webprof=1") >= 0
+	return false
+
+func _webprof_start() -> void:
+	_webprof_on = true
+	_webprof_acc = 0.0
+	print("webprof on")

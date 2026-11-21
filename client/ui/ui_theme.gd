@@ -450,6 +450,7 @@ static func icon_rect(icon_name: String, px: float, color: Variant = null) -> Te
 	r.custom_minimum_size = Vector2(px, px)
 	r.modulate = color if color != null else TEXT
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return r
 
 static func hbox(sep: int = S2) -> HBoxContainer:
@@ -540,23 +541,31 @@ static func fmt_num(v: float) -> String:
 const BIG_SUFFIX := ["", "K", "M", "B", "T", "Qd"]
 
 ## 1.343452e23 (GDScript's format has no %e). Exactly 6 digits after the decimal.
-static func sci(a: float) -> String:
+static func sci(a: float, decimals: int = 6) -> String:
+	decimals = clampi(decimals, 0, 12)
 	var ex := int(floorf(log(a) / log(10.0)))
 	var m := a / pow(10.0, float(ex))
 	if m >= 10.0:
 		m /= 10.0
 		ex += 1
-	# %.6f rounds; keep the mantissa in [1, 10) so we never print 10.000000eN.
-	var rounded := snappedf(m, 0.000001)
+	# %.Nf rounds; keep the mantissa in [1, 10) so we never print 10.000...eN.
+	var step := pow(10.0, -float(decimals))
+	var rounded := snappedf(m, step)
 	if rounded >= 10.0:
 		rounded = 1.0
 		ex += 1
-	return "%.6fe%d" % [rounded, ex]
+	return ("%." + str(decimals) + "fe%d") % [rounded, ex]
+
+
+## Compact scientific notation for tight HUD labels (3 decimals: "2.345e23").
+static func sci_hud(a: float) -> String:
+	return sci(a, 3)
 
 
 ## v scaled by powers of 1000 to a suffix: "1.25B", "12.5T", "159.3Qd"; floored, never rounded. Past Qd
-## (1e18 and above) it uses scientific notation with 6 decimal digits ("1.343452e23"). NaN reads 0 and infinity "∞".
-static func big(v: float) -> String:
+## (1e18 and above) it uses scientific notation with 6 decimal digits ("1.343452e23"), or `decimals` digits.
+## NaN reads 0 and infinity "∞".
+static func big(v: float, decimals: int = 6) -> String:
 	if is_nan(v): return "0"
 	if is_inf(v): return "∞" if v > 0 else "-∞"
 	var a := absf(v)
@@ -567,7 +576,7 @@ static func big(v: float) -> String:
 	while x >= 1000.0 and e < BIG_SUFFIX.size() - 1:
 		x /= 1000.0
 		e += 1
-	if x >= 1000.0: return neg + sci(a)
+	if x >= 1000.0: return neg + sci(a, decimals)
 	var t := ("%.2f" % (floorf(x * 100.0) / 100.0)) if x < 10.0 else ("%.1f" % (floorf(x * 10.0) / 10.0))
 	if x >= 100.0 and e <= 1: t = "%d" % int(floorf(x))
 	return neg + t + BIG_SUFFIX[e]
@@ -619,3 +628,30 @@ static func fmt_rate(v: float) -> String:
 	if absf(v) < 0.5:
 		return "±0/s"
 	return ("+" if v > 0 else "−") + _format_troops(absf(v)) + "/s"
+
+# Tight HUD / map labels: same suffixes as big(), but scientific notation uses 3 decimals.
+static func hud_num(v: float) -> String:
+	return big(v, 3)
+
+static func hud_troops(v: float) -> String:
+	return render_number_hud(v / troop_div)
+
+static func render_number_hud(num: float) -> String:
+	if is_nan(num): num = 0.0
+	num = maxf(num, 0.0)
+	if num >= 1_000_000_000.0: return big(num, 3)
+	return render_number(num)
+
+## Shrink a label's font until `text` fits in `max_w` pixels. clip_text stays off.
+static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> void:
+	l.text = text
+	l.clip_text = false
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var font: Font = l.get_theme_font("font")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var fs := max_size
+	while fs > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > max_w:
+		fs -= 1
+	l.add_theme_font_size_override("font_size", fs)

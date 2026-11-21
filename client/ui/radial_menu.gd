@@ -283,6 +283,7 @@ func _pill(c: Vector2, text: String, col: Color, alpha: float, fs: int, weight: 
 
 
 func _draw() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	var Th := UITheme
 	var anim := _anim
 	if anim <= 0.0:

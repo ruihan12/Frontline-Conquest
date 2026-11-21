@@ -193,7 +193,7 @@ func _draw_world_fx(z: float) -> void:
 			var badge_p := sp + Vector2(6, -11)
 			overlay.draw_rect(Rect2(badge_p, Vector2(22, 12)), Color(0.06, 0.08, 0.15, 0.92))
 			overlay.draw_rect(Rect2(badge_p, Vector2(22, 12)), GOLD_C, false, 1.0)
-			f_bold.draw_string(overlay.get_canvas_item(), badge_p + Vector2(2, 10), "Lv%d" % lvl, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD_C)
+			f_bold.draw_string(overlay.get_canvas_item(), badge_p + Vector2(2, 10), "Lv%s" % _fmt_hud(float(lvl)), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, GOLD_C)
 	# trade ships: clear gold-hulled cargo ships with wake and sea-lane line (with smooth heading interpolation)
 	for tr in ([] if client != null else traders):
 		var bp := _boat_pos(tr)
@@ -206,9 +206,9 @@ func _draw_world_fx(z: float) -> void:
 		var ocol: Color = nations[tr.o].color if (tr.o > 0 and tr.o < nations.size()) else GOLD_C
 		if tr.get("air", false):
 			_plane_glyph(p0, dir, ocol, 0.85, true); continue
-		_wake_trail(tr, bp[0], maxf(1.4, _ship_px() * 0.24))
-		if _ship_sprite(p0, 1, ocol): continue  # old look: no chevron wake on trade ships
-		_wake(p0, dir, 6.0)
+		_wake_trail(tr, bp[0], maxf(1.4, _ship_px(true) * 0.24))
+		if _ship_sprite(p0, 1, ocol, true): continue  # old look: no chevron wake on trade ships
+		_wake(p0, dir, 6.0 * SHIP_CIVIL_SCALE)
 		overlay.draw_line(p0 - dir * 10.5, p0 - dir * 3.0, Color(1, 1, 1, 0.55), 2.2)
 		var hull := PackedVector2Array([
 			p0 + dir * 7.5,
@@ -474,7 +474,10 @@ func _draw_notes() -> void:
 		y += h + 8
 
 func _nuke_pill(sp: Vector2, ms, hcol: Color, is_br: bool) -> void:
-	# seconds-to-impact countdown pill following the missile (bus, each warhead, every owner)
+	# Countdown stays on the MIRV bus and on normal nukes / H-bombs / scatter cores.
+	# Branched MIRV sub-warheads (and other branched warheads) have no pill.
+	if is_br:
+		return
 	# whole game-seconds (10 ticks) until the bomb detonates; the missile clock runs DT_TICK per sim tick
 	var ticks_left := maxi(0, ceili((ms.dur - ms.t) / SimArsenal.DT_TICK - 0.001))
 	var etxt := "%ds" % ceili(ticks_left / 10.0)

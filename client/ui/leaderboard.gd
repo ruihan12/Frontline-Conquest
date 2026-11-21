@@ -84,7 +84,9 @@ class Row:
 		land.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(land)
 		troops = T.label("", 12, 500, T.TEXT_2)
-		T.fix_width(troops, T.text_width("888.8K", 12, 500) + 2.0, HORIZONTAL_ALIGNMENT_RIGHT)
+		T.fix_width(troops, T.text_width("9.999e99", 12, 500) + 2.0, HORIZONTAL_ALIGNMENT_RIGHT)
+		troops.clip_text = false
+		troops.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 		troops.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(troops)
 		mouse_entered.connect(func() -> void:
@@ -114,7 +116,7 @@ class Row:
 		T.set_swatch_color(sw, o.color)
 		name_l.text = o.name
 		land.text = T.fmt_pct(s.land_share(o.id))
-		troops.text = T.fmt_troops(o.troops)
+		T.fit_label(troops, T.hud_troops(o.troops), maxf(64.0, troops.custom_minimum_size.x), 12, 8)
 		# Threat context: a neighbour with over 3x our army reads red.
 		var mine = ctx.my()
 		var threat: bool = mine != null and not is_me and mine.troops > 0 and o.troops > 3 * mine.troops and not s.are_allies(ctx.me(), o.id) and s.borders_owner(ctx.me(), o.id)

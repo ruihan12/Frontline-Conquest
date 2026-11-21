@@ -87,12 +87,17 @@ func run(H) -> void:
 	H.expect_near(25.0 * blast_s, 70.0, 1e-9, "H blast 25*2.8 = 70 tiles")
 	H.expect_near(3.0 * blast_s, 8.4, 1e-9, "MIRV warhead blast 3*2.8 = 8.4 tiles")
 	H.expect_near(15.0 * blast_s, 42.0, 1e-9, "Mega blast 15*2.8 = 42 tiles")
-	H.expect_near(7.0 * blast_s, 19.6, 1e-9, "Scatter blast 7*2.8 = 19.6 tiles")
+	# NUKE_R[12] still lists the old custom 19.6, but launch now uses upstream 30 / k_lin (and warheads 18 / k_lin).
+	H.expect_near(7.0 * blast_s, 19.6, 1e-9, "legacy NUKE_R[12] constant 7*2.8 = 19.6 (not used at Scatter launch)")
 	H.expect(_has(src, "7.0 * BLAST_S") and _has(src, "25.0 * BLAST_S") and _has(src, "3.0 * BLAST_S") and _has(src, "15.0 * BLAST_S"),
 		"NUKE_R uses 7/25/3/15/7 * BLAST_S", "intentional radii")
 
+	H.expect(_has(src, "nuke_radii_full_scaled(SimRules.N_SCATTER)") and _has(src, "nuke_radii_full_scaled(SimRules.N_WARHEAD)"),
+		"Scatter launch radii use upstream outer 30 / warhead 18 full-size tiles, scaled by k_lin", "")
+	H.expect(_has(src, "NUKE_SPEED_X := 2.1"),
+		"nukes fly at 2.1x upstream NUKE_SPEED_FULL (atom/H/mega/scatter 10, MIRV bus 15, warhead 22)", "intentional")
 	H.expect(_has(src, "UPSTREAM_NUKE_TILES_PER_S := 100.0"),
-		"nukes fly at upstream speed (10 full-size tiles per tick)", "matches Rules.NUKE_SPEED_FULL atom")
+		"nukes fly at upstream speed (10 full-size tiles per tick) times NUKE_SPEED_X", "matches Rules.NUKE_SPEED_FULL atom")
 	H.expect(_has(src, "mirv_bus") or _has(src, "split_done") or _has(src, "branched"),
 		"MIRV bus flies to the aim, then branches", "intentional pattern")
 	H.expect(_has(src, "ONLY creates fallout in the circular crater") or _has(src, "fallout in the circular") or _has(src, "real warhead"),
@@ -102,5 +107,5 @@ func run(H) -> void:
 	H.expect_eq(SimRules.nuke_cost_named("mirv", 1), 40000000.0, "second MIRV is 40M (+15M step)")
 	H.expect(src.find("MIRV_COST_STEP") >= 0 and src.find("mirvs_launched") >= 0, "main.nuke_cost applies MIRV_COST_STEP * mirvs_launched", "")
 	H.intentional("fallout decays after 60 s (fallout_t stamped at 60, cleared at 0)", "upstream fallout lasts until recapture")
-	H.intentional("nuke flight uses a custom missile clock (DT_TICK per sim tick) and ballistic arcs, not Rules.nuke_arc", "intentional")
+	H.intentional("nuke flight is 2.1x upstream NUKE_SPEED_FULL in world/tile units (not zoom-dependent), custom missile clock / ballistic arcs, not Rules.nuke_arc", "intentional")
 

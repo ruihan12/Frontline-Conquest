@@ -9,8 +9,8 @@ func _animate_ui(dt: float) -> void:
 		var k := 1.0 - exp(-10.0 * dt)
 		shown_troops = lerpf(shown_troops, pl.troops, k)
 		shown_gold = lerpf(shown_gold, pl.gold, k)
-		bb_troops.text = _fmt(shown_troops)
-		bb_gold.text = _fmt(shown_gold)
+		bb_troops.text = _fmt_hud(shown_troops)
+		bb_gold.text = _fmt_hud(shown_gold)
 		bb_cap.position.x = bb_troops.position.x + f_bold.get_string_size(bb_troops.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x + 6
 	# tooltip fade-in
 	if tipc.visible and not tip_was_visible:

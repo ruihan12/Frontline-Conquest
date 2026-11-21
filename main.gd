@@ -20,6 +20,14 @@ func _process(dt: float) -> void:
 	_fp["process"] = Time.get_ticks_usec() - _t0
 	_pf_add("frames", 1.0); _pf_add("process", _fp.process)
 	if _sfx_log and _fp.process > 60000: print("SLOW process ", _fp)
+	if _webprof_on:
+		_webprof_acc += dt
+		if _webprof_acc >= 2.0:
+			_webprof_acc = 0.0
+			var line := _pf_line()
+			print("FRAMESTATS ", line)
+			if OS.has_feature("web"):
+				JavaScriptBridge.eval("window._fcStats = %s" % JSON.stringify({"line": line, "fps": Engine.get_frames_per_second()}), true)
 	for kz in ["ai_prot", "ai_boat", "ai_mop", "ai_inv"]: _fp[kz] = 0
 	if bench: _bench_step(dt, Time.get_ticks_usec() - _t0)
 
@@ -137,18 +145,19 @@ func _process_inner(dt: float) -> void:
 		tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
 		var nt := 0
 		var loop_t0 := Time.get_ticks_usec()
-		# frame budget: the sim gets SIM_BUDGET_US per frame; a long attacks pass is time-sliced over frames
+		var sim_budget := _sim_frame_budget_us()
+		# frame budget: the sim gets a slice of the frame; a long attacks pass is time-sliced over frames
 		# (upstream runs a local step as a Coop job spread over frames), so the window never stalls and the
 		# sim simply runs slower than the chosen speed when it can't keep up
 		while (tick_acc >= 0.1 or sim_atk.pass_open) and nt < MAX_TICKS_PER_FRAME:
-			if Time.get_ticks_usec() - loop_t0 > SIM_BUDGET_US: break
+			if Time.get_ticks_usec() - loop_t0 > sim_budget: break
 			if not sim_atk.pass_open:
 				tick_acc -= 0.1
 				nt += 1
 				_rebuild_def_posts()
 				sim_atk.begin_tick()
 			var a0 := Time.get_ticks_usec()
-			var atk_done := sim_atk.run_slice(loop_t0 + SIM_BUDGET_US)
+			var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
 			prof.atk += Time.get_ticks_usec() - a0
 			_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
 			if not atk_done: break
@@ -158,7 +167,7 @@ func _process_inner(dt: float) -> void:
 			_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
 			prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
 			a0 = Time.get_ticks_usec()
-			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > SIM_BUDGET_US / 2
+			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
 			if not OS.has_environment("NO_TRADE"): sim_naval.tick()
 			sim_naval.defer_paths = false
 			prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
@@ -221,7 +230,7 @@ func _process_inner(dt: float) -> void:
 		var up := 0
 		for k in chunk_dirty.size():
 			if chunk_dirty[k] == 1:
-				if up >= 24: more = true; break
+				if up >= (8 if OS.has_feature("web") else 24): more = true; break
 				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1
 		dirty = more
 		_pf_add("paint", Time.get_ticks_usec() - p0)
@@ -1070,12 +1079,12 @@ func _draw_overlay_inner() -> void:
 		var p0 := _screen_of(bp[0])
 		if bt.get("air", false):
 			_plane_glyph(p0, _sdir(bt, bp[1]), col, 1.0, false); continue
-		_wake_trail(bt, bp[0], maxf(1.6, _ship_px() * 0.28))
+		_wake_trail(bt, bp[0], maxf(1.6, _ship_px(true) * 0.28))
 		var dir: Vector2 = _sdir(bt, bp[1])
 		var nrm := Vector2(-dir.y, dir.x)
-		var sc := clampf(cam.zoom.x * 3.0, 5.0, 12.0)
-		_wake(p0, dir, maxf(2.5, _ship_px() * 5.0 / 26.0))  # upstream: transports leave a wake (UnitLayer)
-		if not _ship_sprite(p0, 0, col):
+		var sc := clampf(cam.zoom.x * 3.0, 5.0, 12.0) * SHIP_CIVIL_SCALE
+		_wake(p0, dir, maxf(2.5, _ship_px(true) * 5.0 / 26.0))  # upstream: transports leave a wake (UnitLayer)
+		if not _ship_sprite(p0, 0, col, true):
 			var hull := PackedVector2Array([p0 + dir * sc, p0 + dir * sc * 0.2 + nrm * sc * 0.45, p0 - dir * sc * 0.8 + nrm * sc * 0.4, p0 - dir * sc * 0.8 - nrm * sc * 0.4, p0 + dir * sc * 0.2 - nrm * sc * 0.45])
 			overlay.draw_colored_polygon(hull, col.darkened(0.3))
 			overlay.draw_polyline(hull + PackedVector2Array([hull[0]]), Color(1, 1, 1, 0.9), 1.2)
@@ -1286,6 +1295,7 @@ func _map_context(tile: int, pos: Vector2) -> void:
 	elif state == "play": client.on_context_at(tile, pos)
 
 func _unhandled_input(e: InputEvent) -> void:
+	_try_unlock_web_audio(e)
 	if _mcam_on() and client != null and minput == null: _make_minput()
 	if _minput_on() and not (e is InputEventKey):
 		minput.input(e)

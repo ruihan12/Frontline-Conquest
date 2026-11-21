@@ -108,6 +108,8 @@ var ai_timer := 0.0
 var ui_timer := 0.0
 var tick_acc := 0.0
 var autoshot := false
+var _webprof_on := false
+var _webprof_acc := 0.0
 var bench := false
 var bench_i := -1
 var bench_t := 0.0
@@ -188,8 +190,8 @@ var sim_speed := 1.0
 var speed_btns := []
 const SPEEDS := [1.0, 2.0, 5.0, 10.0]
 const SPEED_BASE := 0.2  # new 1x == old 0.2x
-var boat_speed := 0.35  # multiplier on RoWorld ship speed (1 full-size tile/tick) for transports and trade ships; user: 0.35x
-var warship_speed := 0.7  # same multiplier for warships (sim/warships.gd _move)
+var boat_speed := 0.42  # 0.35 x 1.2; transports, trade/cargo; planes inherit via AIR_SPEED * boat_speed
+var warship_speed := 0.84  # 0.7 x 1.2; warships also 1.2x (same request, not left behind)
 const AI_BOAT_CAP := 12
 const MAX_TICKS_PER_FRAME := 12
 const SIM_BUDGET_US := 12000   # sim time per frame (perf cap); was 28 ms with whole ticks only
@@ -432,6 +434,7 @@ const UI_TEX := {0: "ui/city.png", 1: "ui/port.png", 2: "ui/factory.png", 3: "ui
 # snapped to whole device pixels.
 const SHIP_UNIT_SIZE_FULL := 13.0
 const SHIP_MIN_PX := 5.0
+const SHIP_CIVIL_SCALE := 0.75  # trade / cargo / transport boats; warships stay at 1.0
 
 var _tie_vr := Rect2()
 var cap_fx := {}
@@ -845,8 +848,14 @@ func _pct(v: float) -> String:
 func _fmt_time(s: float) -> String:
 	return ""  # forward declaration; implemented in game/ui_build.gd
 
-func _fmt(n: float) -> String:
-	return ""  # forward declaration; implemented in game/ui_build.gd
+func _fmt(n: float, decimals := 6) -> String:
+	return UITheme.big(n, decimals)  # overridden in game/ui_build.gd with the same contract
+
+func _fmt_hud(n: float) -> String:
+	return UITheme.hud_num(n)
+
+func _try_unlock_web_audio(_e: InputEvent = null) -> void:
+	pass  # implemented in game/audio.gd
 
 func load_save() -> void:
 	pass  # forward declaration; implemented in game/ui_build.gd
@@ -951,6 +960,9 @@ func _shipshot() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
 func _hudshot() -> void:
+	pass  # forward declaration; implemented in game/audio.gd
+
+func _hudfit() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
 func _porttest() -> void:

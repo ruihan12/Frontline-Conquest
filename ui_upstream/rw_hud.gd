@@ -533,7 +533,9 @@ func _board_row() -> Dictionary:
 	land.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(land)
 	var tr := RK.label("", 12, 500, RK.TEXT_2)
-	RK.fix_width(tr, RK.text_width("888.8K", 12, 500) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	RK.fix_width(tr, RK.text_width("9.999e99", 12, 500) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	tr.clip_text = false
+	tr.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tr)
 	var row := {"btn": b, "rank": rank, "sw": sw, "name": nm, "mark": mark, "land": land, "troops": tr, "id": 0, "me_style": me_style, "hov": hov}
@@ -550,7 +552,7 @@ func _set_board_row(r: Dictionary, id: int, rank: int) -> void:
 	RK.set_swatch(r.sw, n.color)
 	r.name.text = n.name
 	r.land.text = RK.fmt_pct(n.land / maxf(1.0, m.land_total))
-	r.troops.text = m._fmt(n.troops)
+	RK.fit_label(r.troops, m._fmt_hud(n.troops), maxf(64.0, r.troops.custom_minimum_size.x), 12, 8)
 	var pl = m.nations[m.PLAYER]
 	var threat: bool = not me and pl.troops > 0 and n.troops > 3 * pl.troops and not m.allied(m.PLAYER, id)
 	RK.set_color(r.troops, RK.RED if threat else RK.TEXT_2)
@@ -681,7 +683,9 @@ func _atk_row() -> Dictionary:
 	nm.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(nm)
 	var tr := RK.label("", 13, 700)
-	RK.fix_width(tr, RK.text_width("888.8K", 13, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	RK.fix_width(tr, RK.text_width("9.999e99", 13, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	tr.clip_text = false
+	tr.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	tr.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(tr)
 	var act := Button.new()
@@ -751,7 +755,7 @@ func refresh_attacks() -> void:
 		if not expansion: RK.set_swatch(r.sw, m.nations[other].color)
 		r.name.text = "Expansion" if expansion else m.nations[other].name
 		RK.set_color(r.name, Color(1.0, 0.82, 0.84) if incoming else RK.TEXT)
-		r.troops.text = m._fmt(at.troops)
+		RK.fit_label(r.troops, m._fmt_hud(at.troops), maxf(64.0, r.troops.custom_minimum_size.x), 13, 8)
 		RK.set_color(r.troops, RK.RED if incoming else RK.TEXT)
 		r.act.icon = RK.icon_tex("eye" if incoming else "retreat")
 	var outn := list.size() - inc
@@ -804,7 +808,9 @@ func _build_bar() -> void:
 	# troops
 	var ts := _section("troops", "Troops")
 	cb_growth = RK.label("", 12, 700, RK.GREEN)
-	RK.fix_width(cb_growth, RK.text_width("+88.8K/s (888%)", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	RK.fix_width(cb_growth, RK.text_width("+9.999e99/s (888%)", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	cb_growth.clip_text = false
+	cb_growth.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	ts.head.add_child(cb_growth)
 	var tv := RK.hbox(5)
 	cb_troops = RK.label("0", 24, 800)
@@ -823,7 +829,7 @@ func _build_bar() -> void:
 	cb_committed.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	tb.add_child(cb_committed)
 	ts.box.add_child(tb)
-	ts.box.custom_minimum_size = Vector2(212, 0)
+	ts.box.custom_minimum_size = Vector2(248, 0)
 	cb_troops_box = ts.box
 	# attack ratio
 	var rs := _section("attack", "Attack")
@@ -842,12 +848,26 @@ func _build_bar() -> void:
 	# gold
 	var gs := _section("gold", "Gold", RK.GOLD)
 	cb_income = RK.label("", 12, 700, RK.GREEN)
-	RK.fix_width(cb_income, RK.text_width("+888.8K/s", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	RK.fix_width(cb_income, RK.text_width("+9.999e99/s", 12, 700) + 2, HORIZONTAL_ALIGNMENT_RIGHT)
+	cb_income.clip_text = false
+	cb_income.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
 	gs.head.add_child(cb_income)
 	cb_gold = RK.label("0", 24, 800, RK.GOLD)
 	gs.box.add_child(cb_gold)
-	gs.box.custom_minimum_size = Vector2(150, 0)
+	cb_gold.custom_minimum_size.x = RK.text_width("9.999e99", 24, 800) + 6
+	cb_gold.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	gs.box.custom_minimum_size = Vector2(200, 0)
+	gs.box.clip_contents = false
+	cb_gold.clip_text = false
+	cb_gold.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	cb_gold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cb_troops.clip_text = false
+	cb_troops.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	cb_troops.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cb_gold_box = gs.box
+	cb_gold_box.clip_contents = false
+	if cb_troops_box:
+		cb_troops_box.clip_contents = false
 	# slots
 	cb_builds = RK.hbox(6)
 	cb_builds.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1000,13 +1020,16 @@ func _draw_slot(b: Button, k: int) -> void:
 		cost_col = RK.AMBER_HI if m.icbm_mode else RK.GOLD
 	elif pl != null:
 		var cost: float = m.build_cost(m.PLAYER, k)
-		cost_txt = m._fmt(cost)
+		cost_txt = m._fmt_hud(cost)
 		if cd > 0.0:
 			cost_txt = "%ds" % maxi(1, ceili(cd)); cost_col = RK.RED
 		elif not avail or pl.gold < cost or m.build_req(k, -1) != "":
 			cost_col = RK.c(RK.RED, 0.9)
 	var f8 := RK.font(700)
-	b.draw_string(f8, Vector2(0, s.y - 7), cost_txt, HORIZONTAL_ALIGNMENT_CENTER, s.x, 11, Color(cost_col, a if cost_col != RK.RED else 1.0))
+	var cfs := 11
+	while cfs > 7 and f8.get_string_size(cost_txt, HORIZONTAL_ALIGNMENT_LEFT, -1, cfs).x > s.x - 2:
+		cfs -= 1
+	b.draw_string(f8, Vector2(0, s.y - 7), cost_txt, HORIZONTAL_ALIGNMENT_CENTER, s.x, cfs, Color(cost_col, a if cost_col != RK.RED else 1.0))
 	var hk: String = HOTKEY.get(k, "")
 	if hk != "":
 		b.draw_string(RK.font(600), Vector2(6, 13), hk, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, Color(RK.TEXT_3, a))
@@ -1089,7 +1112,7 @@ func refresh_bar_text() -> void:
 	if m.nations.size() <= m.PLAYER: return
 	var pl = m.nations[m.PLAYER]
 	cb_ratio_pct.text = "%d%%" % int(round(m.SHARES[m.share_i] * 100))
-	cb_ratio_sub.text = "Sends %s troops" % m._fmt(pl.troops * m.SHARES[m.share_i])
+	cb_ratio_sub.text = "Sends %s troops" % m._fmt_hud(pl.troops * m.SHARES[m.share_i])
 
 func refresh_bar(ema_regen: float, ema_gold: float, txt: bool) -> void:
 	var pl = m.nations[m.PLAYER]
@@ -1100,14 +1123,14 @@ func refresh_bar(ema_regen: float, ema_gold: float, txt: bool) -> void:
 	cb_land.text = "%s of the world" % RK.fmt_pct(pl.land / maxf(1.0, m.land_total))
 	if txt:
 		var cap_pct := int(round(100.0 * pl.troops / maxf(1.0, cap)))
-		cb_growth.text = "%s%s/s (%d%%)" % ["+" if ema_regen >= 0 else "", m._fmt(ema_regen), clampi(cap_pct, 0, 999)]
-		cb_income.text = "+%s/s" % m._fmt(ema_gold)
-	cb_cap.text = "/ %s" % m._fmt(cap)
+		RK.fit_label(cb_growth, "%s%s/s (%d%%)" % ["+" if ema_regen >= 0 else "", m._fmt_hud(ema_regen), clampi(cap_pct, 0, 999)], maxf(90.0, cb_growth.custom_minimum_size.x), 12, 8)
+		RK.fit_label(cb_income, "+%s/s" % m._fmt_hud(ema_gold), maxf(80.0, cb_income.custom_minimum_size.x), 12, 8)
+	RK.fit_label(cb_cap, "/ %s" % m._fmt_hud(cap), 110.0, 13, 8)
 	RK.fill_set(cb_troops_bar, clampf(pl.troops / maxf(cap, 1.0), 0.0, 1.0))
 	var at_war := 0.0
 	for at in m.attacks: if at.a == m.PLAYER: at_war += at.troops
 	for bt in m.boats: if bt.a == m.PLAYER: at_war += bt.troops
-	cb_committed.text = ("%s at war" % m._fmt(at_war)) if at_war > 0 else ""
+	cb_committed.text = ("%s at war" % m._fmt_hud(at_war)) if at_war > 0 else ""
 	refresh_bar_text()
 	_arrange_slots()
 	_reflow()
@@ -1179,7 +1202,7 @@ func _toast_now(text: String, kind := "info") -> void:
 	var l := RK.label(text, 13, 500)
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.custom_minimum_size = Vector2(FEED_W - 24 - 26 - 10 - 40, 0)
+	l.custom_minimum_size = Vector2(FEED_W - 24 - 32 - 10 - 40, 0)
 	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(l)
 	var cnt := RK.label("", 12, 700, RK.TEXT_2)
@@ -1217,18 +1240,22 @@ func _drop_toast(p: Control) -> void:
 	tw.tween_property(p, "modulate:a", 0.0, 0.25)
 	tw.tween_callback(p.queue_free)
 
-# 26 px icon disc (EventFeed): tinted circle, 1 px ring, 14 px icon centred
+# 32 px icon disc: tinted circle, 1.5 px ring, 20 px icon centred (128 px masks, mip-filtered)
 func _disc(col: Color, icon: String) -> Control:
 	var d := Control.new()
-	d.custom_minimum_size = Vector2(26, 26)
+	d.custom_minimum_size = Vector2(32, 32)
 	d.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	d.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var t := RK.icon_tex(icon)
+	d.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var tex := RK.icon_tex(icon)
 	d.draw.connect(func():
 		var c := d.size * 0.5
-		d.draw_circle(c, 13, RK.c(col, 0.16))
-		d.draw_arc(c, 12.5, 0, TAU, 32, RK.c(col, 0.28), 1.0, true)
-		if t: d.draw_texture_rect(t, Rect2(c - Vector2(7, 7), Vector2(14, 14)), false, col))
+		var rad := minf(c.x, c.y) - 0.5
+		d.draw_circle(c, rad, RK.c(col, 0.16))
+		d.draw_arc(c, rad - 0.5, 0, TAU, 40, RK.c(col, 0.45), 1.5, true)
+		if tex:
+			var isz := 20.0
+			d.draw_texture_rect(tex, Rect2(c - Vector2(isz, isz) * 0.5, Vector2(isz, isz)), false, col))
 	return d
 
 func clear_feed() -> void:
@@ -1421,8 +1448,9 @@ func process(dt: float) -> void:
 	_tick_feed(dt)
 	_tick_alert(dt)
 	if m.state == "play" and m.nations.size() > m.PLAYER:
-		cb_troops.text = m._fmt(m.shown_troops)
-		cb_gold.text = m._fmt(m.shown_gold)
+		RK.fit_label(cb_troops, UITheme.hud_num(m.shown_troops), maxf(RK.text_width("9.999e99", 24, 800) + 6, cb_troops.size.x), 24, 10)
+		var gold_w := maxf(RK.text_width("9.999e99", 24, 800) + 6, cb_gold.size.x if cb_gold else 0.0)
+		RK.fit_label(cb_gold, UITheme.hud_num(m.shown_gold), gold_w, 24, 10)
 	if m.state == "pick" or m.state == "play":
 		var cs := int(m.elapsed) if m.elapsed >= m.peace or m.state == "pick" else int(ceilf(m.peace - m.elapsed))
 		if cs != _clock_s:

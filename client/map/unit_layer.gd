@@ -120,6 +120,7 @@ func _wake(ci: CanvasItem, bt: Dictionary, cur: Vector2, w: float, col: Color, v
 func draw(ci: CanvasItem) -> void:
 	var vp: Vector2 = g.get_viewport_rect().size
 	var px: float = sprite_px()
+	var px_civil: float = g._ship_px(true)
 	var k: float = maxf(0.01, float(g.sim_rules.k_lin))
 	var ppt: float = g.cam.zoom.x * g.TS / k
 	var wake_w := maxf(TRAIL_MIN_PX, ppt)
@@ -132,8 +133,8 @@ func draw(ci: CanvasItem) -> void:
 			g._plane_glyph(p0, g._sdir(bt, bp[1]), col, 1.0, false)
 			continue
 		_wake(ci, bt, p0, wake_w, col, vp)
-		if _on_screen(p0, px, vp):
-			sprite(ci, COL_TRANSPORT, col, p0, px, true)
+		if _on_screen(p0, px_civil, vp):
+			sprite(ci, COL_TRANSPORT, col, p0, px_civil, true)
 	# trains: cars back to front, the engine on top
 	var cars_shown := ppt * DEVICE_RATIO >= CARS_MIN_ZOOM
 	for tr in g.trains:
@@ -165,7 +166,7 @@ func draw(ci: CanvasItem) -> void:
 			var rd: Vector2 = bp[1] if bp[1] != Vector2.ZERO else Vector2.RIGHT
 			g._plane_glyph(p0, g._sdir(tr, rd), ocol, 0.85, true)
 			continue
-		sprite(ci, COL_TRADE, ocol, p0, px, true)
+		sprite(ci, COL_TRADE, ocol, p0, px_civil, true)
 	# warships (smoothed toward their sim position), the selected one ringed
 	for ws in g.warships:
 		var dp: Vector2 = ws.get("dp", ws.pos)

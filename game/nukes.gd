@@ -21,10 +21,19 @@ func nuke_range_label(k: int) -> String:
 const UPSTREAM_NUKE_TILES_PER_S := 100.0
 # This game's own speed-up on top of upstream's: bombs fly NUKE_SPEED_X times as fast. It is applied to the
 # flight duration at launch, so the missile clock (SAM timing, the countdown pill) stays exact.
-const NUKE_SPEED_X := 0.5
+const NUKE_SPEED_X := 2.1
 func nuke_speed_mult(_dist: float) -> float:
 	var kl: float = sim_rules.k_lin if sim_rules != null else 1.0
 	return UPSTREAM_NUKE_TILES_PER_S * NUKE_SPEED_X / (maxf(kl, 0.01) * 43.2 * SimArsenal.DT_TICK * 10.0)
+
+# Tiles per missile-clock second for a nuke kind. Duration is computed in world/tile units
+# (independent of camera zoom, viewport, and screen pixels). The clock is advanced with the
+# visual dt, which already includes the game-speed slider and not zoom.
+func nuke_clock_speed(nk: int) -> float:
+	var full := 10.0
+	if sim_rules != null:
+		full = float(SimRules.NUKE_SPEED_FULL[clampi(nk, 0, SimRules.NUKE_SPEED_FULL.size() - 1)])
+	return 43.2 * nuke_speed_mult(0.0) * (full / 10.0)
 
 func nuke_cost(k: int) -> float:
 	var base := float(build_data[k][2]) + (SimRules.MIRV_COST_STEP * mirvs_launched if k == 9 else 0.0)
@@ -152,24 +161,28 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 			else:
 				cand = clampi(tile + rng.randi_range(-int(30 * BLAST_S), int(30 * BLAST_S)) + rng.randi_range(-int(30 * BLAST_S), int(30 * BLAST_S)) * W, 0, W * H - 1)
 			hits.append(cand)
-		# 1.2x faster MIRV carrier bus (34 * 1.2 = 40.8 tiles/s)
-		var bus_dur := maxf(2.0, from.distance_to(tp) / (40.8 * nuke_speed_mult(from.distance_to(tp))))
+		# MIRV bus: upstream 15 full-size tiles/tick, times NUKE_SPEED_X
+		var bus_dur := maxf(0.4, from.distance_to(tp) / maxf(1.0, nuke_clock_speed(SimRules.N_MIRV)))
 		missiles.append({"o": o, "k": 9, "nk": SimRules.N_MIRV, "from": from, "to": tp, "t": 0.0, "dur": bus_dur, "r": float(NUKE_R[9]), "mirv": true, "mirv_bus": true, "branched": false, "hits": hits, "tgt_o": tgt_o, "mirv_cov": cov_pct, "split_done": false})
 	elif k == 12:
-		# SimArsenal scattershot: an atom bomb's crater at the aim + 4..6 warheads 28..46 full-size tiles out
-		missiles.append({"o": o, "k": 12, "nk": SimRules.N_SCATTER, "from": from, "to": tp, "t": 0.0, "dur": 0.0, "r": float(NUKE_R[12]), "mirv": false, "branched": false})
-		var core_dur := maxf(1.8, from.distance_to(tp) / (43.2 * nuke_speed_mult(from.distance_to(tp))))
+		# SimArsenal scattershot: upstream core + 4..6 warheads 28..46 full-size tiles out.
+		# Radii use upstream full-size 30 / 18 scaled by k_lin (not the custom BLAST_S NUKE_R used for atom/H/mega/MIRV).
+		var sc_r: float = sim_rules.nuke_radii_full_scaled(SimRules.N_SCATTER).y
+		var wh_r: float = sim_rules.nuke_radii_full_scaled(SimRules.N_WARHEAD).y
+		missiles.append({"o": o, "k": 12, "nk": SimRules.N_SCATTER, "from": from, "to": tp, "t": 0.0, "dur": 0.0, "r": sc_r, "mirv": false, "branched": false})
+		var core_dur := maxf(0.4, from.distance_to(tp) / maxf(1.0, nuke_clock_speed(SimRules.N_SCATTER)))
 		var fired := 0
 		for wp in sim_ars.scatter_targets(o, tp):
 			fired += 1
-			var wd := maxf(core_dur, maxf(1.8, from.distance_to(wp) / (43.2 * nuke_speed_mult(from.distance_to(wp))))) + fired * 2 * SimArsenal.DT_TICK
-			missiles.append({"o": o, "k": 12, "nk": SimRules.N_WARHEAD, "from": from, "to": wp, "t": 0.0, "dur": wd, "r": 3.0 * BLAST_S, "mirv": false, "branched": true})
+			var wd := maxf(core_dur, maxf(0.4, from.distance_to(wp) / maxf(1.0, nuke_clock_speed(SimRules.N_WARHEAD)))) + fired * 2 * SimArsenal.DT_TICK
+			missiles.append({"o": o, "k": 12, "nk": SimRules.N_WARHEAD, "from": from, "to": wp, "t": 0.0, "dur": wd, "r": wh_r, "mirv": false, "branched": true})
 	else:
 		missiles.append({"o": o, "k": k, "nk": nk, "from": from, "to": tp, "t": 0.0, "dur": 0.0, "r": float(NUKE_R[k]), "mirv": false, "branched": false})
-	# 1.2x faster bomb travel speed (36.0 * 1.2 = 43.2 tiles/s)
+	# Flight duration in missile-clock seconds from world-space tile distance / per-kind speed.
 	for mi in range(first, missiles.size()):
 		var ms = missiles[mi]
-		if ms.dur == 0.0: ms.dur = maxf(1.8, ms.from.distance_to(ms.to) / (43.2 * nuke_speed_mult(ms.from.distance_to(ms.to))))
+		if ms.dur == 0.0:
+			ms.dur = maxf(0.4, ms.from.distance_to(ms.to) / maxf(1.0, nuke_clock_speed(int(ms.get("nk", SimRules.N_ATOM)))))
 	# SimNukes: grudge + alliance break (not for the MIRV: its split ends an alliance with the target)
 	if victim > 0:
 		nations[victim]["grudge_" + str(o)] = sim_atk.tick + SimRules.NUKE_GRUDGE_TICKS

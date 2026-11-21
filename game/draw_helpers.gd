@@ -61,16 +61,17 @@ func _unit_sprite(p: Vector2, col_i: int, col: Color, size: float, rot := 0.0) -
 	_atlas_draw(overlay, t, 52.0, col_i, 1, p, size, col.darkened(0.55), rot)
 	return true
 
-func _ship_px() -> float:
+func _ship_px(civil := false) -> float:
 	var ds: float = hud._device_scale() if hud and hud.has_method("_device_scale") else 1.0
 	var dev: float = maxf(SHIP_MIN_PX, roundf(SHIP_UNIT_SIZE_FULL / sim_rules.k_lin * TS * cam.zoom.x * ds))
-	return dev / ds
+	var px := dev / ds
+	return px * SHIP_CIVIL_SCALE if civil else px
 
-func _ship_sprite(p: Vector2, col_i: int, col: Color) -> bool:
+func _ship_sprite(p: Vector2, col_i: int, col: Color, civil := false) -> bool:
 	var t := _tex("units_old.png", 4)
 	if t == null: return false
 	var ds: float = hud._device_scale() if hud and hud.has_method("_device_scale") else 1.0
-	var px := _ship_px()
+	var px := _ship_px(civil)
 	var c := Vector2(roundf(p.x * ds), roundf(p.y * ds)) / ds
 	var rim := Color.from_hsv(col.h, col.s, maxf(0.0, col.v - 0.16), col.a)
 	_atlas_draw(overlay, t, 52.0, col_i, 0, c, px, col)

@@ -138,6 +138,20 @@ static func fix_width(l: Label, w: float, align := HORIZONTAL_ALIGNMENT_LEFT) ->
 	l.horizontal_alignment = align
 	l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS if align == HORIZONTAL_ALIGNMENT_LEFT else TextServer.OVERRUN_NO_TRIMMING
 
+## Shrink font so `text` fits in `max_w`. clip_text stays off (no cutoff).
+static func fit_label(l: Label, text: String, max_w: float, max_size: int, min_size := 9) -> void:
+	l.text = text
+	l.clip_text = false
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.text_overrun_behavior = TextServer.OVERRUN_NO_TRIMMING
+	var font: Font = l.get_theme_font("font")
+	if font == null:
+		font = ThemeDB.fallback_font
+	var fs := max_size
+	while fs > min_size and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > max_w:
+		fs -= 1
+	l.add_theme_font_size_override("font_size", fs)
+
 static func hbox(sep := S2) -> HBoxContainer:
 	var b := HBoxContainer.new()
 	b.add_theme_constant_override("separation", sep)
@@ -192,7 +206,7 @@ static func set_swatch(p: Panel, col: Color) -> void:
 		p.add_theme_stylebox_override("panel", flat(col, radius, Color(1, 1, 1, 0.35), 1))
 
 # Icon masks (UITheme.icon): white 128 px masks, tinted at draw time.
-const ICON_DIRS := ["ui_icons/", "ui/", "arsenal/ui/"]
+const ICON_DIRS := ["rw/ui_icons/", "ui_icons/", "rw/ui_shapes/", "ui/", "arsenal/ui/", "rw/arsenal/ui/"]
 static func icon_tex(name: String) -> Texture2D:
 	if _icons.has(name):
 		return _icons[name]
@@ -214,6 +228,7 @@ static func icon_rect(name: String, px: float, col := TEXT) -> TextureRect:
 	r.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	r.modulate = col
 	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# UI icons are 128 px masks: linear + mipmaps so they stay sharp when drawn smaller, never nearest-crushed.
 	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	return r
 

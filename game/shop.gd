@@ -208,6 +208,7 @@ func _refresh_settings() -> void:
 		settings_status_lbl.text = "ACTIVE: %s  ·  Cap: %d FPS (Live: %d FPS)  ·  Quality: %s  ·  AA: %s%s" % [RES_NAMES[res_i], FPS_LIST[fps_i], fps_now, QUAL_NAMES[qual_i], MSAA_NAMES[msaa_i], emb_note]
 
 func _input(e: InputEvent) -> void:
+	_try_unlock_web_audio(e)
 	if e is InputEventKey and e.pressed and not e.echo:
 		if e.keycode == KEY_TAB:
 			toggle_console()
@@ -333,17 +334,26 @@ func unlock_console(code: String) -> bool:
 	return false
 
 func _update_console_fps(dt: float) -> void:
+	if dt > 0.0001 and dt < 1.0:
+		_fps_ema_ms = lerpf(_fps_ema_ms, dt * 1000.0, 0.12)
+		if dt * 1000.0 >= _fps_hitch_ms:
+			_fps_hitch_ms = dt * 1000.0
+		_fps_hitch_t += dt
+		if _fps_hitch_t >= 1.0:
+			_fps_hitch_ms = lerpf(_fps_hitch_ms, _fps_ema_ms, 0.35)
+			_fps_hitch_t = 0.0
 	if settings_dlg != null and settings_dlg.visible:
 		_refresh_settings()
 	if console_panel == null or not console_panel.visible or console_fps_lbl == null:
 		return
 	var fps_now := int(Engine.get_frames_per_second())
-	if fps_now <= 0: fps_now = int(round(1.0 / maxf(0.001, dt)))
-	var cap_now := Engine.max_fps if Engine.max_fps > 0 else 180
-	var ms_now := dt * 1000.0
+	if fps_now <= 0: fps_now = int(round(1000.0 / maxf(0.5, _fps_ema_ms)))
+	var cap_now := Engine.max_fps
+	var cap_s := "rAF" if (OS.has_feature("web") and cap_now <= 0) else str(cap_now if cap_now > 0 else 180)
+	var avg_ms := 1000.0 / maxf(1.0, float(fps_now))
 	var res_i := clampi(int(save.get("settings", {}).get("res_i", 3)), 0, RES_LIST.size() - 1)
 	var r_v: Vector2i = RES_LIST[res_i]
-	console_fps_lbl.text = "FPS: %d / %d  (%.1f ms)  ·  %dp" % [fps_now, cap_now, ms_now, r_v.y]
+	console_fps_lbl.text = "FPS: %d / %s  (avg %.1f ms, hitch %.0f)  ·  %dp" % [fps_now, cap_s, avg_ms, _fps_hitch_ms, r_v.y]
 
 func toggle_console() -> void:
 	if console_panel == null: return
@@ -371,7 +381,78 @@ func _eval_expr(expr_str: String):
 		return null
 	return ex.execute([], self, false)
 
+var _fps_ema_ms := 5.5
+var _fps_hitch_ms := 0.0
+var _fps_hitch_t := 0.0
+
+func _console_spawn(parts: PackedStringArray) -> void:
+	var q := parts[1].to_lower()
+	var lvl := int(parts[2]) if parts.size() >= 3 and parts[2].is_valid_int() else 1
+	lvl = maxi(1, lvl)
+	var ship_kind := ""
+	if q in ["warship", "wars", "ws"] or q == "6":
+		ship_kind = "warship"
+	elif q in ["boat", "transport", "ship"]:
+		ship_kind = "boat"
+	elif q in ["trade", "trader", "cargo"]:
+		ship_kind = "trade"
+	var k := int(q) if q.is_valid_int() else -1
+	if k < 0 and ship_kind == "":
+		for m in build_data.size():
+			if str(build_data[m][1]).to_lower().begins_with(q):
+				k = m
+				break
+	if k == 6:
+		ship_kind = "warship"
+	if ship_kind == "" and k < 0:
+		_clog("Unknown spawn kind [b]%s[/b]. Try city, port, sam, silo, warship, boat." % q)
+		return
+	var t := _mouse_tile()
+	if t < 0 and nations.size() > PLAYER and nations[PLAYER].land > 0:
+		t = int(nations[PLAYER].sy / nations[PLAYER].land) * W + int(nations[PLAYER].sx / nations[PLAYER].land)
+	if ship_kind != "":
+		var wt := SpawnSnap.water_near(owner_map, W, H, t, 64)
+		if wt < 0:
+			_clog("No water near the cursor to spawn a %s." % ship_kind)
+			return
+		var o := PLAYER
+		var pos := Vector2(wt % W + 0.5, wt / W + 0.5)
+		if ship_kind == "warship":
+			var ws := {"o": o, "pos": pos, "home": wt, "hp": 1000.0, "vet": 0, "kills": 0, "tgt": pos, "cd": 0.0}
+			if sim_ws: sim_ws.init_ship(ws)
+			ws["patrol"] = pos
+			warships.append(ws)
+			_clog("Spawned Warship on water at tile %d." % wt)
+		elif ship_kind == "boat":
+			boats.append({"a": o, "troops": 0.0, "pts": PackedVector2Array([pos, pos]), "cum": PackedFloat32Array([0.0, 0.0]), "d": 0.0, "dest": wt, "sid": rng.randi() % 10, "uid": boat_uid})
+			boat_uid += 1
+			_clog("Spawned transport boat on water at tile %d." % wt)
+		else:
+			traders.append({"o": o, "pts": PackedVector2Array([pos, pos]), "cum": PackedFloat32Array([0.0, 0.0]), "d": 0.0, "dst": null, "gold": 0.0})
+			_clog("Spawned trade ship on water at tile %d." % wt)
+		overlay.queue_redraw()
+		return
+	var prefer := PLAYER
+	if t >= 0 and t < W * H and owner_map[t] > 0:
+		prefer = owner_map[t]
+	var occ := {}
+	for tile in struct_at:
+		occ[tile] = true
+	var land := SpawnSnap.owned_land_near(owner_map, occ, W, H, t, prefer, 64)
+	if land < 0:
+		_clog("No owned land near the cursor to spawn a %s." % str(build_data[k][1]))
+		return
+	var o: int = owner_map[land]
+	_struct_add(k, land, o)
+	struct_at[land].level = lvl
+	struct_at[land].bt = 0.0
+	_sv += 1
+	var lvtxt := _fmt_hud(float(lvl)) if lvl >= 1000 else str(lvl)
+	_clog("Spawned %s Lv%s at tile %d for %s." % [build_data[k][1], lvtxt, land, _nname(o)])
+	overlay.queue_redraw()
+
 func run_console_cmd(raw: String) -> void:
+
 	var cmd := raw.strip_edges()
 	if cmd == CONSOLE_PASS:
 		unlock_console(cmd)
@@ -388,7 +469,7 @@ func run_console_cmd(raw: String) -> void:
 		_clog("[b]Commands (no leading slash needed):[/b]")
 		_clog("  [b]gold <val|+val>[/b] · [b]troops <val|+val>[/b] · [b]stars <val|+val>[/b] · [b]speed <mult>[/b] · [b]peace <sec>[/b]")
 		_clog("  [b]unlock all[/b] | [b]lock all[/b] | [b]unlock <id>[/b] · [b]god[/b] · [b]inf_gold[/b] · [b]no_cd[/b] · [b]mirv[/b]")
-		_clog("  [b]claim <radius>[/b] · [b]spawn <building_or_id> [level][/b] · [b]nuke <7|8|11|12> [tile][/b]")
+		_clog("  [b]claim <radius>[/b] · [b]spawn <building|warship|boat> [level][/b] (buildings snap to owned land near the cursor, ships to water) · [b]nuke <7|8|11|12> [tile][/b]")
 		_clog("  [b]nation <id_or_name> <gold|troops|alive|prot> <val>[/b] · [b]win[/b] · [b]lose[/b] · [b]vars[/b] · [b]clear[/b]")
 		_clog("  [b]Any assignment or GDScript expression:[/b] e.g. [b]boat_speed = 6.0[/b], [b]NUKE_R[7] = 27[/b], [b]nations[1].gold = 9e8[/b]")
 		return
@@ -473,23 +554,7 @@ func run_console_cmd(raw: String) -> void:
 			_clog("Claimed radius %d around tile %d for Player." % [rad, t])
 		return
 	if head == "spawn" and parts.size() >= 2:
-		var q := parts[1].to_lower()
-		var lvl := int(parts[2]) if parts.size() >= 3 else 1
-		var k := int(q) if q.is_valid_int() else -1
-		if k < 0:
-			for m in build_data.size():
-				if build_data[m][1].to_lower().begins_with(q): k = m; break
-		var t := _mouse_tile()
-		if t < 0 and nations.size() > PLAYER and nations[PLAYER].land > 0:
-			t = int(nations[PLAYER].sy / nations[PLAYER].land) * W + int(nations[PLAYER].sx / nations[PLAYER].land)
-		if k >= 0 and t >= 0:
-			if k == 6:
-				spawn_warship(PLAYER); _clog("Spawned Warship.")
-			else:
-				_struct_add(k, t, PLAYER)
-				struct_at[t].level = maxi(1, lvl); struct_at[t].bt = 0.0; _sv += 1
-				_clog("Spawned %s Lv%d at tile %d." % [build_data[k][1], maxi(1, lvl), t])
-			overlay.queue_redraw()
+		_console_spawn(parts)
 		return
 	if head == "nation" and parts.size() >= 4:
 		var q := parts[1].to_lower()

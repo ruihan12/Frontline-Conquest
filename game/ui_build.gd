@@ -570,7 +570,7 @@ func _build_bottom() -> void:
 		ic.position = Vector2(7, 16); ic.size = Vector2(32, 30)
 		ic.draw.connect(func(): _icon(Vector2(16, 15), kk, Color(0.62, 0.7, 0.9) if is_avail(kk) else Color(0.45, 0.48, 0.58), 1.0 if is_avail(kk) else 0.4, ic, 11.0, false))
 		b.add_child(ic)
-		slot_price[k] = _T(b, _fmt(builds[k][2]), Vector2(0, 50), 12, GOLD_C, f_bold, 46, HORIZONTAL_ALIGNMENT_CENTER)
+		slot_price[k] = _T(b, _fmt_hud(builds[k][2]), Vector2(0, 50), 12, GOLD_C, f_bold, 46, HORIZONTAL_ALIGNMENT_CENTER)
 		b.pressed.connect(func(): select_build(kk))
 		b.mouse_entered.connect(func(): tip_slot = kk)
 		b.mouse_exited.connect(func(): if tip_slot == kk: tip_slot = -1)
@@ -830,9 +830,9 @@ func _update_hud() -> void:
 		row[2].text = "You" if ids[k] == PLAYER else n.name
 		row[2].add_theme_color_override("font_color", ORANGE_Y if ids[k] == PLAYER else TEXT)
 		row[3].text = _pct(100.0 * n.land / maxf(1, land_total))
-		row[4].text = _fmt(n.troops)
+		row[4].text = _fmt_hud(n.troops)
 	var my_rank := ids.find(PLAYER) + 1
-	lb_me[0].text = str(my_rank); lb_me[3].text = _pct(pct); lb_me[4].text = _fmt(pl.troops)
+	lb_me[0].text = str(my_rank); lb_me[3].text = _pct(pct); lb_me[4].text = _fmt_hud(pl.troops)
 	# attacks
 	var list := _player_attacks()
 	var outs := 0
@@ -866,17 +866,17 @@ func _update_hud() -> void:
 	_ema_init = true
 	if now_s - _hud_txt_t >= 0.25:
 		_hud_txt_t = now_s
-		bb_regen.text = "%s%s/s (%d%%)" % ["+" if _ema_regen >= 0 else "", _fmt(_ema_regen), clampi(cap_pct, 0, 999)]
-		bb_goldrate.text = "+%s/s" % _fmt(_ema_gold)
+		bb_regen.text = "%s%s/s (%d%%)" % ["+" if _ema_regen >= 0 else "", _fmt_hud(_ema_regen), clampi(cap_pct, 0, 999)]
+		bb_goldrate.text = "+%s/s" % _fmt_hud(_ema_gold)
 	bb_cap.position.x = bb_troops.position.x + f_bold.get_string_size(bb_troops.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x + 6
-	bb_cap.text = "/ %s" % _fmt(cap)
+	bb_cap.text = "/ %s" % _fmt_hud(cap)
 	bb_bar.set_meta("v", clampf(pl.troops / maxf(cap, 1.0), 0.0, 1.0)); bb_bar.queue_redraw()  # clamp: over-cap troops drew a bar across the whole screen
 	var at_war := 0.0
 	for at in attacks: if at.a == PLAYER: at_war += at.troops
 	for bt in boats: if bt.a == PLAYER: at_war += bt.troops
-	bb_war.text = ("%s at war" % _fmt(at_war)) if at_war > 0 else ""
+	bb_war.text = ("%s at war" % _fmt_hud(at_war)) if at_war > 0 else ""
 	bb_share.text = "%d%%" % int(SHARES[share_i] * 100)
-	bb_sends.text = "Sends %s troops" % _fmt(pl.troops * SHARES[share_i])
+	bb_sends.text = "Sends %s troops" % _fmt_hud(pl.troops * SHARES[share_i])
 	var silo_ready := false
 	var min_silo_cd := 999.0
 	for st in structs:
@@ -897,7 +897,7 @@ func _update_hud() -> void:
 			slot_price[k].text = "%ds" % maxi(1, ceili(_strike_cd(k)))
 			slot_price[k].add_theme_color_override("font_color", RED)
 		else:
-			slot_price[k].text = _fmt(cost)
+			slot_price[k].text = _fmt_hud(cost)
 			var can: bool = pl.gold >= cost and is_avail(k) and build_req(k, -1) == ""
 			slot_price[k].add_theme_color_override("font_color", GOLD_C if can else RED)
 		var sel: bool = k == build_sel
@@ -1006,7 +1006,7 @@ func _update_tooltip() -> void:
 func _fmt_time(s: float) -> String:
 	return "%d:%02d" % [int(s) / 60, int(s) % 60]
 
-func _fmt(n: float) -> String:
+func _fmt(n: float, decimals := 6) -> String:
 	if is_nan(n): return "0"
 	if is_inf(n): return "-∞" if n < 0 else "∞"
 	var a := absf(n)
@@ -1015,9 +1015,13 @@ func _fmt(n: float) -> String:
 	var v := a
 	while v >= 999.95 and e < _FMT_U.size() - 1:
 		v /= 1000.0; e += 1
-	if v >= 1000.0: return ("-" if n < 0 else "") + UITheme.sci(a)  # past the last suffix
+	if v >= 1000.0: return ("-" if n < 0 else "") + UITheme.sci(a, decimals)  # past the last suffix
 	var t := ("%.2f" % v) if v < 10.0 else ("%.1f" % v)
 	return ("-" if n < 0 else "") + t + _FMT_U[e]
+
+## Tight HUD labels: 3-decimal scientific notation past Qd ("2.345e23").
+func _fmt_hud(n: float) -> String:
+	return _fmt(n, 3)
 
 func load_save() -> void:
 	if FileAccess.file_exists(save_path):
@@ -1050,11 +1054,13 @@ func apply_settings(recolor_map := true) -> void:
 	var qual_i := clampi(int(cfg.get("qual_i", 3)), 0, 3)
 	var msaa_i := clampi(int(cfg.get("msaa_i", 2)), 0, 3)
 	var vs: bool = bool(cfg.get("vsync", false))
-	Engine.max_fps = FPS_LIST[fps_i]
+	var on_web := OS.has_feature("web")
+	# On the web the browser already drives frames via rAF (vsync-tied). A 180 cap fights that and hitchs.
+	Engine.max_fps = 0 if on_web else FPS_LIST[fps_i]
 	if get_viewport():
 		if str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "")) != "gl_compatibility": get_viewport().msaa_2d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][msaa_i] as Viewport.MSAA
 	_map_material().set_shader_parameter("quality", qual_i)
-	if not autoshot and not bench and DisplayServer.get_name() != "headless":
+	if not autoshot and not bench and DisplayServer.get_name() != "headless" and not on_web:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vs else DisplayServer.VSYNC_DISABLED)
 		# Only resize or switch OS Window Mode when NOT running inside Godot 4.4's embedded editor Game tab!
 		if not _is_embedded_window():

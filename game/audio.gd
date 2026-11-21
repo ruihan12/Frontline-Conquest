@@ -87,8 +87,10 @@ func _init_audio() -> void:
 		if not arr.is_empty(): sfx_streams[key] = arr
 	for i in SFX_POOL_SIZE:
 		var p := AudioStreamPlayer.new(); p.bus = "SFX"
+		_web_sample_player(p)
 		add_child(p); sfx_pool.append(p)
 	music_player = AudioStreamPlayer.new(); music_player.bus = "Music"
+	_web_sample_player(music_player)
 	add_child(music_player)
 	music_player.finished.connect(func(): _play_music())
 	if not sfx_missing.is_empty(): push_warning("Missing sounds: %s" % [sfx_missing])
@@ -96,7 +98,12 @@ func _init_audio() -> void:
 	_apply_volumes()
 	_init_audio_director()
 	# Menu and match share one clean loop. Contaminated themes are not candidates.
-	if bool(save.get("settings", {}).get("music_on", true)): _play_music()
+	# On the web, play() before a user gesture leaves AudioContext suspended (silence).
+	# Arm unlock and start music on the first click / key / touch.
+	if OS.has_feature("web"):
+		_arm_web_audio()
+	elif bool(save.get("settings", {}).get("music_on", true)):
+		_play_music()
 
 func _init_audio_director() -> void:
 	if "--legacy_sfx" in OS.get_cmdline_user_args(): return
@@ -123,6 +130,57 @@ func _apply_volumes() -> void:
 	if bi >= 0: AudioServer.set_bus_volume_db(bi, _vol_db(mu)); AudioServer.set_bus_mute(bi, mu <= 0.001 or not bool(cfg.get("music_on", true)))
 	bi = AudioServer.get_bus_index("SFX")
 	if bi >= 0: AudioServer.set_bus_volume_db(bi, _vol_db(sx)); AudioServer.set_bus_mute(bi, sx <= 0.001)
+
+func _web_sample_player(p: AudioStreamPlayer) -> void:
+	# Sample playback is the reliable Godot 4.3 web path (works without AudioWorklet threads).
+	if OS.has_feature("web") and p != null:
+		p.playback_type = AudioServer.PLAYBACK_TYPE_SAMPLE
+
+var _web_audio_armed := false
+var _web_audio_unlocked := false
+
+func _arm_web_audio() -> void:
+	_web_audio_armed = true
+	_web_audio_unlocked = false
+
+func _try_unlock_web_audio(e: InputEvent = null) -> void:
+	if not _web_audio_armed or _web_audio_unlocked:
+		return
+	var gest := e == null
+	if e != null:
+		if e is InputEventMouseButton and e.pressed:
+			gest = true
+		elif e is InputEventKey and e.pressed and not e.echo:
+			gest = true
+		elif e is InputEventScreenTouch and e.pressed:
+			gest = true
+	if not gest:
+		return
+	_web_audio_unlocked = true
+	_web_audio_armed = false
+	if OS.has_feature("web"):
+		# Resume any AudioContext the page already created (Godot's included).
+		JavaScriptBridge.eval("""
+			(function(){
+				function resume(c){ if (c && c.state === 'suspended' && c.resume) c.resume(); }
+				try {
+					if (typeof GodotAudio !== 'undefined') {
+						if (GodotAudio.ctx) resume(GodotAudio.ctx);
+						if (GodotAudio.audioContext) resume(GodotAudio.audioContext);
+					}
+					if (window.Godot && Godot.audioContext) resume(Godot.audioContext);
+					if (window.AudioContext || window.webkitAudioContext) {
+						var proto = (window.AudioContext || window.webkitAudioContext).prototype;
+						// best-effort: resume current godot context if exposed
+					}
+					window._fcAudioUnlocked = true;
+					if (window.__godotAudioContext) resume(window.__godotAudioContext);
+				} catch (err) {}
+			})();
+		""", true)
+	_apply_volumes()
+	if music_on_setting():
+		_play_music()
 
 # who = owner whose event this is (PLAYER for your own actions / things hitting you). Everything
 # except nuke launches & impacts is hard-gated to events involving the player.
@@ -1432,3 +1490,121 @@ func _cycle_report() -> String:
 			var r := _cyc(arr[i], [], nm + "[%d]" % i, 0)
 			if r != "": return r
 	return ""
+
+func _hudfit() -> void:
+	shots_dir = "/workspace/shots/hudfit"
+	DirAccess.make_dir_recursive_absolute(shots_dir)
+	if play_dialog: play_dialog.visible = false
+	map_tab = 0
+	map_i = 0
+	_start_game()
+	var st := _find_spawn_tile(W * 52 / 100, H * 30 / 100)
+	_place_start(st)
+	deploy_t = 0.0
+	state = "play"
+	peace = 1e9
+	sim_paused = true
+	_claim_blob(PLAYER, st, 40)
+	nations[PLAYER].gold = 2.345346e23
+	nations[PLAYER].troops = 9.999999e99
+	shown_gold = nations[PLAYER].gold
+	shown_troops = nations[PLAYER].troops
+	if hud:
+		if hud.has_method("show_match"):
+			hud.show_match()
+		if hud.has_method("_toast_now"):
+			hud._toast_now("Pakistan launched Atom Bomb at Vietnam", "alert")
+			hud._toast_now("Huge gold 2.345346e23 / troops 9.999999e99 / 123.4Qd", "info")
+	if has_method("_update_hud"):
+		_update_hud()
+	for _f in 20:
+		await get_tree().process_frame
+	nations[PLAYER].gold = 2.345346e23
+	nations[PLAYER].troops = 9.999999e99
+	shown_gold = nations[PLAYER].gold
+	shown_troops = nations[PLAYER].troops
+	if hud and hud.has_method("refresh_all"):
+		hud.refresh_all(0.0, 0.0, true)
+	for _f in 2:
+		await get_tree().process_frame
+	if hud and hud.cb_gold:
+		print("HUDFIT label gold='%s' troops='%s' shown_gold=%s fmt=%s" % [hud.cb_gold.text, hud.cb_troops.text if hud.cb_troops else "?", shown_gold, _fmt_hud(shown_gold)])
+	# After (live HUD + toast) at both resolutions.
+	await _capture_at("after_hud_toast", 1280, 720)
+	await _capture_at("after_hud_toast", 2560, 1440)
+	# Side-by-side before/after icon comparison (old 14 px nearest vs new 20 px mip-linear).
+	_show_icon_compare()
+	for _f in 8:
+		await get_tree().process_frame
+	await _capture_at("icon_compare", 1280, 720)
+	await _capture_at("icon_compare", 2560, 1440)
+	print("HUDFIT wrote shots under ", shots_dir)
+	get_tree().quit()
+
+func _capture_at(tag: String, w: int, h: int) -> void:
+	# Same layout as a player window: 1600x900 UI stretched (keep aspect) into a w x h framebuffer.
+	var win := get_window()
+	if win:
+		win.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
+		win.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
+		win.content_scale_size = Vector2i(1600, 900)
+		win.size = Vector2i(w, h)
+	if get_viewport():
+		get_viewport().size = Vector2i(w, h)
+	nations[PLAYER].gold = 2.345346e23
+	nations[PLAYER].troops = 9.999999e99
+	shown_gold = nations[PLAYER].gold
+	shown_troops = nations[PLAYER].troops
+	if hud and hud.has_method("refresh_all"):
+		hud.refresh_all(0.0, 0.0, true)
+	for _f in 14:
+		await get_tree().process_frame
+	if hud and hud.cb_gold:
+		print("HUDFIT %s_%dx%d label gold='%s' troops='%s'" % [tag, w, h, hud.cb_gold.text, hud.cb_troops.text if hud.cb_troops else "?"])
+	_shot("%s_%dx%d.png" % [tag, w, h])
+	var im: Image = get_viewport().get_texture().get_image()
+	if im:
+		print("HUDFIT %s_%dx%d framebuffer=%dx%d" % [tag, w, h, im.get_width(), im.get_height()])
+
+func _show_icon_compare() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.07, 0.08, 0.12, 1)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(bg)
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.add_theme_constant_override("separation", 48)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	layer.add_child(row)
+	row.add_child(_icon_compare_col("BEFORE  14px nearest, no mips (old toast)", false))
+	row.add_child(_icon_compare_col("AFTER  20px linear + mipmaps, 32px ring", true))
+
+func _icon_compare_col(title: String, after: bool) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 16)
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	var lab := Label.new()
+	lab.text = title
+	lab.add_theme_font_size_override("font_size", 22)
+	lab.add_theme_color_override("font_color", Color(0.92, 0.94, 0.98))
+	v.add_child(lab)
+	var tex: Texture2D = RK.icon_tex("atom") if RK else null
+	for px in [32, 48, 64, 96]:
+		var cell := Control.new()
+		cell.custom_minimum_size = Vector2(px + 24, px + 24)
+		cell.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS if after else CanvasItem.TEXTURE_FILTER_NEAREST
+		var icon_px: float = (float(px) * 20.0 / 32.0) if after else (float(px) * 14.0 / 26.0)
+		cell.draw.connect(func():
+			var c := cell.size * 0.5
+			var rad := minf(c.x, c.y) - 2.0
+			var col := Color(0.3, 0.85, 1.0)
+			cell.draw_circle(c, rad, Color(col, 0.16))
+			cell.draw_arc(c, rad - 0.5, 0, TAU, 48, Color(col, 0.5), 2.0 if after else 1.0, true)
+			if tex:
+				cell.draw_texture_rect(tex, Rect2(c - Vector2(icon_px, icon_px) * 0.5, Vector2(icon_px, icon_px)), false, col)
+		)
+		v.add_child(cell)
+	return v

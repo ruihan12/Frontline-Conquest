@@ -52,6 +52,14 @@ func _init() -> void:
 	_check(FxLayer.format_gold(4.2e15), "4.20Qd", "format_gold(4.2e15)")
 	_check(FxLayer.format_gold(1e18), "1.000000e18", "format_gold(1e18)")
 
+	# Tight HUD labels: 3-decimal scientific notation past Qd (tooltips/console keep 6).
+	_check(UITheme.hud_num(2.345346e23), "2.345e23", "hud_num(2.345346e23)")
+	_check(UITheme.sci_hud(2.345346e23), "2.345e23", "sci_hud(2.345346e23)")
+	_check(UITheme.hud_num(8.999e99), "8.999e99", "hud_num(8.999e99)")
+	_check(UITheme.hud_num(9.999999e99), "1.000e100", "hud_num(9.999999e99) rounds to 1.000e100")
+	_check(UITheme.hud_num(123.4e15), "123.4Qd", "hud_num(123.4Qd)")
+	_check(UITheme.big(2.345346e23), "2.345346e23", "big keeps 6 decimals")
+
 	# Qa/Qi and the later names must be gone; 1e18 is already scientific, not a suffix.
 	_check(str("Qa" in UITheme.big(1e18) or "Qi" in UITheme.big(1e18) or "Qt" in UITheme.big(1e18)), "false", "no Qa/Qi/Qt at 1e18")
 

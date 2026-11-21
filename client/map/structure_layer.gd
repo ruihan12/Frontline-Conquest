@@ -165,6 +165,12 @@ func draw_ghost(ci: CanvasItem, k: int, sp: Vector2, ok: bool) -> bool:
 func draw(ci: CanvasItem) -> void:
 	if _plates == null or _glyphs == null:
 		return
+	var prev_f := ci.texture_filter
+	ci.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_draw_inner(ci)
+	ci.texture_filter = prev_f
+
+func _draw_inner(ci: CanvasItem) -> void:
 	var k: float = maxf(0.01, float(g.sim_rules.k_lin))
 	var scale_px: float = g.cam.zoom.x * g.TS
 	var zoom := scale_px / k * DEVICE_RATIO
@@ -207,7 +213,7 @@ func draw(ci: CanvasItem) -> void:
 			if lv >= 2:
 				# a label box 0.6 plate sizes tall whose bottom sits 0.1 plate sizes below the plate's top
 				var fs := maxi(6, int(px * 0.6 * 0.8))
-				var txt := str(lv)
+				var txt: String = g._fmt_hud(float(lv))
 				var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 				var bottom := c.y - px * 0.5 + px * 0.1
 				var pos := Vector2(c.x - tw * 0.5, bottom - _font.get_descent(fs))
