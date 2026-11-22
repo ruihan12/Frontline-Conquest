@@ -196,17 +196,25 @@ func _rebuild_kind_cache() -> void:
 	for id in nations.size(): kc[id] = kind_of(id)
 	_kind_cache = kc
 
-# Source intent_attack: attack the owner of `tile` with `ratio` of home troops; over land when the
-# attacker borders it, otherwise by transport.
+# Upstream Sim.intent_attack / intent_attack_troops (Sim.luau:1288-1337): a LAND attack on the
+# owner of `tile` with `ratio` of home troops, along the whole shared frontier. It never turns into
+# a transport: the client picks attack vs boat (UIRules._primary) and sends "boat" itself. With no
+# frontier the troops are refunded and the player is told to send a boat.
 func intent_attack(id: int, tile: int, ratio: float) -> bool:
 	if tile < 0 or tile >= W * H: return false
+	if is_nan(ratio) or is_inf(ratio): return false
 	var o := owner_map[tile]
 	if o < 0 or o == id: return false
-	if o > 0 and _adj_any(tile, id):
-		return launch_attack(id, o, ratio)
-	if o == NEUTRAL and _adj_any(tile, id):
-		return launch_attack(id, NEUTRAL, ratio)
-	return launch_boat(id, tile, ratio if id == PLAYER else SimRules.BOAT_ATTACK_FRACTION, 12000)
+	if id <= 0 or id >= nations.size() or not nations[id].alive: return false
+	var home: float = nations[id].troops
+	var blocked: bool = (o > 0 and (allied(id, o) or not nations[o].alive)) or shielded(o)
+	var ok := launch_attack(id, o, clampf(ratio, 0.01, 1.0))
+	if not ok and not blocked and id == PLAYER and nations[id].troops >= home - 0.5 and home * clampf(ratio, 0.01, 1.0) >= 1.0:
+		if o > 0:
+			notify("You don't border %s — send a boat" % _nname(o), "info")
+		else:
+			notify("That land isn't next to yours — send a boat", "info")
+	return ok
 
 func _adj_any(tile: int, id: int) -> bool:
 	return _adj_to(tile, id) or owner_map[tile] == id
