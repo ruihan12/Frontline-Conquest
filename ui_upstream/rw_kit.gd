@@ -139,8 +139,7 @@ static func flat(bg: Color, radius := R_MD, border := CLEAR, bw := 0, mh := 0.0,
 	s.set_border_width_all(bw)
 	s.content_margin_left = mh; s.content_margin_right = mh
 	s.content_margin_top = mv; s.content_margin_bottom = mv
-	s.anti_aliasing = true
-	return s
+	return UITheme.smooth(s)
 
 static func empty_box(mh := 0.0, mv := 0.0) -> StyleBoxEmpty:
 	var s := StyleBoxEmpty.new()

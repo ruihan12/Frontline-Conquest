@@ -201,7 +201,7 @@ func _draw_emblem() -> void:
 		var d := Vector2.from_angle(i * PI / 2)
 		var nn := Vector2(-d.y, d.x)
 		c.draw_colored_polygon(PackedVector2Array([o + d * 30.0 * k, o + nn * 6.0 * k, o - nn * 6.0 * k]), Color.WHITE if i % 2 == 0 else Color(0.55, 0.75, 1.0))
-	c.draw_circle(o, 5.0 * k, Color(0.95, 0.35, 0.3))
+	c.draw_circle(o, 5.0 * k, Color(0.95, 0.35, 0.3), true, -1.0, true)
 
 
 func _build_head() -> void:

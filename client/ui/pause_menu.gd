@@ -85,7 +85,7 @@ class Switch:
 		var y := (size.y - th) * 0.5
 		draw_style_box(UITheme.flat(col, 11), Rect2(x, y, tw, th))
 		var kx := size.x + (-14.0 - tw + 11.0) + (tw - 22.0) * _k
-		draw_circle(Vector2(kx, size.y * 0.5), 8.0, Color.WHITE)
+		draw_circle(Vector2(kx, size.y * 0.5), 8.0, Color.WHITE, true, -1.0, true)
 
 
 # =============================================================================================
@@ -193,8 +193,8 @@ class VolumeRow:
 		if fw > 0.5:
 			draw_style_box(UITheme.flat(UITheme.AMBER, 3), Rect2(x0, cy - th * 0.5, maxf(fw, th), th))
 		var k := 19.0 if _drag else 16.0
-		draw_circle(Vector2(x0 + fw, cy), k * 0.5 + 1.0, Color8(120, 72, 8, 230))
-		draw_circle(Vector2(x0 + fw, cy), k * 0.5 - 1.0, Color.WHITE)
+		draw_circle(Vector2(x0 + fw, cy), k * 0.5 + 1.0, Color8(120, 72, 8, 230), true, -1.0, true)
+		draw_circle(Vector2(x0 + fw, cy), k * 0.5 - 1.0, Color.WHITE, true, -1.0, true)
 		var f := UITheme.font(700)
 		draw_string(f, Vector2(size.x - RIGHT - PCT_W, cy + 13 * 0.36), "%d%%" % int(round(value * 100)), HORIZONTAL_ALIGNMENT_RIGHT, PCT_W, 13, UITheme.TEXT_2)
 

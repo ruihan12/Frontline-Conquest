@@ -164,9 +164,10 @@ func _size_parts() -> void:
 	var ph := maxf(22.0, s * 0.22)
 	var pst := StyleBoxFlat.new()
 	pst.bg_color = Color8(249, 187, 75)  # (255,214,110) -> (242,160,40) top to bottom, flattened
-	pst.set_corner_radius_all(int(ph * 0.5))
+	pst.set_corner_radius_all(UITheme.pill_radius(ph))
 	pst.set_border_width_all(2)
 	pst.border_color = Color(Color8(70, 40, 6), 0.8)
+	UITheme.smooth(pst)
 	_pill.add_theme_stylebox_override("panel", pst)
 	_pill.custom_minimum_size = Vector2(pw, ph)
 	_pill.size = Vector2(pw, ph)
@@ -175,9 +176,10 @@ func _size_parts() -> void:
 	var bh := maxf(20.0, s * 0.2)
 	var bst := StyleBoxFlat.new()
 	bst.bg_color = Color8(20, 28, 52)
-	bst.set_corner_radius_all(int(bh * 0.5))
+	bst.set_corner_radius_all(UITheme.pill_radius(bh))
 	bst.set_border_width_all(2)
 	bst.border_color = GOLD
+	UITheme.smooth(bst)
 	bst.content_margin_left = bh * 0.35
 	bst.content_margin_right = bh * 0.35
 	_badge.add_theme_stylebox_override("panel", bst)

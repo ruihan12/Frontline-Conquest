@@ -21,21 +21,17 @@ func _panel_style(c: Color = PANEL_BG, r: int = 14, border := Color(1, 1, 1, 0.0
 	st.set_border_width_all(bw)
 	st.shadow_color = Color(0, 0, 0, 0.35)
 	st.shadow_size = 8
-	st.anti_aliasing = true
-	return st
+	return UITheme.smooth(st)
 
 func _flat(c: Color, r: int, border := Color(0, 0, 0, 0), bw := 0) -> StyleBoxFlat:
 	var st := StyleBoxFlat.new()
 	st.bg_color = c
 	# buttons 8-10 px, small bars/toggles become pills (Godot clamps radius to half the height)
 	st.set_corner_radius_all(r if r < 4 else (clampi(r + 4, 8, 10) if r <= 8 else mini(r + 2, 16)))
-	st.corner_detail = 16
-	st.anti_aliasing_size = 1.2
 	st.border_color = _clean_border_col(c, border, bw)
 	st.set_border_width_all(bw)
 	st.set_content_margin_all(2)
-	st.anti_aliasing = true
-	return st
+	return UITheme.smooth(st)
 
 func _P(parent: Node, r: Rect2, c := PANEL_BG, rad := 14, border := Color(1, 1, 1, 0.07), bw := 1, shadow := true) -> Panel:
 	var p := Panel.new()
@@ -355,8 +351,8 @@ func _build_speed() -> void:
 	var sl := HSlider.new()
 	sl.min_value = 0.5; sl.max_value = 10.0; sl.step = 0.5; sl.value = 1.0
 	sl.position = Vector2(14, 36); sl.size = Vector2(widest - 66, 22); sl.focus_mode = Control.FOCUS_NONE
-	var grab := StyleBoxFlat.new(); grab.bg_color = Color(0.35, 0.80, 1.0, 0.85); grab.set_corner_radius_all(6); grab.content_margin_top = 5; grab.content_margin_bottom = 5
-	var trk := StyleBoxFlat.new(); trk.bg_color = Color(1, 1, 1, 0.12); trk.set_corner_radius_all(6); trk.content_margin_top = 5; trk.content_margin_bottom = 5
+	var grab := StyleBoxFlat.new(); grab.bg_color = Color(0.35, 0.80, 1.0, 0.85); grab.set_corner_radius_all(6); grab.content_margin_top = 5; grab.content_margin_bottom = 5; UITheme.smooth(grab)
+	var trk := StyleBoxFlat.new(); trk.bg_color = Color(1, 1, 1, 0.12); trk.set_corner_radius_all(6); trk.content_margin_top = 5; trk.content_margin_bottom = 5; UITheme.smooth(trk)
 	sl.add_theme_stylebox_override("slider", trk); sl.add_theme_stylebox_override("grabber_area", grab); sl.add_theme_stylebox_override("grabber_area_highlight", grab)
 	sl.value_changed.connect(func(v: float): set_speed_x(v))
 	p.add_child(sl); speed_slider = sl

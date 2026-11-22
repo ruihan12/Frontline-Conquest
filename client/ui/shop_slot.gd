@@ -136,24 +136,23 @@ func _draw() -> void:
 	draw_set_transform(c, rot, Vector2(_scale, _scale))
 	var o := -c  # the body's top-left in the transformed space
 	# the ground: a gold gradient with an ink edge
-	var mask := UITheme.flat(Color.WHITE, UITheme.R_MD)
-	var r := float(UITheme.R_MD)
-	# (rounded gradient: the gradient in strips that follow the rounded corners)
-	var strips := 20
-	for i in strips:
-		var y0 := h * i / strips
-		var y1 := h * (i + 1) / strips
-		var ym := (y0 + y1) * 0.5
-		var inset := 0.0
-		if ym < r:
-			inset = r - sqrt(maxf(r * r - (r - ym) * (r - ym), 0.0))
-		elif ym > h - r:
-			inset = r - sqrt(maxf(r * r - (ym - (h - r)) * (ym - (h - r)), 0.0))
-		draw_rect(Rect2(o.x + inset, o.y + y0, w - inset * 2, y1 - y0 + 0.5), GOLD_LIGHT.lerp(GOLD_DEEP, ym / h))
-	var edge := UITheme.flat(Color(0, 0, 0, 0), UITheme.R_MD, Color(INK.r, INK.g, INK.b, 0.75), 1)
+	var r := minf(float(UITheme.R_MD), minf(w, h) * 0.5)
+	# (rounded gradient: one polygon along the rounded outline, each point coloured by its height, so
+	# the corners are true arcs and not the steps of horizontal strips)
+	var outline := PackedVector2Array()
+	var cols := PackedColorArray()
+	var seg := 12
+	var centres := [Vector2(o.x + w - r, o.y + r), Vector2(o.x + w - r, o.y + h - r), Vector2(o.x + r, o.y + h - r), Vector2(o.x + r, o.y + r)]
+	for ci in 4:
+		var a0 := -PI * 0.5 + ci * PI * 0.5
+		for k in seg + 1:
+			var p: Vector2 = centres[ci] + Vector2.from_angle(a0 + PI * 0.5 * k / seg) * r
+			outline.append(p)
+			cols.append(GOLD_LIGHT.lerp(GOLD_DEEP, clampf((p.y - o.y) / h, 0.0, 1.0)))
+	draw_polygon(outline, cols)
+	var edge := UITheme.flat_draw(Color(0, 0, 0, 0), UITheme.R_MD, Color(INK.r, INK.g, INK.b, 0.75), 1)
 	edge.draw_center = false
 	draw_style_box(edge, Rect2(o, size))
-	mask = null
 
 	var cap_h := CAPTION_H
 	var art_h := maxf(8.0, h - cap_h - 5.0)
@@ -193,8 +192,8 @@ func _draw() -> void:
 	# the count badge
 	if _n_locked > 0 and not _seen:
 		var bc := Vector2(o.x + w - 3.0, o.y + 3.0)
-		draw_circle(bc, 9.5, Color8(90, 10, 10))
-		draw_circle(bc, 8.0, RED)
+		draw_circle(bc, 9.5, Color8(90, 10, 10), true, -1.0, true)
+		draw_circle(bc, 8.0, RED, true, -1.0, true)
 		draw_string(f, Vector2(bc.x - 8, bc.y + 4), str(_n_locked), HORIZONTAL_ALIGNMENT_CENTER, 16, 11, Color.WHITE)
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 

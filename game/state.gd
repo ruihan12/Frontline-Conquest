@@ -310,6 +310,9 @@ var fallout_count := 0
 var real_nations := []
 var snow_src := PackedByteArray()  # current map codes; 4 = snow (Antarctica): plains rules, white colour
 const SNOW_COL := Color8(0xF4, 0xF7, 0xFA)
+## exact upstream WorldMap tile bytes of the current map (bit7 land, bit6 shore, bits0-4 magnitude);
+## empty for generated maps. MapSurface.terrain_pixel colours the terrain from these.
+var tile_bytes := PackedByteArray()
 
 var _kind_cache := PackedInt32Array()
 var _gt_t := 0

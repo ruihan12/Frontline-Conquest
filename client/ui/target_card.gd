@@ -171,7 +171,7 @@ func show_target(t: int, k: String, act: Dictionary) -> void:
 		var rc := ctx.relation_color(rel)
 		_badge_l.text = rel.to_upper()
 		UITheme.set_font_color(_badge_l, rc)
-		_badge.add_theme_stylebox_override("panel", UITheme.flat(UITheme.c(rc, 0.14), 999, UITheme.c(rc, 0.5), 1, 8.0, 1.0))
+		_badge.add_theme_stylebox_override("panel", UITheme.box(UITheme.c(rc, 0.14), 999, UITheme.c(rc, 0.5), 1, 8.0, 1.0))
 		_sub.text = "%s  ·  %s" % [ctx.kind_title(o.kind if o != null else 0), ctx.terrain_title(t)]
 		_troops.text = "Troops " + UITheme.fmt_troops(o.troops if o != null else 0)
 		_land.text = "Land " + UITheme.fmt_pct(s.land_share(owner_id))

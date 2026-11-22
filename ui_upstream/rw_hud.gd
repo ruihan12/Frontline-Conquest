@@ -210,11 +210,11 @@ func _draw_topbar_btn(b: Button) -> void:
 	var s := b.size
 	var c := s * 0.5
 	var r := minf(s.x, s.y) * 0.5
-	b.draw_circle(c, r, RK.TOPBAR_FILL)
+	b.draw_circle(c, r, RK.TOPBAR_FILL, true, -1.0, true)
 	var ov := 0.0
 	if b.button_pressed or (b.is_hovered() and Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)): ov = 0.16
 	elif b.is_hovered(): ov = 0.08
-	if ov > 0: b.draw_circle(c, r, Color(1, 1, 1, ov))
+	if ov > 0: b.draw_circle(c, r, Color(1, 1, 1, ov), true, -1.0, true)
 	var t := RK.icon_tex(b.get_meta("icon"))
 	if t:
 		var ip := s.x * 36.0 / 44.0
@@ -486,9 +486,9 @@ func _build_board() -> void:
 	board_pill = RK.button("Leaderboard", "GlassButton", "leaderboard", 40)
 	board_pill.add_theme_constant_override("icon_max_width", 16)
 	board_pill.custom_minimum_size = Vector2(170, 40)
-	board_pill.add_theme_stylebox_override("normal", RK.flat(RK.GLASS, 999, RK.LINE, 1, 14, 6))
+	board_pill.add_theme_stylebox_override("normal", UITheme.box(RK.GLASS, 999, RK.LINE, 1, 14, 6))
 	for st in ["hover", "pressed", "hover_pressed"]:
-		board_pill.add_theme_stylebox_override(st, RK.flat(RK.GLASS_RAISED, 999, RK.LINE_2, 1, 14, 6))
+		board_pill.add_theme_stylebox_override(st, UITheme.box(RK.GLASS_RAISED, 999, RK.LINE_2, 1, 14, 6))
 	board_pill.add_theme_font_size_override("font_size", 13)
 	board_pill.clip_text = true
 	board_pill.pressed.connect(func(): set_board_open(true))
@@ -1283,7 +1283,7 @@ func _disc(col: Color, icon: String) -> Control:
 	d.draw.connect(func():
 		var c := d.size * 0.5
 		var rad := minf(c.x, c.y) - 0.5
-		d.draw_circle(c, rad, RK.c(col, 0.16))
+		d.draw_circle(c, rad, RK.c(col, 0.16), true, -1.0, true)
 		d.draw_arc(c, rad - 0.5, 0, TAU, 40, RK.c(col, 0.45), 1.5, true)
 		if tex:
 			var isz := 20.0

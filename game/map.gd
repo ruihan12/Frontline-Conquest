@@ -284,6 +284,8 @@ func gen_map() -> void:
 	var raw_bytes := _get_handcrafted_map_bytes(map_i)
 	var rmap := _real_map(map_i)
 	snow_src = raw_bytes
+	tile_bytes = UpstreamMaps.tiles(mid) if raw_bytes.size() == W * H else PackedByteArray()
+	if tile_bytes.size() != W * H: tile_bytes = PackedByteArray()
 	sim_rules.tile_norm = TILE_NORM
 	sim_rules.set_k(float(rmap.k_lin) if not rmap.is_empty() else DEFAULT_K_LIN)
 	real_nations = rmap.nations if not rmap.is_empty() else []
@@ -484,6 +486,14 @@ func _recompute_base_colors() -> void:
 
 # Fast whole-map version of _rw_terrain (same colours), locals only.
 func _rw_terrain_all() -> void:
+	if tile_bytes.size() == W * H:
+		var tb := tile_bytes
+		var lut := PackedColorArray(); lut.resize(256)
+		for b in 256: lut[b] = terrain_pixel(b)
+		var bc0 := PackedColorArray(); bc0.resize(W * H)
+		for i in W * H: bc0[i] = lut[tb[i]]
+		base_col = bc0
+		return
 	var om := owner_map; var cdist := coast_dist; var el := elev_map; var mt := mtn
 	var N := W * H
 	var bc := PackedColorArray(); bc.resize(N)
@@ -518,7 +528,27 @@ func _rw_terrain_all() -> void:
 			else: bc[i] = plc[clampi(int(e * 30.0), 0, 9)]
 	base_col = bc
 
+# MapSurface.terrain_pixel (src/client/Map/MapSurface.luau), 1:1: the colour of an upstream terrain byte
+# (bit7 land, bit6 shoreline, bits0-4 magnitude: land elevation 0-30 / water depth; land 31 impassable).
+static func terrain_pixel(tb: int) -> Color:
+	var land := tb >= 128
+	var shore := (tb & 64) != 0
+	var mag := tb & 31
+	if land and mag == 31: return Color8(0x3C, 0x3C, 0x3C)
+	if land and shore: return Color8(0xCC, 0xCB, 0x9E)
+	if land:
+		if mag < 10: return Color8(0xBE, 0xDC - 2 * mag, 0x8A)
+		if mag < 20:
+			var m := mag - 10
+			return Color8(0xDC + 2 * m, 0xCB + 2 * m, 0x9E + 2 * m)
+		var mm := mag / 2
+		return Color8(mini(255, 0xE6 + mm), mini(255, 0xE6 + mm), mini(255, 0xE6 + mm))
+	if shore: return Color8(roundi(0.7 * 0x47 + 76.5), roundi(0.7 * 0x85 + 76.5), roundi(0.7 * 0xB5 + 76.5))
+	var d := mini(mag, 10)
+	return Color8(0x47 - d, 0x85 - d, 0xB5 - d)
+
 func _rw_terrain(i: int) -> Color:
+	if tile_bytes.size() == W * H: return terrain_pixel(tile_bytes[i])
 	var o := owner_map[i]
 	var x := i % W
 	var shore := false

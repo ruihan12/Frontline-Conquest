@@ -287,9 +287,9 @@ func _init(c: UICtx) -> void:
 	pill.icon = T.icon_texture("leaderboard")
 	pill.add_theme_constant_override("icon_max_width", 16)
 	pill.custom_minimum_size = Vector2(0, 40)
-	pill.add_theme_stylebox_override("normal", T.flat(T.GLASS, 999, T.LINE, 1, 14, 6))
+	pill.add_theme_stylebox_override("normal", T.box(T.GLASS, 999, T.LINE, 1, 14, 6))
 	for st in ["hover", "pressed", "hover_pressed"]:
-		pill.add_theme_stylebox_override(st, T.flat(T.GLASS_RAISED, 999, T.LINE_2, 1, 14, 6))
+		pill.add_theme_stylebox_override(st, T.box(T.GLASS_RAISED, 999, T.LINE_2, 1, 14, 6))
 	pill.add_theme_font_size_override("font_size", 13)
 	pill.pressed.connect(func() -> void: set_open(true))
 	_pill = pill

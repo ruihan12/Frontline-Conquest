@@ -579,7 +579,7 @@ func _paint_mark() -> void:
 	_mark.draw_arc(p, outer - (outer - inner) * k1, 0.0, TAU, 48, Color(UITheme.AMBER, k1 * 0.95), 3.0, true)
 	_mark.draw_arc(p, outer - (outer - inner) * k2, 0.0, TAU, 48, Color(UITheme.AMBER, k2 * 0.95), 2.0, true)
 	if around < 0.0:
-		_mark.draw_circle(p, 6.0, UITheme.AMBER)
+		_mark.draw_circle(p, 6.0, UITheme.AMBER, true, -1.0, true)
 	var word := _mark_word if _mark_word != "" else ("Tap here" if ctx.touch else "Click here")
 	var font := UITheme.font(700)
 	var tw := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 13).x
