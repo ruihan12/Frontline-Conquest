@@ -61,6 +61,15 @@ var _font: Font
 var _status: Texture2D
 
 
+## Troop counts on the plates refresh this often (s); the sim only changes them once per tick anyway.
+const TROOP_TEXT_S := 0.1
+## Longest gap between redraws while the camera is still (s).
+const REDRAW_S := 0.1
+var _redraw_t := 0.0
+var _last_cam := Vector3.ZERO
+var _last_hover := -2
+
+
 func _init(main, state: RWGameState) -> void:
 	g = main
 	st = state
@@ -435,7 +444,15 @@ func _process(dt: float) -> void:
 	var _pt0 := Time.get_ticks_usec()
 	_placement_step()
 	g._pf_add("names_place", Time.get_ticks_usec() - _pt0)
-	queue_redraw()
+	# The plates only change with the camera, a hover, or the 10 Hz troop/ease refresh: re-recording every
+	# label each frame was the layer's whole cost (about 7 ms a frame with a few hundred nations).
+	_redraw_t -= dt
+	var cs := Vector3(g.cam.position.x, g.cam.position.y, g.cam.zoom.x)
+	if cs != _last_cam or hover_owner != _last_hover or _redraw_t <= 0.0:
+		_last_cam = cs
+		_last_hover = hover_owner
+		_redraw_t = REDRAW_S
+		queue_redraw()
 
 
 func _draw() -> void:
@@ -502,19 +519,38 @@ func _draw_body() -> void:
 		var stroke := maxi(1, int(round(maxf(1.0, px * OUTLINE_K) * 2.0)))
 		var tstroke := maxi(1, int(round(maxf(1.0, px * OUTLINE_K * TROOP_SIZE_MULT) * 2.0)))
 		var top := roundf(sp.y - px * 0.5)
-		var nw := _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var asc := _font.get_ascent(fs)
-		var nh := _font.get_height(fs)
+		# Text metrics are cached on the plate: they only change with the text or the font size, and the
+		# shaping calls were most of this layer's per-frame cost.
+		var tt: String
+		if p.get("c_tt_t", -1.0) >= 0.0 and now - float(p.c_tt_t) < TROOP_TEXT_S and p.get("c_tt") != null:
+			tt = p.c_tt
+		else:
+			tt = UITheme.fmt_troops(float(n.get("troops", 0.0)))
+			p.c_tt = tt
+			p.c_tt_t = now
+		if p.get("c_text") != text or p.get("c_fs") != fs or p.get("c_tfs") != tfs or p.get("c_tt_m") != tt:
+			p.c_text = text
+			p.c_fs = fs
+			p.c_tfs = tfs
+			p.c_tt_m = tt
+			p.c_nw = _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			p.c_asc = _font.get_ascent(fs)
+			p.c_nh = _font.get_height(fs)
+			p.c_tw = _font.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x
+			p.c_tasc = _font.get_ascent(tfs)
+			p.c_th = _font.get_height(tfs)
+		var nw: float = p.c_nw
+		var asc: float = p.c_asc
+		var nh: float = p.c_nh
+		var tw: float = p.c_tw
 		var np := Vector2(roundf(sp.x - nw * 0.5), top + asc)
 		draw_string_outline(_font, np, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, stroke, col)
 		draw_string(_font, np, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, fill)
-		var tt := UITheme.fmt_troops(float(n.get("troops", 0.0)))
-		var tw := _font.get_string_size(tt, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs).x
-		var tp := Vector2(roundf(sp.x - tw * 0.5), top + nh + _font.get_ascent(tfs))
+		var tp := Vector2(roundf(sp.x - tw * 0.5), top + nh + float(p.c_tasc))
 		draw_string_outline(_font, tp, tt, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, tstroke, col)
 		draw_string(_font, tp, tt, HORIZONTAL_ALIGNMENT_LEFT, -1, tfs, fill)
 		var w := maxf(nw, tw)
-		p.rect = Rect2(sp.x - w * 0.5, top, w, nh + _font.get_height(tfs))
+		p.rect = Rect2(sp.x - w * 0.5, top, w, nh + float(p.c_th))
 		if id == crown_owner and _status != null:
 			var icon := maxf(line_px * 1.1, CROWN_MIN_PX)
 			var src := Rect2(STATUS_PAD, STATUS_PAD, STATUS_CELL - 2 * STATUS_PAD, STATUS_CELL - 2 * STATUS_PAD)

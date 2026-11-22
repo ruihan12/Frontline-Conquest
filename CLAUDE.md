@@ -27,6 +27,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Merged fix-input-upstream, fix-gfx and fix-perf into vanilla (no conflicts). Parity 463 pass / 0 fail / 5 intentional; test_input_world, test_client_clicks, test_tutorial, test_map_camera, test_console_spawn, test_nav all PASS.
 - Perf check (native headless, tests/perf_sim.gd, World, 400 tribes, seed 12345): first minute per tick vanilla 66 ms (worst 555) -> vanilla-merge 32 ms (worst 129); minute 2 32 ms -> 19 ms. So fix-perf is verified in the sim; the web build is still untested for fps in a real browser.
 - Web export of vanilla-merge delivered as roworld_web.zip (needs COOP/COEP headers; serve.py is not in the repo).
+- Perf, name labels (client/map/name_layer.gd): text metrics cached per plate, troop text refreshed at 10 Hz, layer redrawn only when the camera or hover changes or every 0.1 s (was every frame). In xvfb software GL with --perfstart --webprof: names 7.4 -> 4.4 ms/frame; process still ~25 ms/frame there (sim 13.5 of it, atk 10.9; paint 3.7, cam_paint 3.8, client_proc 5.8). xvfb frame time (~75 ms) is software rendering, not representative of a GPU.
 - Not merged: fix-input (alternative), density-test. vanilla itself is unchanged: merge vanilla-merge into it when approved.
 
 ## What's left
