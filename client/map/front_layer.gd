@@ -229,6 +229,7 @@ func _draw_body() -> void:
 			var sp: Vector2 = g._screen_of((c + Vector2(0.5, 0.5)) * g.TS)
 			if sp.x < -40 or sp.y < -40 or sp.x > vs.x + 40 or sp.y > vs.y + 40:
 				continue
-			var pos := Vector2(sp.x - ts.x * 0.5, sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5)
+			# whole pixels only: a fractional origin smears glyph edges
+			var pos := Vector2(roundf(sp.x - ts.x * 0.5), roundf(sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5))
 			draw_string_outline(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, stroke, Color.BLACK)
 			draw_string(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)

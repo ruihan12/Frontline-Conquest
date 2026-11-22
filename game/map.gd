@@ -937,7 +937,14 @@ var _frame_ema := 0.016
 # Territory repaint time per frame (usec). Was a 5000-tile count, which cost ~10 ms native / 20+ ms on web
 # during the early land grab.
 func _paint_budget_us() -> int:
-	return 2500 if OS.has_feature("web") else 3000
+	# A big attack queues thousands of tiles a tick; at a flat 3 ms a frame the queue took ~5 s to drain and
+	# the new land showed its dark border colour meanwhile. Spend more when the backlog is deep.
+	var base := 2500 if OS.has_feature("web") else 3000
+	var n := _paint_pending_count()
+	if n > 60000: return base * 4
+	if n > 20000: return base * 3
+	if n > 6000: return base * 2
+	return base
 
 func _want_webprof() -> bool:
 	if "--webprof" in OS.get_cmdline_user_args():
