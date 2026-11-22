@@ -569,6 +569,7 @@ func open(focus = null, from: String = "title") -> void:
 	_from = from
 	_confirm = ""
 	_note = ""
+	move_to_front()  # above the Victory / next-match screens (next_match.gd moves itself to the front)
 	if not is_open:
 		is_open = true
 		_quiet = true

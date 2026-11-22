@@ -219,6 +219,7 @@ func _process(_dt: float) -> void:
 func open(sel: String = "", instant: bool = false) -> void:
 	if is_open:
 		return
+	move_to_front()
 	is_open = true
 	if sel != "":
 		selected = UIMaps.valid(g, sel)
