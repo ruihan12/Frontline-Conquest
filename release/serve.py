@@ -3,6 +3,8 @@
 import http.server
 import os
 import socketserver
+import threading
+import webbrowser
 
 PORT = 8060
 
@@ -22,4 +24,5 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.ThreadingTCPServer(("", PORT), Handler) as httpd:
     print("Serving on http://localhost:%d  (Ctrl+C to stop)" % PORT)
+    threading.Timer(0.8, lambda: webbrowser.open("http://localhost:%d/" % PORT)).start()
     httpd.serve_forever()

@@ -189,7 +189,7 @@ func poll(now: float) -> void:
 			entries.erase(aid3)
 			continue
 		var e: Dictionary = entries.get(aid3, {"slots": []})
-		e.text = g._fmt(todo[aid3][2])
+		e.text = UITheme.fmt_troops(float(todo[aid3][2]))
 		e.incoming = todo[aid3][1]
 		_set_slots(e, pts, now, SNAP_FULL / k)
 		entries[aid3] = e

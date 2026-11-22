@@ -720,7 +720,7 @@ func _update_build_tip() -> bool:
 	var d := {"title": bd[1], "rows": [["Cost", _fmt(cost) + " gold", GOLD_C]], "desc": bd[3]}
 	if bd[0] != "": d.badge = bd[0]
 	if k == 13:
-		d.rows.append(["Brings", _fmt(minf(troop_cap(PLAYER) / 5.0, troop_cap(PLAYER) - pl.troops)) + " troops", TEXT])
+		d.rows.append(["Brings", UITheme.fmt_troops(minf(troop_cap(PLAYER) / 5.0, troop_cap(PLAYER) - pl.troops)) + " troops", TEXT])
 	else:
 		var oc := owned_count(PLAYER, k)
 		var ol := owned(PLAYER, k)
@@ -811,7 +811,7 @@ func _update_hud() -> void:
 		r[1].set_meta("col", GREEN if out else RED); r[1].queue_redraw()
 		r[2].text = ("Expansion" if other == NEUTRAL else nations[other].name) if out else ("⚠ " + nations[other].name)
 		r[2].add_theme_color_override("font_color", TEXT if out else RED)
-		r[3].text = _fmt(at.troops)
+		r[3].text = UITheme.fmt_troops(at.troops)
 		r[4].visible = out
 	atk_panel_p.size.y = 40 + maxi(1, list.size()) * 32 + 8
 	# bottom
@@ -947,7 +947,7 @@ func _update_tooltip() -> void:
 				d.desc = "Quiet area — room to grow."
 	elif o == PLAYER:
 		var n = nations[o]
-		d = {"title": "You", "badge": "YOU", "badge_col": ORANGE_Y, "sub": "Commander  ·  " + terrain, "rows": [["Troops", _fmt(n.troops), TEXT], ["Land", _pct(100.0 * n.land / land_total), TEXT], ["Gold", _fmt(n.gold), GOLD_C]]}
+		d = {"title": "You", "badge": "YOU", "badge_col": ORANGE_Y, "sub": "Commander  ·  " + terrain, "rows": [["Troops", UITheme.fmt_troops(n.troops), TEXT], ["Land", _pct(100.0 * n.land / land_total), TEXT], ["Gold", _fmt(n.gold), GOLD_C]]}
 	else:
 		var n = nations[o]
 		var foot := "Click: attack with %s" % _fmt(send)
@@ -961,7 +961,7 @@ func _update_tooltip() -> void:
 			hint = "Right-click: Donate Troops/Gold or Break Alliance"
 		if is_traitor(o):
 			badge = "TRAITOR"; bcol = RED; hint = "Traitor: 0.5x defense & 0.8x speed for 30 s"
-		d = {"title": n.name, "badge": badge, "badge_col": bcol, "sub": ("Player" if is_bot(o) else ("Nation" if is_prot(o) else "Tribe")) + "  ·  " + terrain, "rows": [["Troops", _fmt(n.troops), TEXT], ["Land", _pct(100.0 * n.land / land_total), TEXT]], "desc": hint, "foot": foot, "foot_col": fc, "foot_icon": "o"}
+		d = {"title": n.name, "badge": badge, "badge_col": bcol, "sub": ("Player" if is_bot(o) else ("Nation" if is_prot(o) else "Tribe")) + "  ·  " + terrain, "rows": [["Troops", UITheme.fmt_troops(n.troops), TEXT], ["Land", _pct(100.0 * n.land / land_total), TEXT]], "desc": hint, "foot": foot, "foot_col": fc, "foot_icon": "o"}
 	_show_tip(d, mp, false)
 
 func _fmt_time(s: float) -> String:

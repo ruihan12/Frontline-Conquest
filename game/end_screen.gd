@@ -71,7 +71,7 @@ func show_end(win: bool) -> void:
 	end_refs.title.add_theme_color_override("font_color", Color(1, 0.93, 0.7) if win else Color(1, 0.55, 0.5))
 	end_refs.sub.text = ("You conquered the world with %.1f%% of the land outside fallout." % pct) if win else ("Your nation fell after holding up to %.1f%% of the world." % stats.peak)
 	end_refs.vals[0].text = "%.1f%%" % stats.peak
-	end_refs.vals[1].text = _fmt(stats.maxtroops)
+	end_refs.vals[1].text = UITheme.fmt_troops(stats.maxtroops)
 	end_refs.vals[2].text = str(stats.elims)
 	end_refs.vals[3].text = _fmt_time(elapsed)
 	end_refs.stars.text = "+" + _fmt_int(earned)
@@ -94,7 +94,7 @@ func show_end(win: bool) -> void:
 			return
 		hud.show_over(win, {"title": "VICTORY" if win else ("ELIMINATED" if eliminated else "DEFEAT"),
 			"sub": end_refs.sub.text, "winner_id": PLAYER if win else lead_e,
-			"peak": "%.1f%%" % stats.peak, "troops": _fmt(stats.maxtroops), "kills": str(stats.elims),
+			"peak": "%.1f%%" % stats.peak, "troops": UITheme.fmt_troops(stats.maxtroops), "kills": str(stats.elims),
 			"duration": _fmt_time(elapsed), "stars": "+" + _fmt_int(earned),
 			"next": end_refs.prog.text if not nl.is_empty() else ""})
 		return

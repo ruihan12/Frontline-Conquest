@@ -1038,7 +1038,7 @@ func _draw_overlay_inner() -> void:
 		var w := 400.0
 		f.draw_string_outline(overlay.get_canvas_item(), sp + Vector2(-w / 2, 0), nm, HORIZONTAL_ALIGNMENT_CENTER, w, fs, maxi(2, fs / 6), Color(1, 1, 1, 0.65))
 		overlay.draw_string(f, sp + Vector2(-w / 2, 0), nm, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(0.08, 0.1, 0.16))
-		overlay.draw_string(f, sp + Vector2(-w / 2, fs * 0.95), _fmt(n.troops), HORIZONTAL_ALIGNMENT_CENTER, w, int(fs * 0.8), Color(0.08, 0.1, 0.16, 0.85))
+		overlay.draw_string(f, sp + Vector2(-w / 2, fs * 0.95), UITheme.fmt_troops(n.troops), HORIZONTAL_ALIGNMENT_CENTER, w, int(fs * 0.8), Color(0.08, 0.1, 0.16, 0.85))
 	# structures
 	var _w0 := Time.get_ticks_usec()
 	_draw_world_fx(z)

@@ -227,7 +227,7 @@ func donate(a: int, b: int, frac := 0.3333) -> void:
 	nations[b].troops = minf(troop_cap(b) * 1.25, nations[b].troops + amt)
 	if a == PLAYER:
 		donate_troop_cd = 10.0
-		notify("Donated %s troops to %s" % [_fmt(amt), _nname(b)], "good")
+		notify("Donated %s troops to %s" % [UITheme.fmt_troops(amt), _nname(b)], "good")
 
 func donate_gold(a: int, b: int, frac := 0.25) -> void:
 	if a == PLAYER and donate_gold_cd > 0.0:
@@ -239,7 +239,7 @@ func donate_gold(a: int, b: int, frac := 0.25) -> void:
 	nations[b].gold += amt
 	if a == PLAYER:
 		donate_gold_cd = 10.0
-		notify("Donated %s gold to %s" % [_fmt(amt), _nname(b)], "good")
+		notify("Donated %s gold to %s" % [UITheme.fmt_troops(amt), _nname(b)], "good")
 
 # The player's renewal card: once per window (the last ALLIANCE_EXTEND_WINDOW_TICKS). Expiry, renewals
 # and AI diplomacy run per sim tick (_requests_tick, SimAI._consider_diplomacy).
@@ -368,7 +368,7 @@ func _refresh_diplo() -> void:
 	diplo_refs.sq.set_meta("col", n.color); diplo_refs.sq.queue_redraw()
 	diplo_refs.title.text = n.name + (" [TRAITOR]" if is_traitor(diplo_who) else "")
 	var status := "ALLY" if allied(PLAYER, diplo_who) else ("Player" if is_bot(diplo_who) else ("Nation" if is_prot(diplo_who) else "Tribe"))
-	diplo_refs.sub.text = "%s  ·  Troops: %s  ·  Land: %s" % [status, _fmt(n.troops), _pct(100.0 * n.land / maxf(1, land_total))]
+	diplo_refs.sub.text = "%s  ·  Troops: %s  ·  Land: %s" % [status, UITheme.fmt_troops(n.troops), _pct(100.0 * n.land / maxf(1, land_total))]
 	if allied(PLAYER, diplo_who):
 		var left: float = allies.get(_akey(PLAYER, diplo_who), elapsed) - elapsed
 		diplo_refs.b_ally.text = "BREAK ALLIANCE (%s)" % _fmt_time(maxf(0.0, left))
