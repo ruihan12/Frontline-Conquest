@@ -62,10 +62,12 @@ var _status: Texture2D
 
 
 ## Troop counts on the plates refresh this often (s); the sim only changes them once per tick anyway.
-const TROOP_TEXT_S := 0.1
+const TROOP_TEXT_S := 0.0
 ## Longest gap between redraws while the camera is still (s).
 const REDRAW_S := 0.1
 var _redraw_t := 0.0
+## True while a plate is still easing to a new spot: redraw every frame so the move stays smooth.
+var _easing := false
 var _last_cam := Vector3.ZERO
 var _last_hover := -2
 
@@ -448,7 +450,7 @@ func _process(dt: float) -> void:
 	# label each frame was the layer's whole cost (about 7 ms a frame with a few hundred nations).
 	_redraw_t -= dt
 	var cs := Vector3(g.cam.position.x, g.cam.position.y, g.cam.zoom.x)
-	if cs != _last_cam or hover_owner != _last_hover or _redraw_t <= 0.0:
+	if cs != _last_cam or hover_owner != _last_hover or _redraw_t <= 0.0 or _easing:
 		_last_cam = cs
 		_last_hover = hover_owner
 		_redraw_t = REDRAW_S
@@ -470,6 +472,7 @@ func _draw_body() -> void:
 	var cull_px := maxf(CULL_MIN_PX, CULL_VW * vp.x)
 	var scale_px: float = g.cam.zoom.x * g.TS  # screen px per tile
 	var seen := {}
+	_easing = false
 	for id: int in _targets:
 		if id >= g.nations.size() or not _live(id):
 			continue
@@ -491,6 +494,8 @@ func _draw_body() -> void:
 				p.ts = t[2]
 				p.t0 = now
 		var a := minf(1.0 - exp(-LERP_SPEED * (now - float(p.t0))), 1.0)
+		if a < 0.995 and (p.tx != p.sx or p.ty != p.sy or p.ts != p.ss):
+			_easing = true
 		var wx: float = p.sx + (p.tx - p.sx) * a
 		var wy: float = p.sy + (p.ty - p.sy) * a
 		var ws: float = p.ss + (p.ts - p.ss) * a

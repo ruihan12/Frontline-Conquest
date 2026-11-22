@@ -922,10 +922,17 @@ func _load_tile_pop() -> void:
 
 
 func _sim_frame_budget_us() -> int:
-	# Web frames are vsync/rAF (~16.6 ms). Leave headroom for paint/draw so a 12 ms sim slice cannot hitch.
-	if OS.has_feature("web"):
-		return 8000
-	return SIM_BUDGET_US
+	# The sim takes a slice of each frame (a long attacks pass is spread over frames). The slice follows the
+	# frame time, 40% of it, so a 180 fps machine gets ~2.5 ms slices instead of a fixed 12 ms that dropped
+	# it to ~24 fps while a heavy tick ran; when the sim falls behind it may take up to the old cap.
+	var cap := 8000 if OS.has_feature("web") else SIM_BUDGET_US
+	_frame_ema = lerpf(_frame_ema, clampf(get_process_delta_time(), 0.002, 0.1), 0.05)
+	var us := int(_frame_ema * 1.0e6 * 0.4)
+	if tick_acc > 0.5:  # five ticks behind: catch up at full budget
+		return cap
+	return clampi(us, 2500, cap)
+
+var _frame_ema := 0.016
 
 # Territory repaint time per frame (usec). Was a 5000-tile count, which cost ~10 ms native / 20+ ms on web
 # during the early land grab.

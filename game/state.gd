@@ -190,8 +190,8 @@ var sim_speed := 1.0
 var speed_btns := []
 const SPEEDS := [1.0, 2.0, 5.0, 10.0]
 const SPEED_BASE := 0.2  # new 1x == old 0.2x
-var boat_speed := 0.35  # upstream transport speed (vanilla; no 1.2x)
-var warship_speed := 0.7  # upstream warship speed (vanilla; no 1.2x)
+var boat_speed := 1.0  # upstream: transports and trade ships move 1 tile per tick (TRANSPORT_TPT_X100 = 100 * k_lin)
+var warship_speed := 1.0  # upstream: WARSHIP_TPT_X100 = 100 * k_lin, 1 tile per tick
 const AI_BOAT_CAP := 12
 const MAX_TICKS_PER_FRAME := 12
 const SIM_BUDGET_US := 12000   # sim time per frame (perf cap); was 28 ms with whole ticks only
