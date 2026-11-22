@@ -13,6 +13,8 @@ var merges := []
 func _init(main, rules: SimRules) -> void:
 	g = main
 	R = rules
+	_rng = main.rng
+	assert(R.PRIORITY_BASE == 10 and R.PRIORITY_RAND == 7)  # (inlined in _add_neighbors_fast)
 
 func reset() -> void:
 	tick = 0
@@ -20,37 +22,40 @@ func reset() -> void:
 	merges.clear()
 
 # ---------------- queue (binary min-heap on key) ----------------
-static func _hpush(a: Dictionary, key: int, t: int) -> void:
-	var hk: Array = a.hk
-	var ht: Array = a.ht
+# (perf) keys/tiles live in PackedInt64Array/PackedInt32Array (shared by reference, so the locals below
+# write the attack's own arrays); the heap algorithm and push order are unchanged, so pops are identical.
+static func _hpush(hk: PackedInt64Array, ht: PackedInt32Array, key: int, t: int) -> void:
 	hk.append(key); ht.append(t)
 	var i := hk.size() - 1
 	while i > 0:
 		var p := (i - 1) >> 1
-		if hk[p] <= hk[i]: break
-		var tk: int = hk[p]; hk[p] = hk[i]; hk[i] = tk
-		var tt: int = ht[p]; ht[p] = ht[i]; ht[i] = tt
+		var kp := hk[p]
+		if kp <= key: break
+		hk[i] = kp; ht[i] = ht[p]
 		i = p
+	hk[i] = key; ht[i] = t
 
 static func _hpop(a: Dictionary) -> int:
-	var hk: Array = a.hk
-	var ht: Array = a.ht
+	var hk: PackedInt64Array = a.hk
+	var ht: PackedInt32Array = a.ht
 	var n := hk.size()
 	if n == 0: return -1
 	var top: int = ht[0]
-	hk[0] = hk[n - 1]; ht[0] = ht[n - 1]
-	hk.resize(n - 1); ht.resize(n - 1)
+	var lk := hk[n - 1]; var lt := ht[n - 1]
 	n -= 1
+	hk.resize(n); ht.resize(n)
+	if n == 0: return top
+	# sift the last element down from the root (same swaps as the swap-based version)
 	var i := 0
 	while true:
 		var l := i * 2 + 1
 		if l >= n: break
 		var m := l
 		if l + 1 < n and hk[l + 1] < hk[l]: m = l + 1
-		if hk[i] <= hk[m]: break
-		var tk: int = hk[m]; hk[m] = hk[i]; hk[i] = tk
-		var tt: int = ht[m]; ht[m] = ht[i]; ht[i] = tt
+		if lk <= hk[m]: break
+		hk[i] = hk[m]; ht[i] = ht[m]
 		i = m
+	hk[i] = lk; ht[i] = lt
 	return top
 
 func _push(a: Dictionary, t: int) -> void:
@@ -63,8 +68,8 @@ func _push(a: Dictionary, t: int) -> void:
 	if x < W - 1 and om[t + 1] == at: n += 1
 	if t >= W and om[t - W] == at: n += 1
 	if t < om.size() - W and om[t + W] == at: n += 1
-	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * R.priority_f4[int(g.mtn[t]) * 5 + n]
-	_hpush(a, key, t)
+	var key: int = 4 * tick + (R.PRIORITY_BASE + _rng.randi() % R.PRIORITY_RAND) * R.priority_f4[int(g.mtn[t]) * 5 + n]
+	_hpush(a.hk, a.ht, key, t)
 	a.front[t] = true
 
 func _add_neighbors(a: Dictionary, t: int) -> void:
@@ -73,15 +78,42 @@ func _add_neighbors(a: Dictionary, t: int) -> void:
 	var W: int = g.W
 	var N := om.size()
 	if _mtn.size() != N: _mtn = g.mtn; _pf4 = R.priority_f4
+	_add_neighbors_fast(a, t, om, W, N, tg, a.a, a.hk, a.ht, a.front)
+
+# (perf) the neighbours of t that the target owns, in the same order (up, down, left, right) with the
+# same key and RNG draw per push as _push
+func _add_neighbors_fast(a: Dictionary, t: int, om: PackedInt32Array, W: int, N: int, tg: int, at: int, hk: PackedInt64Array, ht: PackedInt32Array, front: Dictionary) -> void:
 	var x := t % W
-	if t >= W and om[t - W] == tg: _push_fast(a, t - W, om, W, N)
-	if t < N - W and om[t + W] == tg: _push_fast(a, t + W, om, W, N)
-	if x > 0 and om[t - 1] == tg: _push_fast(a, t - 1, om, W, N)
-	if x < W - 1 and om[t + 1] == tg: _push_fast(a, t + 1, om, W, N)
+	var t4 := 4 * tick
+	for k in 4:
+		var u: int
+		if k == 0:
+			if t < W: continue
+			u = t - W
+		elif k == 1:
+			if t >= N - W: continue
+			u = t + W
+		elif k == 2:
+			if x == 0: continue
+			u = t - 1
+		else:
+			if x == W - 1: continue
+			u = t + 1
+		if om[u] != tg: continue
+		var ux := u % W
+		var n := 0
+		if ux > 0 and om[u - 1] == at: n += 1
+		if ux < W - 1 and om[u + 1] == at: n += 1
+		if u >= W and om[u - W] == at: n += 1
+		if u < N - W and om[u + W] == at: n += 1
+		var key: int = t4 + (10 + _rng.randi() % 7) * _pf4[_mtn[u] * 5 + n]
+		_hpush(hk, ht, key, u)
+		front[u] = true
 
 # _push with the map arrays passed in (same key: 4 * tick + priority(terrain, own neighbours))
 var _mtn := PackedByteArray()
-var _pf4: Array = []
+var _pf4 := PackedInt32Array()
+var _rng: RandomNumberGenerator
 func _push_fast(a: Dictionary, t: int, om: PackedInt32Array, W: int, N: int) -> void:
 	var at: int = a.a
 	var x := t % W
@@ -90,8 +122,8 @@ func _push_fast(a: Dictionary, t: int, om: PackedInt32Array, W: int, N: int) -> 
 	if x < W - 1 and om[t + 1] == at: n += 1
 	if t >= W and om[t - W] == at: n += 1
 	if t < N - W and om[t + W] == at: n += 1
-	var key: int = 4 * tick + (R.PRIORITY_BASE + g.rng.randi() % R.PRIORITY_RAND) * int(_pf4[int(_mtn[t]) * 5 + n])
-	_hpush(a, key, t)
+	var key: int = 4 * tick + (R.PRIORITY_BASE + _rng.randi() % R.PRIORITY_RAND) * int(_pf4[int(_mtn[t]) * 5 + n])
+	_hpush(a.hk, a.ht, key, t)
 	a.front[t] = true
 
 # Seeds the queue with every target tile next to the attacker, walking the attacker's border set
@@ -163,7 +195,7 @@ func start(at: int, tg: int, troops: float, beachhead := -1):
 			if float(a.get("pend", 0.0)) == 0.0: merges.append(a)
 			a.pend = float(a.get("pend", 0.0)) + troops
 		return a
-	a = {"a": at, "t": tg, "troops": troops, "hk": [], "ht": [],
+	a = {"a": at, "t": tg, "troops": troops, "hk": PackedInt64Array(), "ht": PackedInt32Array(),
 		"front": {}, "head": -1, "chew": 0.0, "aid": next_aid, "retreat_at": 0, "frozen_from": 0,
 		"started": tick, "counter": counter, "last": -1, "sent": int(troops), "shown": troops, "vel": Vector2.ZERO, "pend": 0.0}
 	next_aid += 1
@@ -301,28 +333,52 @@ func _process(a: Dictionary) -> void:
 	var taken := 0
 	var sx := 0.0; var sy := 0.0
 	var W: int = g.W
+	# (perf) hot-loop locals: the shared map arrays (same storage as the game's), the attack's queue,
+	# the defender's dictionary; same reads and writes in the same order as before
+	var om: PackedInt32Array = g.owner_map
+	var N := om.size()
+	var fall: PackedByteArray = g.fallout
+	var hk: PackedInt64Array = a.hk
+	var ht: PackedInt32Array = a.ht
+	var front: Dictionary = a.front
+	var ntg: Dictionary = nats[tg]
+	var chk_def: bool = not neutral and g.def_posts.has(tg)
+	var ATTACK_MAG: Array = R.ATTACK_MAG
+	var ATTACK_TILE_COST: Array = R.ATTACK_TILE_COST
+	var rts: float = R.ts
+	var TN_SCALE: float = R.TERRA_NULLIUS_COST_SCALE
+	var TN_MIN: float = R.TERRA_NULLIUS_MIN_COST
+	var TN_MAX: float = R.TERRA_NULLIUS_MAX_COST
+	var LPD: float = R.ATTACKER_LOSS_PER_DENSITY
+	var troops: float = a.troops
+	var head: int = a.head
+	var chew: float = a.chew
 	while budget > 0.0:
-		if a.troops < 1.0:
-			a.troops = 0.0
-			end_attack(a, false); break
-		var t: int = a.head
-		if t >= 0 and (g.owner_map[t] != tg or not _touches(t, at)):
-			a.head = -1; a.chew = 0.0; t = -1
+		if troops < 1.0:
+			a.troops = 0.0; a.head = head; a.chew = chew
+			end_attack(a, false); _done(a, taken, sx, sy, neutral, at, tg, nats); return
+		var t: int = head
+		if t >= 0:
+			var tx := t % W
+			if om[t] != tg or not ((tx > 0 and om[t - 1] == at) or (tx < W - 1 and om[t + 1] == at) or (t >= W and om[t - W] == at) or (t < N - W and om[t + W] == at)):
+				head = -1; chew = 0.0; t = -1
 		if t < 0:
 			if taken >= cap: break
 			t = _hpop(a)
 			if t < 0:
-				end_attack(a, true); break
-			a.front.erase(t)
-			if g.owner_map[t] != tg or not _touches(t, at): continue
-			_add_neighbors(a, t)
-			a.head = t; a.chew = 0.0
+				a.troops = troops; a.head = head; a.chew = chew
+				end_attack(a, true); _done(a, taken, sx, sy, neutral, at, tg, nats); return
+			front.erase(t)
+			var tx2 := t % W
+			if om[t] != tg or not ((tx2 > 0 and om[t - 1] == at) or (tx2 < W - 1 and om[t + 1] == at) or (t >= W and om[t - W] == at) or (t < N - W and om[t + W] == at)): continue
+			_add_neighbors_fast(a, t, om, W, N, tg, at, hk, ht, front)
+			head = t; chew = 0.0
 		var tt: int = mtn[t]
-		var mag: float = R.ATTACK_MAG[tt] * R.ts  # (1:1: loss per tile is a troop amount)
-		var tc: float = R.ATTACK_TILE_COST[tt]
-		if not neutral and g.defended(t, tg):
+		var mag: float = ATTACK_MAG[tt] * rts  # (1:1: loss per tile is a troop amount)
+		var tc: float = ATTACK_TILE_COST[tt]
+		if chk_def and g.defended(t, tg):
 			mag *= R.DEFENSE_POST_MAG; tc *= R.DEFENSE_POST_COST
-		if g.fallout[t] == 1:
+		if fall[t] == 1:
 			mag *= fo_mod; tc *= fo_mod
 		var loss: float
 		var tf: float
@@ -330,39 +386,44 @@ func _process(a: Dictionary) -> void:
 		if neutral:
 			# upstream SimAttacks.luau:849-857 — loss = mag * nl; time from TERRA_NULLIUS_* (ts=1 in vanilla)
 			loss = mag * nl
-			var v := clampf(R.TERRA_NULLIUS_COST_SCALE * tc / a.troops, R.TERRA_NULLIUS_MIN_COST, R.TERRA_NULLIUS_MAX_COST)
+			var v := clampf(TN_SCALE * tc / troops, TN_MIN, TN_MAX)
 			tf = v / (border1 * 2.0)
 		else:
-			var dtroops: float = nats[tg].troops
-			dloss = dtroops / maxf(nats[tg].land * K_AREA, 1.0)
-			var ratio: float = dtroops / a.troops
-			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + R.ATTACKER_LOSS_PER_DENSITY * dloss)
+			var dtroops: float = ntg.troops
+			dloss = dtroops / maxf(ntg.land * K_AREA, 1.0)
+			var ratio: float = dtroops / troops
+			loss = mag * mag_k * trait_l * clampf(ratio, 0.6, 2.0) * (bonus_l + LPD * dloss)
 			tf = clampf(ratio, 0.82, 7.5) * clampf(ratio / 20.0, 1.0, 50.0) * tc * bonus_s * trait_s
 		tf = maxf(tf, 1e-6)
 		var dfloor := floorf(dloss)
-		var need: float = K_AREA - a.chew
+		var need: float = K_AREA - chew
 		var can := ceilf(budget / tf)
-		if loss > 0.0: can = minf(can, ceilf(a.troops / loss))
+		if loss > 0.0: can = minf(can, ceilf(troops / loss))
 		if can >= need:
 			budget -= need * tf
-			a.troops -= need * loss
+			troops -= need * loss
 			if not neutral:
-				nats[tg].troops -= minf(need * dfloor, maxf(nats[tg].troops, 0.0))
-			a.chew = 0.0; a.head = -1
+				ntg.troops -= minf(need * dfloor, maxf(ntg.troops, 0.0))
+			chew = 0.0; head = -1
+			a.troops = troops; a.head = head; a.chew = chew
 			g._set_owner(t, at)
 			a.last = t
 			taken += 1
 			sx += t % W; sy += t / W
-			if not neutral and nats[tg].land * K_AREA < R.ANNEX_BELOW_FULL_TILES \
-					and (g.kind_of(tg) != SimRules.KIND_HUMAN or a.troops > nats[tg].troops):
+			if not neutral and ntg.land * K_AREA < R.ANNEX_BELOW_FULL_TILES \
+					and (g.kind_of(tg) != SimRules.KIND_HUMAN or troops > ntg.troops):
 				annex(tg, at)
-				end_attack(a, true); break
+				end_attack(a, true); _done(a, taken, sx, sy, neutral, at, tg, nats); return
 		else:
 			budget -= can * tf
-			a.troops -= can * loss
+			troops -= can * loss
 			if not neutral:
-				nats[tg].troops -= minf(can * dfloor, maxf(nats[tg].troops, 0.0))
-			a.chew += can
+				ntg.troops -= minf(can * dfloor, maxf(ntg.troops, 0.0))
+			chew += can
+	a.troops = troops; a.head = head; a.chew = chew
+	_done(a, taken, sx, sy, neutral, at, tg, nats)
+
+func _done(a: Dictionary, taken: int, sx: float, sy: float, neutral: bool, at: int, tg: int, nats: Array) -> void:
 	g._pf_add("tiles", taken); g._pf_add("atk_n", 1)
 	if taken > 0:
 		a.tgt = Vector2(sx / taken + 0.5, sy / taken + 0.5) * g.TS

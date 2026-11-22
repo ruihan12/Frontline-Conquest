@@ -38,21 +38,44 @@ func _plane_glyph(p: Vector2, dir: Vector2, col: Color, scale: float, cargo: boo
 	overlay.draw_colored_polygon(body, col.lightened(0.15))
 	overlay.draw_polyline(body + PackedVector2Array([body[0]]), Color(0.05, 0.07, 0.12, 0.9), 1.0)
 
+var _capfx_idx := PackedInt32Array()
 func _draw_capture_fx() -> void:
 	if cap_fx.is_empty(): return
 	var dur := 0.7
 	var tz := TS * cam.zoom.x
 	var vr := Rect2(Vector2(-tz, -tz), get_viewport_rect().size + Vector2(tz, tz) * 2)
-	var dead := []
-	for i in cap_fx:
-		var u: float = (map_t - float(cap_fx[i][0])) / dur
+	# (perf) one triangle-array command for all flashes instead of a draw_rect each (up to CAP_FX_MAX
+	# a frame during the land grab); same quads, colours and order
+	var xf := get_canvas_transform()
+	var Wl := W
+	var tsl: float = TS
+	var now: float = map_t
+	var dead := PackedInt32Array()
+	var pts := PackedVector2Array()
+	var cols := PackedColorArray()
+	var d := Vector2(tz, tz)
+	var dx := Vector2(tz, 0.0)
+	var dy := Vector2(0.0, tz)
+	for i: int in cap_fx:
+		var e: Array = cap_fx[i]
+		var u: float = (now - float(e[0])) / dur
 		if u >= 1.0: dead.append(i); continue
-		var p := _screen_of(Vector2(i % W, i / W) * TS)
+		var p: Vector2 = xf * (Vector2(i % Wl, i / Wl) * tsl)
 		if not vr.has_point(p): continue
-		var c: Color = cap_fx[i][1]
-		var e := 1.0 - u
-		overlay.draw_rect(Rect2(p, Vector2(tz, tz)), Color(c.lightened(0.55 * e), 0.6 * e * e))
+		var c: Color = e[1]
+		var k := 1.0 - u
+		var cc := Color(c.lightened(0.55 * k), 0.6 * k * k)
+		pts.append(p); pts.append(p + dx); pts.append(p + d)
+		pts.append(p); pts.append(p + d); pts.append(p + dy)
+		for _v in 6: cols.append(cc)
 	for i in dead: cap_fx.erase(i)
+	if pts.is_empty(): return
+	var n := pts.size()
+	if _capfx_idx.size() < n:
+		var m0 := _capfx_idx.size()
+		_capfx_idx.resize(n)
+		for j in range(m0, n): _capfx_idx[j] = j
+	RenderingServer.canvas_item_add_triangle_array(overlay.get_canvas_item(), _capfx_idx.slice(0, n), pts, cols)
 
 func _world_fx_anim(z: float) -> void:
 	pass

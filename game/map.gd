@@ -67,6 +67,7 @@ func _ready() -> void:
 	if "--portshot" in OS.get_cmdline_user_args(): _portshot.call_deferred()
 	if "--speedshot" in OS.get_cmdline_user_args(): _speedshot.call_deferred()
 	if _want_webprof(): _webprof_start.call_deferred()
+	if _want_perfstart(): _perf_autostart.call_deferred()
 	if "--hudfit" in OS.get_cmdline_user_args(): _hudfit.call_deferred()
 
 func _map_material() -> ShaderMaterial:
@@ -659,7 +660,7 @@ func _px(x: int, y: int, c: Color) -> void:
 	chunk_dirty[k] = 1
 
 func _redraw_all() -> void:
-	_pend_paint.clear()
+	_pend_paint.clear(); _rp_clear()
 	_qual_c = clampi(int(save.get("settings", {}).get("qual_i", 3)), 0, 3)
 	var N := W * H
 	var buf := PackedByteArray(); buf.resize(N * 4)
@@ -682,29 +683,114 @@ func _redraw_all() -> void:
 		chunk_dirty[k] = 1
 	dirty = true
 
-func _repaint(i: int) -> void:
-	_pend_paint[i] = true
-	var N := W * H
-	if i + 1 < N: _pend_paint[i + 1] = true
-	if i >= 1: _pend_paint[i - 1] = true
-	if i + W < N: _pend_paint[i + W] = true
-	if i >= W: _pend_paint[i - W] = true
-	dirty = true
-	if _pend_paint.size() > 60000: _flush_paint()
+# Territory repaint queue. Tiles whose colour may have changed (a capture marks the tile and its 4
+# neighbours) go on a packed FIFO with a per-tile mark (no duplicates); the frame loop paints them under a
+# time budget (_flush_paint_budget). _pend_paint (a Dictionary) stays for the other writers (MapSurface
+# sweeps, fallout glow). (perf: the Dictionary queue cost ~180 ns per insert plus keys() of the whole
+# queue every frame.)
+var _rp_mark := PackedByteArray()
+var _rp_list := PackedInt32Array()
+var _rp_head := 0
 
-func _flush_paint_budget(n: int) -> bool:
-	if _pend_paint.size() <= n: _flush_paint(); return false
-	var ks := _pend_paint.keys()
-	for m in n:
-		var j: int = ks[m]
-		_px(j % W, j / W, _tile_color(j))
-		_pend_paint.erase(j)
+func _rp_clear() -> void:
+	_rp_list = PackedInt32Array(); _rp_head = 0
+	if _rp_mark.size() == W * H: _rp_mark.fill(0)
+
+func _paint_pending() -> bool:
+	return _rp_head < _rp_list.size() or not _pend_paint.is_empty()
+
+func _paint_pending_count() -> int:
+	return _rp_list.size() - _rp_head + _pend_paint.size()
+
+func _repaint(i: int) -> void:
+	var N := W * H
+	if _rp_mark.size() != N:
+		_rp_mark.resize(N); _rp_mark.fill(0); _rp_list = PackedInt32Array(); _rp_head = 0
+	var mk := _rp_mark
+	var ls := _rp_list
+	if mk[i] == 0: mk[i] = 1; ls.append(i)
+	var j := i + 1
+	if j < N and mk[j] == 0: mk[j] = 1; ls.append(j)
+	j = i - 1
+	if j >= 0 and mk[j] == 0: mk[j] = 1; ls.append(j)
+	j = i + W
+	if j < N and mk[j] == 0: mk[j] = 1; ls.append(j)
+	j = i - W
+	if j >= 0 and mk[j] == 0: mk[j] = 1; ls.append(j)
+	dirty = true
+
+# Paints queued tiles until `budget_us` microseconds have passed (<= 0: all). True when some are left.
+func _flush_paint_budget(budget_us: int) -> bool:
+	var deadline := Time.get_ticks_usec() + budget_us if budget_us > 0 else -1
+	var q := _qual()
+	var surf = surface if q >= 2 else null
+	var om := owner_map
+	var Wl := W
+	var N := W * H
+	var cols := _chunk_cols()
+	var imgs: Array = chunk_img
+	var cd := chunk_dirty
+	var c := 0
+	# 1) the packed FIFO (captures)
+	var ls := _rp_list
+	var mk := _rp_mark
+	var hd := _rp_head
+	var n := ls.size()
+	var stopped := false
+	while hd < n:
+		var j: int = ls[hd]
+		hd += 1
+		mk[j] = 0
+		_paint_one(j, surf, om, Wl, N, cols, imgs, cd)
+		c += 1
+		if deadline >= 0 and (c & 31) == 0 and Time.get_ticks_usec() > deadline:
+			stopped = true
+			break
+	if hd >= n:
+		_rp_list = PackedInt32Array(); _rp_head = 0
+	elif hd > 32768 and hd * 2 > n:
+		_rp_list = ls.slice(hd); _rp_head = 0
+	else:
+		_rp_head = hd
+	if stopped: return true
+	# 2) the Dictionary queue (sweeps, fallout)
+	if _pend_paint.is_empty(): return false
+	if deadline < 0:
+		for j in _pend_paint: _paint_one(j, surf, om, Wl, N, cols, imgs, cd)
+		_pend_paint.clear()
+		return false
+	var done := PackedInt32Array()
+	for j in _pend_paint:
+		_paint_one(j, surf, om, Wl, N, cols, imgs, cd)
+		done.append(j)
+		c += 1
+		if (c & 31) == 0 and Time.get_ticks_usec() > deadline:
+			break
+	if done.size() == _pend_paint.size():
+		_pend_paint.clear()
+		return false
+	for j in done: _pend_paint.erase(j)
 	return true
 
+# Same colour as _px(x, y, _tile_color(i)): the surface colour (or the legacy rules) with the alpha the map
+# shader reads (water 0.5, own border 0.86, own interior 0.94, unowned 1.0).
+func _paint_one(i: int, surf, om: PackedInt32Array, Wl: int, N: int, cols: int, imgs: Array, cd: PackedByteArray) -> void:
+	var c0: Color = surf.tile_color(i) if surf != null else _tile_color_rgb(i)
+	var o: int = om[i]
+	var x := i % Wl
+	if o == WATER: c0.a = 0.5
+	elif o > 0:
+		var bd := (x < Wl - 1 and om[i + 1] != o) or (x > 0 and om[i - 1] != o) \
+			or (i + Wl < N and om[i + Wl] != o) or (i >= Wl and om[i - Wl] != o)
+		c0.a = 0.86 if bd else 0.94
+	else: c0.a = 1.0
+	var y := i / Wl
+	var k := (y / CH) * cols + x / CW
+	imgs[k].set_pixel(x % CW, y % CH, c0)
+	cd[k] = 1
+
 func _flush_paint() -> void:
-	for j in _pend_paint:
-		_px(j % W, j / W, _tile_color(j))
-	_pend_paint.clear()
+	_flush_paint_budget(0)
 
 func _upd_border(t: int) -> void:
 	var o: int = owner_map[t]
@@ -719,19 +805,46 @@ func _upd_border(t: int) -> void:
 	if b: d[t] = true
 	else: d.erase(t)
 
+# _upd_border with the map passed in (same test, same Dictionary operation, so key order is unchanged)
+func _upd_border_fast(t: int, om: PackedInt32Array, Wl: int, last_row: int) -> void:
+	var o: int = om[t]
+	if o <= 0: return
+	var x := t % Wl
+	var b := false
+	var u: int
+	if x > 0:
+		u = om[t - 1]
+		if u != o and u >= 0: b = true
+	if not b and x < Wl - 1:
+		u = om[t + 1]
+		if u != o and u >= 0: b = true
+	if not b and t >= Wl:
+		u = om[t - Wl]
+		if u != o and u >= 0: b = true
+	if not b and t < last_row:
+		u = om[t + Wl]
+		if u != o and u >= 0: b = true
+	var d: Dictionary = border[o]
+	if b: d[t] = true
+	else: d.erase(t)
+
 func _set_owner(i: int, o: int) -> void:
-	var old: int = owner_map[i]
+	var om := owner_map
+	var old: int = om[i]
+	var x := i % W
+	var y := i / W
 	if old > 0 and old < border.size(): border[old].erase(i)
 	if old > 0:
-		nations[old].land -= 1
-		nations[old].sx -= i % W; nations[old].sy -= i / W
+		var no: Dictionary = nations[old]
+		no.land -= 1
+		no.sx -= x; no.sy -= y
 	if not tile_pop.is_empty():
 		var tp: float = tile_pop[i]
 		if old > 0: nations[old].pop -= tp
 		if o > 0: nations[o].pop += tp
-	owner_map[i] = o
+	om[i] = o
 	if old > 0 and o > 0: nations[old]["last_by"] = o
-	if struct_at.has(i):
+	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]
 		if o > 0 and o != old:
 			_own_sv[st.o] = _own_sv.get(st.o, 0) + 1; st.o = o; _sv += 1; _own_sv[o] = _own_sv.get(o, 0) + 1
@@ -750,21 +863,47 @@ func _set_owner(i: int, o: int) -> void:
 	if o > 0 and fallout.size() > i and fallout[i] == 1:
 		fallout[i] = 0; fallout_list.erase(i)
 	if o > 0:
-		var n = nations[o]
+		var n: Dictionary = nations[o]
 		n.land += 1
-		var x := i % W
-		var y := i / W
-		n.bb = n.bb.merge(Rect2i(x, y, 1, 1)) if n.bb.size != Vector2i.ZERO else Rect2i(x, y, 1, 1)
+		var bb: Rect2i = n.bb
+		n.bb = bb.merge(Rect2i(x, y, 1, 1)) if bb.size != Vector2i.ZERO else Rect2i(x, y, 1, 1)
 		n.sx += x; n.sy += y
-		if old != o and _q() >= 2 and cap_fx.size() < CAP_FX_MAX:
+		if old != o and cap_fx.size() < CAP_FX_MAX and (_qual_c if _qual_c >= 0 else _q()) >= 2:
 			cap_fx[i] = [map_t, n.color]
 	if border.size() == nations.size():
-		_upd_border(i)
-		var bx := i % W
-		if bx > 0: _upd_border(i - 1)
-		if bx < W - 1: _upd_border(i + 1)
-		if i >= W: _upd_border(i - W)
-		if i < W * (H - 1): _upd_border(i + W)
+		var lr := W * (H - 1)
+		_upd_border_fast(i, om, W, lr)
+		if o >= 0:
+			# (perf) a neighbour owned by p != o now touches tile i (owner o >= 0): it is a border tile, so
+			# _upd_border would do exactly border[p][t] = true; only o's own neighbours need the full test
+			var bd: Array = border
+			var t: int
+			var p: int
+			if x > 0:
+				t = i - 1; p = om[t]
+				if p > 0:
+					if p != o: bd[p][t] = true
+					else: _upd_border_fast(t, om, W, lr)
+			if x < W - 1:
+				t = i + 1; p = om[t]
+				if p > 0:
+					if p != o: bd[p][t] = true
+					else: _upd_border_fast(t, om, W, lr)
+			if i >= W:
+				t = i - W; p = om[t]
+				if p > 0:
+					if p != o: bd[p][t] = true
+					else: _upd_border_fast(t, om, W, lr)
+			if i < lr:
+				t = i + W; p = om[t]
+				if p > 0:
+					if p != o: bd[p][t] = true
+					else: _upd_border_fast(t, om, W, lr)
+		else:
+			if x > 0: _upd_border_fast(i - 1, om, W, lr)
+			if x < W - 1: _upd_border_fast(i + 1, om, W, lr)
+			if i >= W: _upd_border_fast(i - W, om, W, lr)
+			if i < lr: _upd_border_fast(i + W, om, W, lr)
 	_repaint(i)
 
 
@@ -788,6 +927,11 @@ func _sim_frame_budget_us() -> int:
 		return 8000
 	return SIM_BUDGET_US
 
+# Territory repaint time per frame (usec). Was a 5000-tile count, which cost ~10 ms native / 20+ ms on web
+# during the early land grab.
+func _paint_budget_us() -> int:
+	return 2500 if OS.has_feature("web") else 3000
+
 func _want_webprof() -> bool:
 	if "--webprof" in OS.get_cmdline_user_args():
 		return true
@@ -795,6 +939,36 @@ func _want_webprof() -> bool:
 		var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
 		return qs.find("prof=1") >= 0 or qs.find("webprof=1") >= 0
 	return false
+
+# perf harness: ?perfstart=1 (web) / --perfstart (native) starts a World match at once with the player
+# spawned, so frame stats can be measured without clicking through the menu. No effect otherwise.
+func _want_perfstart() -> bool:
+	if "--perfstart" in OS.get_cmdline_user_args():
+		return true
+	if OS.has_feature("web"):
+		var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
+		return qs.find("perfstart=1") >= 0
+	return false
+
+func _perf_autostart() -> void:
+	await get_tree().create_timer(4.0).timeout  # (web: let the title screen finish its own boot first)
+	call("sim_start", 0, 0, Vector2(0.5, 0.38), 0, -1.0)
+	if menu_panel: menu_panel.visible = false
+	pick_panel.visible = false
+	if hud: hud.show_match()
+	call("_focus_player", 2.6)
+	print("perfstart: World W=%d H=%d nations=%d" % [W, H, nations.size()])
+	_perf_autostart_watch()
+
+func _perf_autostart_watch() -> void:
+	# if something sends the game back to the spawn pick, place the player again
+	for k in 20:
+		await get_tree().create_timer(1.0).timeout
+		if state == "pick":
+			print("perfstart: back in pick, restarting")
+			call("sim_start", 0, 0, Vector2(0.5, 0.38), 0, -1.0)
+			if hud: hud.show_match()
+			call("_focus_player", 2.6)
 
 func _webprof_start() -> void:
 	_webprof_on = true

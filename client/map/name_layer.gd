@@ -432,11 +432,19 @@ func _process(dt: float) -> void:
 	if _crown_t <= 0.0:
 		_crown_t = 0.25
 		crown_owner = crown_of()
+	var _pt0 := Time.get_ticks_usec()
 	_placement_step()
+	g._pf_add("names_place", Time.get_ticks_usec() - _pt0)
 	queue_redraw()
 
 
 func _draw() -> void:
+	var _pt0 := Time.get_ticks_usec()
+	_draw_body()
+	g._pf_add("names", Time.get_ticks_usec() - _pt0)
+
+
+func _draw_body() -> void:
 	if g.nations.size() < 2:
 		return
 	var k := k_lin()

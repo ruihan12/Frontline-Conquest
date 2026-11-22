@@ -382,6 +382,12 @@ func _ring(u: float, v: float, radius: float, cls: int, col: Color, k: float) ->
 
 
 func _draw() -> void:
+	var _pt0 := Time.get_ticks_usec()
+	_draw_body()
+	g._pf_add("ranges", Time.get_ticks_usec() - _pt0)
+
+
+func _draw_body() -> void:
 	if g.nations.size() < 2:
 		return
 	var w: int = st.map.W

@@ -887,10 +887,14 @@ func process(dt: float) -> void:
 			layout()
 	if g.names != null:
 		g.names.visible = g.state != "menu"
+		var _c_world := Time.get_ticks_usec()
 		ctx.world.update(dt)
+		g._pf_add('c_world', Time.get_ticks_usec() - _c_world)
 	_update_spectate_pill()
 	if g.ranges != null:
+		var _c_ranges := Time.get_ticks_usec()
 		_feed_ranges()
+		g._pf_add('c_ranges', Time.get_ticks_usec() - _c_ranges)
 	# Coach marks: hidden outside a match, and they step aside while placing or using the ring.
 	coach.visible = (play or g.state == "pick") and not over.is_open
 	var want_a := 0.0 if (radial.is_open or interact.aim_kind != "") else 1.0
@@ -908,17 +912,25 @@ func process(dt: float) -> void:
 		advisor.check_threats()
 		if not tutorial.active:
 			advisor.check_tips()
+			var _c_advisor := Time.get_ticks_usec()
 			advisor.check_floor()
+			g._pf_add('c_advisor', Time.get_ticks_usec() - _c_advisor)
 	if top.visible:
+		var _c_top := Time.get_ticks_usec()
 		top.update(dt)
+		g._pf_add('c_top', Time.get_ticks_usec() - _c_top)
 	feed.visible = in_match
+	var _c_hover := Time.get_ticks_usec()
 	_hover(dt, in_match)
+	g._pf_add('c_hover', Time.get_ticks_usec() - _c_hover)
 	if not _pending_toasts.is_empty():
 		var q := _pending_toasts
 		_pending_toasts = []
 		for e in q:
 			_toast_now(e[0], e[1])
+	var _c_feed := Time.get_ticks_usec()
 	feed.update(dt)
+	g._pf_add('c_feed', Time.get_ticks_usec() - _c_feed)
 	if not play:
 		return
 	# (the server sends stats every 5 ticks: the bar's numbers refresh four times a second)
@@ -930,16 +942,28 @@ func process(dt: float) -> void:
 	_growth_t += dt
 	if _growth_t >= 0.5:
 		_growth_t = 0.0
+		var _c_bar_s := Time.get_ticks_usec()
 		bar.sample_growth()
+		g._pf_add('c_bar_s', Time.get_ticks_usec() - _c_bar_s)
 	var placing := _placing_kind()
 	if placing != bar._placing:
 		bar.set_placing(placing)
 	icbm.refresh()
+	var _c_nukes := Time.get_ticks_usec()
 	_track_nukes()
+	g._pf_add('c_nukes', Time.get_ticks_usec() - _c_nukes)
+	var _c_alert := Time.get_ticks_usec()
 	alert.update(dt)
+	g._pf_add('c_alert', Time.get_ticks_usec() - _c_alert)
+	var _c_bar := Time.get_ticks_usec()
 	bar.update(dt)
+	g._pf_add('c_bar', Time.get_ticks_usec() - _c_bar)
+	var _c_board := Time.get_ticks_usec()
 	board.update(dt)
+	g._pf_add('c_board', Time.get_ticks_usec() - _c_board)
+	var _c_attacks := Time.get_ticks_usec()
 	attacks.update(dt)
+	g._pf_add('c_attacks', Time.get_ticks_usec() - _c_attacks)
 
 
 ## UIRoot's button sounds (W.button_sound / the pressed + mouse_entered hooks): a press clicks (-2 dB;

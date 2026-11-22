@@ -206,6 +206,12 @@ func _process(_dt: float) -> void:
 
 
 func _draw() -> void:
+	var _pt0 := Time.get_ticks_usec()
+	_draw_body()
+	g._pf_add("fronts", Time.get_ticks_usec() - _pt0)
+
+
+func _draw_body() -> void:
 	if entries.is_empty():
 		return
 	var now := now_s()

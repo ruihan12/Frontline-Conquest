@@ -376,6 +376,12 @@ func _recompute() -> void:
 
 
 func _draw() -> void:
+	var _pt0 := Time.get_ticks_usec()
+	_draw_body()
+	g._pf_add("fallout", Time.get_ticks_usec() - _pt0)
+
+
+func _draw_body() -> void:
 	if _tex == null or _box.size == Vector2i.ZERO or g == null or g.state == "menu":
 		return
 	var s: float = float(SCALE) * g.TS
