@@ -23,6 +23,8 @@ const TROOP_SIZE_MULT := 0.6
 const LERP_SPEED := 10.0
 const CULL_VW := 0.004
 const CULL_MIN_PX := 6.0
+## smallest name size drawn (px); names are no longer culled below the old CULL_MIN_PX
+const MIN_LABEL_PX := 7.0
 const SHADE_NATION := 0.3
 const SHADE_BOT := 0.4
 ## outline px per text px
@@ -508,7 +510,9 @@ func _draw_body() -> void:
 		var hovered := id == hover_owner
 		var sp: Vector2 = g._screen_of(Vector2(wx, wy) * g.TS)
 		var m := line_px * 4.0
-		var vis := (line_px >= cull_px or hovered) and sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
+		# (owner's request: a name always shows on its territory, however small it is on screen)
+		line_px = maxf(line_px, MIN_LABEL_PX)
+		var vis := sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
 		p.shown = vis
 		if not vis:
 			continue
