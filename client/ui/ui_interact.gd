@@ -26,7 +26,8 @@ const UNIT_PICK_MOUSE := 12.0
 ## Q / E held: seconds before the first repeat, then seconds between repeats.
 const REPEAT_DELAY := 0.35
 const REPEAT_RATE := 0.07
-const HOTKEY_INDEX := {KEY_1: 0, KEY_2: 1, KEY_3: 2, KEY_4: 3, KEY_5: 4, KEY_6: 5, KEY_7: 6, KEY_8: 7, KEY_9: 8, KEY_0: 9}
+const HOTKEY_INDEX := {KEY_1: 0, KEY_2: 1, KEY_3: 2, KEY_4: 3, KEY_5: 4, KEY_6: 5, KEY_7: 6, KEY_8: 7, KEY_9: 8, KEY_0: 9,
+	KEY_KP_1: 0, KEY_KP_2: 1, KEY_KP_3: 2, KEY_KP_4: 3, KEY_KP_5: 4, KEY_KP_6: 5, KEY_KP_7: 6, KEY_KP_8: 7, KEY_KP_9: 8, KEY_KP_0: 9}
 
 var ctx: UICtx
 ## the host (ClientHud): toggle_help, help, pause, screen()

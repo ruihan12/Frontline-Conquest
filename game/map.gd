@@ -706,17 +706,17 @@ func _repaint(i: int) -> void:
 	var N := W * H
 	if _rp_mark.size() != N:
 		_rp_mark.resize(N); _rp_mark.fill(0); _rp_list = PackedInt32Array(); _rp_head = 0
-	var mk := _rp_mark
-	var ls := _rp_list
-	if mk[i] == 0: mk[i] = 1; ls.append(i)
+	# append to the member itself: a local `var ls := _rp_list` is a copy once appended to, which dropped
+	# queued tiles (stale colours that never went away)
+	if _rp_mark[i] == 0: _rp_mark[i] = 1; _rp_list.append(i)
 	var j := i + 1
-	if j < N and mk[j] == 0: mk[j] = 1; ls.append(j)
+	if j < N and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
 	j = i - 1
-	if j >= 0 and mk[j] == 0: mk[j] = 1; ls.append(j)
+	if j >= 0 and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
 	j = i + W
-	if j < N and mk[j] == 0: mk[j] = 1; ls.append(j)
+	if j < N and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
 	j = i - W
-	if j >= 0 and mk[j] == 0: mk[j] = 1; ls.append(j)
+	if j >= 0 and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
 	dirty = true
 
 # Paints queued tiles until `budget_us` microseconds have passed (<= 0: all). True when some are left.

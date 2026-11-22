@@ -1391,6 +1391,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9:
 				select_build(e.keycode - KEY_1)
 			KEY_0: select_build(9)
+			KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9:
+				select_build(e.keycode - KEY_KP_1)
+			KEY_KP_0: select_build(9)
 			KEY_R: select_build(13)
 			KEY_MINUS, KEY_KP_SUBTRACT: set_speed_x(sim_speed / SPEED_BASE - 0.5)
 			KEY_EQUAL, KEY_PLUS, KEY_KP_ADD: set_speed_x(sim_speed / SPEED_BASE + 0.5)

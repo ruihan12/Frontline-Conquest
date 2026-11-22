@@ -224,6 +224,7 @@ func _rw_spawn_all() -> void:
 			nations[id].troops = minf(R.start_troops(SimRules.KIND_NATION, diff_i), _spawn_cap(id, SimRules.KIND_NATION))
 		nations[id]["authored_color"] = hex != ""
 	_nudge_nation_colors()
+	call("_mirv_land_list")  # prebuild the 2M-tile scan now (loading screen) instead of on the first MIRV split
 	# Sim._create_tribes: tribe_count tribes named from Data/Tribes in a shuffled order (a second lap
 	# gets " 2", " 3"...), START_TROOPS_TRIBE each, at random starts.
 	var names: Array = UpstreamMaps.tribe_names()
