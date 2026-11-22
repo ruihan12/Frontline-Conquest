@@ -1,7 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
 Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
-Last updated: 2026-11-21.
+Last updated: 2026-11-22.
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -23,11 +23,17 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - fix-input (6ffca83): ALTERNATIVE input fix (whole-map landmass labelling, ~0.9s extra map load). Conflicts with fix-input-upstream in game/map.gd and client/borders.gd. Use fix-input-upstream; optionally cherry-pick its tests (tests/test_input_flow.gd, tools/web_input_test/).
 - fix-perf (3abeba8): WIP, PAUSED, UNVERIFIED. Uncommitted perf edits were snapshot-committed when paused. Do not merge without review + parity.
 
+## Done on 2026-11-22 (branch vanilla-merge, pushed)
+- Merged fix-input-upstream, fix-gfx and fix-perf into vanilla (no conflicts). Parity 463 pass / 0 fail / 5 intentional; test_input_world, test_client_clicks, test_tutorial, test_map_camera, test_console_spawn, test_nav all PASS.
+- Perf check (native headless, tests/perf_sim.gd, World, 400 tribes, seed 12345): first minute per tick vanilla 66 ms (worst 555) -> vanilla-merge 32 ms (worst 129); minute 2 32 ms -> 19 ms. So fix-perf is verified in the sim; the web build is still untested for fps in a real browser.
+- Web export of vanilla-merge delivered as roworld_web.zip (needs COOP/COEP headers; serve.py is not in the repo).
+- Not merged: fix-input (alternative), density-test. vanilla itself is unchanged: merge vanilla-merge into it when approved.
+
 ## What's left
-1. Finish perf: target steady 60fps at 1x on World (user measured ~30fps).
+1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
    Known hotspots: per-tick attack pass ~80–90ms in web build (sliced 8ms/frame -> only ~1–1.5 ticks/s in software-rendered Chrome);
    full name relabel ~350ms CPU spread over 4–6s, ~25ms spike at end of spawn phase.
-2. Merge fix-input-upstream + fix-gfx + fix-perf into vanilla, resolve conflicts.
+2. Fast-forward vanilla to vanilla-merge once the owner approves (and decide whether any 2026-11-16 main-branch fixes are wanted).
 3. Run parity solo (must be 0 fail), plus test_input_world, test_client_clicks, test_tutorial, test_map_camera, test_console_spawn, test_nav.
 4. Web export (threads on -> needs COOP/COEP; serve.py on port 8060 sends them, serve.bat runs it). Zip and deliver.
 5. Later: multiplayer. Phase 1 LAN with host-run sim (ENet desktop, relay for web). Phase 2 online dedicated headless Godot server on the Oracle VM (WebSocket + ENet, lobby, server-authoritative sim, console disabled online, maybe rofront.henrymc.org).
