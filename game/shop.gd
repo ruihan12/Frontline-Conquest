@@ -234,8 +234,8 @@ func _build_console() -> void:
 	_head(console_panel, "TAB MENU  ·  PERFORMANCE & DEVELOPER CONSOLE", Vector2(20, 14), 16, ORANGE_Y)
 	_T(console_panel, "Live FPS telemetry & password-protected developer command console.", Vector2(20, 38), 13, MUTED)
 	# Prominent Live FPS Counter badge in the Tab Menu header
-	var fps_pill := _P(console_panel, Rect2(760, 10, 330, 40), Color(0.08, 0.14, 0.12, 0.95), 6, GREEN, 1, false)
-	console_fps_lbl = _T(fps_pill, "FPS: 180 / 180   ·   5.5 ms", Vector2(0, 9), 15, GREEN, f_bold, 330, HORIZONTAL_ALIGNMENT_CENTER)
+	var fps_pill := _P(console_panel, Rect2(620, 10, 470, 40), Color(0.08, 0.14, 0.12, 0.95), 8, GREEN, 1, false)
+	console_fps_lbl = _T(fps_pill, "FPS: 180 / 180   ·   5.5 ms", Vector2(0, 9), 15, GREEN, f_bold, 470, HORIZONTAL_ALIGNMENT_CENTER)
 	var x := _card_btn(console_panel, Rect2(1104, 12, 40, 36)); x.text = "✕"
 	x.pressed.connect(func(): toggle_console())
 	# 1. Password Lock Gate ("5516")
@@ -353,7 +353,7 @@ func _update_console_fps(dt: float) -> void:
 	var avg_ms := 1000.0 / maxf(1.0, float(fps_now))
 	var res_i := clampi(int(save.get("settings", {}).get("res_i", 3)), 0, RES_LIST.size() - 1)
 	var r_v: Vector2i = RES_LIST[res_i]
-	console_fps_lbl.text = "FPS: %d / %s  (avg %.1f ms, hitch %.0f)  ·  %dp" % [fps_now, cap_s, avg_ms, _fps_hitch_ms, r_v.y]
+	console_fps_lbl.text = "FPS %d / %s   ·   %.1f ms   ·   hitch %.0f ms   ·   %dp" % [fps_now, cap_s, avg_ms, _fps_hitch_ms, r_v.y]
 
 func toggle_console() -> void:
 	if console_panel == null: return

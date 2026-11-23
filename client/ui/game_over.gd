@@ -17,7 +17,7 @@ signal open_arsenal(key, from)
 signal opened
 
 ## Labels of an award's lines (Data/Stars LABELS).
-const STAR_LABELS := {"land": "Peak land", "kills": "Nations eliminated", "win": "Victory", "time": "Time played", "x2": "2x Stars"}
+const STAR_LABELS := {"played": "Match played", "survived": "Time survived", "territory": "Land held", "conquests": "Nations conquered", "placed": "Final place", "victory": "Victory", "double": "2x Stars"}
 
 var ctx: UICtx
 var _award = null

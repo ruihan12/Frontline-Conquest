@@ -360,6 +360,7 @@ func _build_detail() -> void:
 	sticker.size = Vector2(sw, sh)
 	sticker.position = (pv - sticker.size) * 0.5
 	ground.add_child(sticker)
+	_animate_item(root, ground, sticker, pv)
 	_flash = ColorRect.new()
 	_flash.name = "Flash"
 	_flash.color = Color(top, 0.0)
@@ -393,6 +394,41 @@ func _build_detail() -> void:
 	_cta.name = "Get"
 	col.add_child(_cta)
 	_build_cta()
+	col.modulate.a = 0.0
+	var t_w := col.create_tween().set_parallel(true)
+	t_w.tween_property(col, "modulate:a", 1.0, 0.25).set_delay(0.08)
+	t_w.tween_property(col, "position:y", y0, 0.25).from(y0 + 8.0).set_delay(0.08).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+
+
+## Motion for a picked item: the render pops in and then drifts gently, a light sweep crosses the
+## preview once, and the words rise in. (Tweens live on the nodes, so rebuilding the detail ends them.)
+func _animate_item(root: Control, ground: Panel, sticker: TextureRect, pv: Vector2) -> void:
+	sticker.pivot_offset = sticker.size * 0.5
+	sticker.scale = Vector2(0.82, 0.82)
+	sticker.modulate.a = 0.0
+	var base_y := sticker.position.y
+	var t_in := sticker.create_tween().set_parallel(true)
+	t_in.tween_property(sticker, "scale", Vector2.ONE, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t_in.tween_property(sticker, "modulate:a", 1.0, 0.2)
+	var t_bob := sticker.create_tween().set_loops()
+	t_bob.tween_property(sticker, "position:y", base_y - 5.0, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t_bob.tween_property(sticker, "position:y", base_y + 3.0, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	var t_rot := sticker.create_tween().set_loops()
+	t_rot.tween_property(sticker, "rotation_degrees", 1.4, 2.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	t_rot.tween_property(sticker, "rotation_degrees", -1.4, 2.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	# light sweep
+	var shine := ColorRect.new()
+	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shine.color = Color(1, 1, 1, 0.12)
+	shine.size = Vector2(pv.x * 0.18, pv.y * 1.6)
+	shine.pivot_offset = shine.size * 0.5
+	shine.rotation_degrees = 18.0
+	shine.position = Vector2(-pv.x * 0.3, -pv.y * 0.3)
+	ground.add_child(shine)
+	var t_sh := shine.create_tween()
+	t_sh.tween_interval(0.15)
+	t_sh.tween_property(shine, "position:x", pv.x * 1.2, 0.8).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN_OUT)
+	t_sh.tween_callback(shine.queue_free)
 
 
 func _line(text: String, color: Color) -> void:

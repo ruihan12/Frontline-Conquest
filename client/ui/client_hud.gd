@@ -351,11 +351,7 @@ func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
 	coach.clear()
 	var st: Dictionary = g.stats
 	var me: int = g.PLAYER
-	var x2: bool = g.unlocked("x2")
-	var mult := 2 if x2 else 1
-	var lines := [["land", int(float(st.get("peak", 0.0)) * 20.0) * mult], ["kills", int(st.get("elims", 0)) * 150 * mult], ["time", int(g.elapsed / 6.0) * mult]]
-	if win:
-		lines.insert(2, ["win", 1500 * mult])
+	var lines: Array = g.star_lines
 	ctx.session.last_award = {"total": earned, "balance": int(g.save.stars), "lines": lines}
 	var kind := "victory" if win else ("eliminated" if eliminated else "defeat")
 	var killer := int(g.nations[me].get("last_by", 0)) if eliminated else 0

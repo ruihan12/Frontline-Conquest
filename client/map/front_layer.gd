@@ -191,6 +191,7 @@ func poll(now: float) -> void:
 		var e: Dictionary = entries.get(aid3, {"slots": []})
 		e.text = UITheme.fmt_troops(float(todo[aid3][2]))
 		e.incoming = todo[aid3][1]
+		e.oid = oid
 		_set_slots(e, pts, now, SNAP_FULL / k)
 		entries[aid3] = e
 
@@ -220,8 +221,12 @@ func _draw_body() -> void:
 	var stroke := maxi(1, int(round(STROKE_PX * 2.0 / ds)))
 	var f := _font
 	var vs := size
+	var stack := {}  # (opponent, direction) -> labels drawn so far: several attacks on one front stack, not overprint
 	for aid in entries:
 		var e: Dictionary = entries[aid]
+		var skey := int(e.get("oid", 0)) * 2 + (1 if e.incoming else 0)
+		var layer: int = stack.get(skey, 0)
+		stack[skey] = layer + 1
 		var col: Color = IN if e.incoming else OUT
 		var ts := f.get_string_size(e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs)
 		for sl in e.slots:
@@ -230,6 +235,6 @@ func _draw_body() -> void:
 			if sp.x < -40 or sp.y < -40 or sp.x > vs.x + 40 or sp.y > vs.y + 40:
 				continue
 			# whole pixels only: a fractional origin smears glyph edges
-			var pos := Vector2(roundf(sp.x - ts.x * 0.5), roundf(sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5))
+			var pos := Vector2(roundf(sp.x - ts.x * 0.5), roundf(sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5) + float(layer) * float(fs + 2))
 			draw_string_outline(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, stroke, Color.BLACK)
 			draw_string(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)

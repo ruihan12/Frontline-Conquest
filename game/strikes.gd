@@ -143,12 +143,53 @@ func _tick_meta(dt: float, adt := -1.0) -> void:
 
 	var pl = nations[PLAYER]
 	stats.peak = maxf(stats.peak, 100.0 * pl.land / maxf(1, land_total))
+	stats["peak_tiles"] = maxi(int(stats.get("peak_tiles", 0)), int(pl.land))
 	stats.maxtroops = maxf(stats.maxtroops, pl.troops)
 
+# RoWorld Data/Stars.luau payout (solo): played 100, survived 15/min, land held 30 x peak land in fair
+# shares, nations conquered 54 each (tribes excluded), final place 14/min x place score, victory 18/min;
+# every line rounded to 5 and scaled by the difficulty (0.4 / 0.7 / 1.0); 2x Stars doubles the total.
+const STARS_MODE_MULT := [0.4, 0.7, 1.0]
+var star_lines: Array = []
+
+func _stars_quantum(x: float) -> int:
+	if x <= 0.0: return 0
+	return maxi(5, int(floor(x / 5.0 + 0.5)) * 5)
+
 func match_stars(win: bool) -> int:
-	var s2: int = int(stats.peak * 20.0) + stats.elims * 150 + (1500 if win else 0) + int(elapsed / 6.0)
-	if unlocked("x2"): s2 *= 2
-	return s2
+	var pl = nations[PLAYER]
+	var field := 1
+	var alive_others := 0
+	var more := 0
+	for id in range(2, nations.size()):
+		if id == PLAYER or kind_of(id) == SimRules.KIND_TRIBE: continue
+		field += 1
+		var n = nations[id]
+		if n.alive and n.land > 0:
+			alive_others += 1
+			if n.land > pl.land: more += 1
+	var mine_alive: bool = pl.alive and pl.land > 0
+	var place := 1 if win else ((1 + more) if mine_alive else (alive_others + 1))
+	var minutes := clampf(elapsed / 60.0, 0.0, 240.0)
+	var share := maxf(float(land_total), 1.0) / float(maxi(field, 1))
+	var shares := float(stats.get("peak_tiles", 0)) / share
+	var pscore := 1.0
+	if field > 1:
+		var sc := clampf(1.0 - float(place - 1) / float(field - 1), 0.0, 1.0)
+		pscore = sc * sc
+	var mult: float = STARS_MODE_MULT[clampi(diff_i, 0, 2)]
+	star_lines = []
+	var total := 0
+	var rows := [["played", 100.0], ["survived", 15.0 * minutes], ["territory", 30.0 * maxf(shares, 0.0)],
+		["conquests", 54.0 * float(stats.get("conq", 0))], ["placed", 14.0 * pscore * minutes]]
+	if win: rows.append(["victory", 18.0 * minutes])
+	for r in rows:
+		var a := _stars_quantum(float(r[1]) * mult)
+		if a > 0:
+			star_lines.append([r[0], a]); total += a
+	if unlocked("x2") and total > 0:
+		star_lines.append(["double", total]); total *= 2
+	return total
 
 func next_locked() -> Dictionary:
 	var best := {}

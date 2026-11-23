@@ -2,6 +2,7 @@ extends "res://game/state.gd"
 # Map generation, rendering data, tiles and ownership
 
 func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	autoshot = "--autoshot" in OS.get_cmdline_user_args()
 	_sfx_log = "--sfxlog" in OS.get_cmdline_user_args()
 	bench = "--bench" in OS.get_cmdline_user_args()
@@ -164,6 +165,7 @@ func _rebuild_chunks() -> void:
 			var sp := Sprite2D.new(); sp.texture = tx; sp.centered = false
 			sp.scale = Vector2(TS, TS); sp.position = Vector2(cx * CW, cy * CH) * TS
 			sp.material = _map_material()
+			sp.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST  # the map stays pixel-crisp (the UI default is linear)
 			add_child(sp)
 			chunk_img.append(im); chunk_tex.append(tx); chunk_sp.append(sp)
 	chunk_dirty.resize(chunk_img.size()); chunk_dirty.fill(0)

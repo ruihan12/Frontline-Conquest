@@ -92,7 +92,7 @@ func _start_game() -> void:
 	grow_n = gnz.get_image(W, H, false, false, true).get_data()
 	nations.clear()
 	_air_cargo_t.clear(); planes.clear(); beams.clear(); air_t = 0.0; rail_cd = 0.0; shake_amp = 0.0; shake_t = 0.0; if cam: cam.offset = Vector2.ZERO
-	stats = {"peak": 0.0, "maxtroops": 0.0, "elims": 0}
+	stats = {"peak": 0.0, "maxtroops": 0.0, "elims": 0, "conq": 0, "peak_tiles": 0}
 	attacks.clear()
 	boats.clear()
 	structs.clear(); _sv += 1
