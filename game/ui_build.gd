@@ -827,17 +827,17 @@ func _update_hud() -> void:
 	_ema_init = true
 	if now_s - _hud_txt_t >= 0.25:
 		_hud_txt_t = now_s
-		bb_regen.text = "%s%s/s (%d%%)" % ["+" if _ema_regen >= 0 else "", _fmt_hud(_ema_regen), clampi(cap_pct, 0, 999)]
+		bb_regen.text = "%s%s/s (%d%%)" % ["+" if _ema_regen >= 0 else "", UITheme.fmt_troops(_ema_regen), clampi(cap_pct, 0, 999)]
 		bb_goldrate.text = "+%s/s" % _fmt_hud(_ema_gold)
 	bb_cap.position.x = bb_troops.position.x + f_bold.get_string_size(bb_troops.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 28).x + 6
-	bb_cap.text = "/ %s" % _fmt_hud(cap)
+	bb_cap.text = "/ %s" % UITheme.fmt_troops(cap)
 	bb_bar.set_meta("v", clampf(pl.troops / maxf(cap, 1.0), 0.0, 1.0)); bb_bar.queue_redraw()  # clamp: over-cap troops drew a bar across the whole screen
 	var at_war := 0.0
 	for at in attacks: if at.a == PLAYER: at_war += at.troops
 	for bt in boats: if bt.a == PLAYER: at_war += bt.troops
-	bb_war.text = ("%s at war" % _fmt_hud(at_war)) if at_war > 0 else ""
+	bb_war.text = ("%s at war" % UITheme.fmt_troops(at_war)) if at_war > 0 else ""
 	bb_share.text = "%d%%" % int(SHARES[share_i] * 100)
-	bb_sends.text = "Sends %s troops" % _fmt_hud(pl.troops * SHARES[share_i])
+	bb_sends.text = "Sends %s troops" % UITheme.fmt_troops(pl.troops * SHARES[share_i])
 	var silo_ready := false
 	var min_silo_cd := 999.0
 	for st in structs:
