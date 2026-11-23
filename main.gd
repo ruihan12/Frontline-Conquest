@@ -622,11 +622,6 @@ func _qualshot() -> void:
 			var c := Vector2(n.sx / maxf(1, n.land), n.sy / maxf(1, n.land)) * TS
 			cam.zoom = Vector2(4, 4); cam.position = c; _clamp_cam()
 			blasts.append({"pos": c + Vector2(14, 6), "r": 6.0 * TS, "t": 0.0, "dur": 1.6, "seed": 99173})
-			# capture flash demo on a patch of tiles
-			var ct := Vector2i(c / TS)
-			for yy in range(ct.y - 10, ct.y - 4):
-				for xx in range(ct.x - 14, ct.x - 4):
-					if xx >= 0 and yy >= 0 and xx < W and yy < H: cap_fx[yy * W + xx] = [map_t, n.color]
 			# follow a boat/trader/warship if one exists
 			var tgt = null
 			if not warships.is_empty(): tgt = warships[0].pos * TS

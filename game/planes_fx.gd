@@ -82,7 +82,6 @@ func _world_fx_anim(z: float) -> void:
 
 func _draw_world_fx(z: float) -> void:
 	var _c0 := Time.get_ticks_usec()
-	_draw_capture_fx()
 	_pf_add("w_cap", Time.get_ticks_usec() - _c0); _c0 = Time.get_ticks_usec()
 	_draw_meta_fx(z)
 	_pf_add("w_meta", Time.get_ticks_usec() - _c0)

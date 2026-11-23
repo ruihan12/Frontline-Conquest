@@ -873,8 +873,6 @@ func _set_owner(i: int, o: int) -> void:
 		elif x < bb.position.x or y < bb.position.y or x >= bb.position.x + bb.size.x or y >= bb.position.y + bb.size.y:
 			n.bb = bb.merge(Rect2i(x, y, 1, 1))  # (only a tile outside the box grows it)
 		n.sx += x; n.sy += y
-		if old != o and cap_fx.size() < CAP_FX_MAX and (_qual_c if _qual_c >= 0 else _q()) >= 2:
-			cap_fx[i] = [map_t, n.color]
 	if border.size() == nations.size():
 		var lr := W * (H - 1)
 		_upd_border_fast(i, om, W, lr)
