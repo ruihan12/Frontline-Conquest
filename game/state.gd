@@ -108,6 +108,7 @@ var ai_timer := 0.0
 var ui_timer := 0.0
 var tick_acc := 0.0
 var autoshot := false
+var strike_only := false  # the Air Strike / Slug slot is armed (they share build ids 14 / 15 with Airfield / Railgun)
 var _webprof_on := false
 var _webprof_acc := 0.0
 var bench := false

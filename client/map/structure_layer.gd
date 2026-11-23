@@ -213,7 +213,7 @@ func _draw_inner(ci: CanvasItem) -> void:
 			if lv >= 2:
 				# a label box 0.6 plate sizes tall whose bottom sits 0.1 plate sizes below the plate's top
 				var fs := maxi(6, int(px * 0.6 * 0.8))
-				var txt := str(lv)
+				var txt := str(lv) if lv < 100 else "99+"
 				var tw := _font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 				var bottom := c.y - px * 0.5 + px * 0.1
 				var pos := Vector2(c.x - tw * 0.5, bottom - _font.get_descent(fs))

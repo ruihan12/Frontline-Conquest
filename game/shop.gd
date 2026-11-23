@@ -228,6 +228,11 @@ func _input(e: InputEvent) -> void:
 				console_in.caret_column = console_in.text.length()
 				get_viewport().set_input_as_handled()
 
+## Console numbers: no NaN or infinity (they overflowed counters and labels), and a ceiling far above play.
+func _cons_sane(v: float) -> float:
+	if is_nan(v): return 0.0
+	return clampf(v, -1.0e15, 1.0e15)
+
 func _build_console() -> void:
 	console_panel = _P(ui, Rect2(220, 70, 1160, 540), Color(0.04, 0.055, 0.11, 0.96), 8, ORANGE_Y, 2)
 	console_panel.visible = false
@@ -510,7 +515,7 @@ func run_console_cmd(raw: String) -> void:
 	if head in ["gold", "troops", "stars", "speed", "peace"] and parts.size() >= 2 and parts[1] != "=":
 		var arg := parts[1]
 		var add_mode := arg.begins_with("+")
-		var val := float(arg)
+		var val := _cons_sane(float(arg))
 		if head == "gold" and nations.size() > PLAYER:
 			nations[PLAYER].gold = (nations[PLAYER].gold + val) if add_mode else val
 			_clog("Player gold -> [b]%s[/b]" % _fmt(nations[PLAYER].gold))
@@ -567,7 +572,7 @@ func run_console_cmd(raw: String) -> void:
 		if nid > 0 and nid < nations.size():
 			var n = nations[nid]
 			if prop in ["gold", "troops"]:
-				n[prop] = float(val_s)
+				n[prop] = _cons_sane(float(val_s))
 			elif prop in ["alive", "prot"]:
 				n[prop] = (val_s.to_lower() in ["true", "1", "yes"])
 			else:
@@ -583,9 +588,9 @@ func run_console_cmd(raw: String) -> void:
 		var val = _eval_expr(rhs)
 		if val == null and rhs.is_valid_float(): val = float(rhs)
 		if lhs == "gold" and nations.size() > PLAYER:
-			nations[PLAYER].gold = float(val); _clog("gold = [b]%s[/b]" % _fmt(nations[PLAYER].gold)); _update_hud(); return
+			nations[PLAYER].gold = _cons_sane(float(val)); _clog("gold = [b]%s[/b]" % _fmt(nations[PLAYER].gold)); _update_hud(); return
 		if lhs == "troops" and nations.size() > PLAYER:
-			nations[PLAYER].troops = float(val); _clog("troops = [b]%s[/b]" % _fmt(nations[PLAYER].troops)); _update_hud(); return
+			nations[PLAYER].troops = _cons_sane(float(val)); _clog("troops = [b]%s[/b]" % _fmt(nations[PLAYER].troops)); _update_hud(); return
 		if lhs == "stars" or lhs == "save.stars":
 			save.stars = int(val); write_save(); _refresh_arsenal(); _clog("save.stars = [b]%d[/b]" % save.stars); return
 		if "[" in lhs and lhs.ends_with("]"):

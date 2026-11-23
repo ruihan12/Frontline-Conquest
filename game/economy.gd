@@ -134,6 +134,7 @@ func build_req(k: int, tile: int, o := PLAYER) -> String:
 
 func select_build(k: int) -> void:
 	if state != "play" or k < 0 or k >= build_data.size(): return
+	strike_only = false  # (the Air Strike / Slug slots set it again after selecting)
 	if k == 16:
 		set_icbm(not icbm_mode)
 		notify("ICBM %s: +10%% cost, 20%% SAM evasion, +20%% speed, -20%% cooldown" % ("ON" if icbm_mode else "OFF"), "info"); return
@@ -160,6 +161,9 @@ func try_build(k: int, tile: int, o := PLAYER) -> bool:
 		if _ai_place_budget <= 0: return false
 		_ai_place_budget -= 1
 	var n = nations[o]
+	if o == PLAYER and strike_only and (k == 14 or k == 15) and not _is_strike_click(k, tile, o):
+		notify("Pick a target outside your own land", "info")  # the Air Strike / Slug slots never build
+		return false
 	if _is_strike_click(k, tile, o):
 		var oks := sim_ars.launch_strike(o, SimRules.N_AIRSTRIKE if k == 14 else SimRules.N_SLUG, tile)
 		if oks and o == PLAYER: build_sel = -1
@@ -603,11 +607,13 @@ func _economy(dt: float) -> void:
 	fallout_count = fallout_list.size()
 	var city_lv := {}
 	for st in structs:
-		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + int(st.get("level", 1))
+		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + mini(int(st.get("level", 1)), 1000)
 	for id in range(1, nations.size()):
 		var n = nations[id]
 		if not n.alive:
 			continue
+		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0  # (a console value that overflowed)
+		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0
 		if n.land <= 0 and (id != PLAYER or state == "play"):
 			n.alive = false
 			if id != PLAYER and n.get("last_by", 0) == PLAYER:
@@ -664,7 +670,7 @@ func _struct_add(k: int, tile: int, o: int) -> void:
 	structs.append(st); struct_at[tile] = st; _sv += 1; _own_sv[o] = _own_sv.get(o, 0) + 1
 
 func _upgrade_struct(st) -> void:
-	st.level = int(st.get("level", 1)) + 1; _sv += 1
+	st.level = mini(int(st.get("level", 1)) + 1, 1000); _sv += 1
 	if st.k == 4: st["up_tick"] = sim_atk.tick
 	if st.k in [4, 5]:
 		var shots: Array = st.get("shots", [])

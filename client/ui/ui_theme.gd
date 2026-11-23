@@ -718,7 +718,10 @@ static func big(v: float, decimals: int = 6) -> String:
 # Core/NumberFormat.render_number: floored, never rounded; negatives show as 0.
 static func render_number(num: float) -> String:
 	if is_nan(num): num = 0.0
+	if is_inf(num) and num > 0.0: return "∞"
 	num = maxf(num, 0.0)
+	if num >= 1.0e15: return "%.1fQ" % (num / 1.0e15) if num < 1.0e18 else "999Q+"
+	if num >= 1.0e12: return "%.1fT" % (floorf(num / 1.0e11) / 10.0)
 	if num >= 10_000_000_000.0: return "%.1fB" % (floorf(num / 100000000.0) / 10.0)
 	if num >= 1_000_000_000.0: return "%.2fB" % (floorf(num / 10000000.0) / 100.0)
 	if num >= 10_000_000.0: return "%.1fM" % (floorf(num / 100000.0) / 10.0)

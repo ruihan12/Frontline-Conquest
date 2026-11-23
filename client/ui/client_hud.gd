@@ -588,6 +588,8 @@ func _placing_kind() -> String:
 	var k: int = g.build_sel
 	if k < 0:
 		return ""
+	if (k == 14 or k == 15) and g.strike_only:
+		return "airstrike" if k == 14 else "slug"
 	if k == 14 and g.has_method("_is_strike_click"):
 		return "airfield"
 	for name in RWGameState.BUILD_ID:

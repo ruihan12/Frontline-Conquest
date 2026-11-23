@@ -530,6 +530,7 @@ func select_action(kind: String) -> void:
 	if now == was and now != k:
 		return
 	aim_kind = kind if now == k else ""
+	g.strike_only = now == k and (kind == "airstrike" or kind == "slug")
 	_confirm_tile = -1
 	_clear_ghost()
 	if aim_kind == "":
