@@ -19,8 +19,7 @@ var _cy := SIZE * 0.46
 var _body: Control
 var _rays: TextureRect
 var _glow: TextureRect
-var _shade: TextureRect
-var _chest: TextureRect
+var _chest: ChestView
 var _spark: TextureRect
 var _pill: PanelContainer
 var _pill_l: Label
@@ -49,19 +48,11 @@ func _init(c: UICtx) -> void:
 	_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_body.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(_body)
-	var tex: Texture2D = load(ART + "crate_icon.svg")
 	_rays = _img("Rays", load(ART + "rays.svg"), Color(GOLD, 0.16))
 	_glow = _img("Glow", load(ART + "glow.svg"), Color(GOLD, 0.5))
-	_shade = _img("Shade", tex, Color(Color8(40, 22, 4), 0.75))
-	_chest = _img("Chest", tex, Color.WHITE)
-	# wooden gradient over the chest mask
-	var sh := Shader.new()
-	sh.code = "shader_type canvas_item;\nuniform vec4 top : source_color;\nuniform vec4 bottom : source_color;\nvoid fragment() { COLOR = vec4(mix(top.rgb, bottom.rgb, UV.y), texture(TEXTURE, UV).a * COLOR.a); }"
-	var mat := ShaderMaterial.new()
-	mat.shader = sh
-	mat.set_shader_parameter("top", Color8(176, 124, 78))
-	mat.set_shader_parameter("bottom", Color8(112, 72, 40))
-	_chest.material = mat
+	_chest = ChestView.new()
+	_chest.running = false  # driven by this button's _process
+	_body.add_child(_chest)
 	_spark = _img("Spark", load(ART + "sparkle.svg"), Color(GOLD_LIGHT, 0.0))
 
 	_pill = PanelContainer.new()
@@ -126,8 +117,7 @@ func _size_parts() -> void:
 	_cy = cy
 	_place(_rays, Vector2(s * 0.5, cy), Vector2(s * 1.4, s * 1.4))
 	_place(_glow, Vector2(s * 0.5, cy), Vector2(s * 1.2, s * 1.1))
-	_place(_chest, Vector2(s * 0.5, cy), Vector2(s * 0.74, s * 0.74))
-	_place(_shade, Vector2(s * 0.5, cy + s * 0.03), Vector2(s * 0.74, s * 0.74))
+	_place(_chest, Vector2(s * 0.5, cy), Vector2(s * 0.95, s * 0.95))
 	_place(_spark, Vector2(s * 0.68, cy - s * 0.2), Vector2(s * 0.14, s * 0.14))
 	var pw := s * 0.86
 	var ph := maxf(22.0, s * 0.22)
@@ -152,10 +142,7 @@ func _process(dt: float) -> void:
 	var t := _t
 	var s := _s
 	var bob := sin(t * 2.0 + 1.0) * s * 0.018
-	_chest.position = Vector2(s * 0.5, _cy + bob) - _chest.size * 0.5
-	_shade.position = Vector2(s * 0.5, _cy + bob + s * 0.03) - _shade.size * 0.5
-	_chest.rotation_degrees = sin(t * 1.3 + 1.0) * 3.0
-	_shade.rotation_degrees = _chest.rotation_degrees
+	_chest.tick(dt)
 	_glow.modulate.a = 1.0 - (0.56 - 0.12 * (0.5 + 0.5 * sin(t * 3.2)))
 	_rays.rotation_degrees = fposmod(_rays.rotation_degrees - dt * 12.0, 360.0)
 	var k := fmod(t + 1.3, 2.6) / 0.9
@@ -163,6 +150,6 @@ func _process(dt: float) -> void:
 		var v := sin(k * PI)
 		_spark.modulate.a = v * 0.9
 		_spark.rotation_degrees = k * 90.0
-		_spark.position = Vector2(s * 0.68, _cy - s * 0.2 + bob) - _spark.size * 0.5
+		_spark.position = Vector2(s * 0.7, _cy - s * 0.24 + bob) - _spark.size * 0.5
 	else:
 		_spark.modulate.a = 0.0

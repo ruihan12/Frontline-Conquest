@@ -25,8 +25,7 @@ var _v: VBoxContainer
 var _count: Label
 var _body: HBoxContainer
 var _tab := 0
-var _chest_t := 0.0
-var _chest: TextureRect
+var _chest: ChestView
 var _note := ""
 var _flash_id := ""
 
@@ -131,15 +130,6 @@ func _skin_tex(it: Dictionary) -> Texture2D:
 			var bit: int = m.bits[(((y >> sc) % int(m.h)) * int(m.w)) + ((x >> sc) % int(m.w))]
 			img.set_pixel(x, y, sec if bit == 1 else base)
 	return ImageTexture.create_from_image(img)
-
-
-func _process(dt: float) -> void:
-	if not is_open or _chest == null:
-		return
-	_chest_t += dt
-	_chest.position.y = sin(_chest_t * 2.0) * 3.0
-	var w := fmod(_chest_t, 2.4)
-	_chest.rotation_degrees = sin(w * 26.0) * (4.0 * (1.0 - w / 0.6)) if w < 0.6 else 0.0
 
 
 func _rarity_col(it: Dictionary) -> Color:
@@ -254,15 +244,8 @@ func _crate_card(s, owned: Dictionary) -> Control:
 		glow.position = Vector2((CRATE_W - 32.0 - 190.0) * 0.5, 0)
 		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		art.add_child(glow)
-		_chest = TextureRect.new()
-		_chest.texture = load("res://assets/rw/crate/crate_icon.svg")
-		_chest.modulate = Color8(150, 104, 62)
-		_chest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		_chest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		_chest.size = Vector2(120, 120)
-		_chest.pivot_offset = Vector2(60, 60)
-		_chest.position = Vector2((CRATE_W - 32.0 - 120.0) * 0.5, 15)
-		_chest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_chest = ChestView.new()
+		_chest.size = Vector2(CRATE_W - 32.0, 150)
 		art.add_child(_chest)
 	var t := UITheme.label("COSMETIC CRATE", 16, 800, UITheme.TEXT, 2)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

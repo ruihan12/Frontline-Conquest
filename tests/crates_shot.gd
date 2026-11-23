@@ -9,6 +9,7 @@ func _initialize() -> void:
 	for _f in 10: await process_frame
 	m.shots_dir = out
 	if m.client.title != null: m.client.title.finish_show()
+	for _f in 60: await process_frame
 	m.save.stars = 20000
 	m.client.crates.open()
 	for _f in 40: await process_frame
