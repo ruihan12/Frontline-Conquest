@@ -690,6 +690,7 @@ func add_float(world_pos: Vector2, text: String, col: Color = GOLD_C) -> void:
 	if floats.size() > 24: floats.pop_front()
 
 func notify(text: String, kind := "info") -> void:
+	if attract_on and state == "menu": return  # the title's demo world is silent
 	var col := {"good": GREEN, "bad": RED, "info": CYAN}[kind] as Color
 	notes.push_front({"text": text, "col": col, "kind": kind, "t": 0.0})
 	if notes.size() > 5: notes.resize(5)

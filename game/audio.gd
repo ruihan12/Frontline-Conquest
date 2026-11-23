@@ -193,6 +193,7 @@ func _world_on_screen(world: Vector2) -> bool:
 	return sp.x >= 0.0 and sp.y >= 0.0 and sp.x <= vr.size.x and sp.y <= vr.size.y
 
 func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
+	if attract_on and state == "menu": return  # the title's demo world is silent
 	# Upstream UIAdvisor: a bomb's launch sting is the local player's own launch only; blasts play for
 	# anyone's bomb when on screen or yours. Every other caller here already asks only for the
 	# player's own events, as upstream does (on_structure / on_unit count only yours).

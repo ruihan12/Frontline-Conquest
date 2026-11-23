@@ -144,11 +144,14 @@ func _process_inner(dt: float) -> void:
 	var _q0 := Time.get_ticks_usec()
 	_animate_labels(rdt)
 	_pf_add("labels_anim", Time.get_ticks_usec() - _q0)
+	_attract_tick(rdt)
 	dt *= sim_speed
 	if sim_paused: dt = 0.0
-	if state == "play":
+	var _at := _attract_active()
+	if state == "play" or _at:
 		# RoWorld runs 10 ticks per second at 1x (SPEED_BASE only slows the visual unit motion)
 		var tdt := (0.0 if sim_paused else rdt) * sim_speed / SPEED_BASE
+		if _at: tdt *= _attract_boost()
 		elapsed += tdt
 		tick_acc += tdt
 		tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
@@ -211,7 +214,9 @@ func _process_inner(dt: float) -> void:
 		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 		var _q2 := Time.get_ticks_usec()
 		var pl = nations[PLAYER]
-		if dominates(PLAYER):
+		if _at:
+			_attract_check()
+		elif dominates(PLAYER):
 			_game_over(true)
 		elif pl.land <= 0 and not spectating:
 			_game_over(false)
@@ -1417,3 +1422,63 @@ func _pop_tick(rdt: float) -> void:
 		var prog := clampf(float(land) / maxf(float(land_total), 1.0) / 0.8, 0.0, 1.0)
 		audio_dir.pop(tiles, prog)
 	_pop_land = land
+
+
+# ---- title-screen attract mode (upstream: a live AI-only world behind the title, started as a time-lapse) ----
+var _attract_t := 0.0
+var _attract_wait := 0.0
+const ATTRACT_LAPSE_S := 8.0    # real seconds of time-lapse at the start of each demo world
+const ATTRACT_LAPSE_X := 5.0
+const ATTRACT_MAX_S := 300.0    # a demo world is replaced after this long
+
+func _attract_allowed() -> bool:
+	return not (DisplayServer.get_name() == "headless" or autoshot or bench) \
+		and bool(save.get("settings", {}).get("attract_on", true)) and not _loading
+
+func _attract_active() -> bool:
+	return attract_on and state == "menu"
+
+func _attract_boost() -> float:
+	return ATTRACT_LAPSE_X if _attract_t < ATTRACT_LAPSE_S else 1.0
+
+func _attract_tick(rdt: float) -> void:
+	if state != "menu":
+		attract_on = false
+		_attract_wait = 0.0
+		return
+	if attract_on:
+		_attract_t += rdt
+		return
+	if not _attract_allowed(): return
+	_attract_wait += rdt
+	if _attract_wait >= 0.6 and (client == null or not client.arsenal.is_open):
+		_attract_begin()
+
+# A fresh AI-only world behind the title: no player nation, nobody to notify or make sounds for.
+func _attract_begin() -> void:
+	_attract_wait = 0.0
+	attract_on = true
+	_attract_t = 0.0
+	_start_game()  # (sets state "pick" and the pick UI: put the menu state back)
+	state = "menu"
+	if pick_panel: pick_panel.visible = false
+	if menu_panel:
+		if menu_panel.has_meta("fade_tw"):
+			var tw: Tween = menu_panel.get_meta("fade_tw")
+			if tw and tw.is_valid(): tw.kill()
+		menu_panel.visible = true; menu_panel.modulate.a = 1.0
+	nations[PLAYER].alive = false
+	nations[PLAYER].land = 0
+	peace = 0.0
+	set_speed(0)
+	sim_paused = false
+	attract_on = true
+	if hud: hud.show_match()
+
+func _attract_check() -> void:
+	if _attract_t > ATTRACT_MAX_S:
+		_attract_begin(); return
+	if ticks_done % 50 != 0: return
+	for id in range(2, nations.size()):
+		if nations[id].alive and dominates(id):
+			_attract_begin(); return

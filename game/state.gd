@@ -523,6 +523,7 @@ var fallout_glow: FalloutGlow
 var surface: MapSurface
 ## the player's nation fell and they chose to keep watching (UIRoot's spectate pill)
 var spectating := false
+var attract_on := false
 
 # ---------------- UI ----------------
 const ORANGE_Y := Color(1.0, 0.72, 0.25)

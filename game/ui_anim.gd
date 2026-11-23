@@ -128,6 +128,7 @@ func _reset_menu_world() -> void:
 func _to_menu() -> void:
 	if audio_dir != null: audio_dir.end_match()
 	if state != "menu" and nations.size() > 1: _reset_menu_world()
+	attract_on = false
 	state = "menu"
 	_stop_music()
 	if bool(save.get("settings", {}).get("music_on", true)): _play_music()

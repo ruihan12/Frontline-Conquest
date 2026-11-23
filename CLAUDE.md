@@ -10,6 +10,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
 - Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).
 - Range borders: armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
+- Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
 - Graphics settings window (no gameplay effect)
 
 Everything else follows upstream: native 2000x1000 World (k_lin 1.0, 400 tribes, 10 maps), troops display /10,
