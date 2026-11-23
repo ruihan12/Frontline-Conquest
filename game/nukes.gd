@@ -10,7 +10,7 @@ extends "res://game/economy.gd"
 # speed slider only changes how many sim ticks run per second.
 #
 # Kept custom (user): the ICBM toggle (key I). While it is on, every bomb the player launches costs 10% more
-# and has a 35% chance (ICBM_EVADE_P) to evade SAMs entirely, rolled once at launch with the sim RNG
+# and has a 20% chance (ICBM_EVADE_P), +20% speed and -20% silo cooldown to evade SAMs entirely, rolled once at launch with the sim RNG
 # (main.rng). An evading missile ("evade": true) is never a SAM candidate, never planned, never intercepted.
 # A MIRV rolls once for its bus and every warhead it splits into inherits that roll; a Scattershot's
 # warheads likewise share the core's roll. (Upstream silos already reach the whole map, so ICBM lifts no range.)
@@ -128,6 +128,14 @@ func _spawn_missile(o: int, k: int, nk: int, from: Vector2, to: Vector2, ft: int
 static func _tc(tile: int, w: int) -> Vector2:
 	return Vector2(tile % w + 0.5, tile / w + 0.5)
 
+# Custom (owner): every nuke flies at NUKE_SPEED_X of upstream's speed; an ICBM launch is a further
+# ICBM_SPEED_X faster and its silo reloads ICBM_CD_X as long. (upstream flight ticks / speed factor)
+const NUKE_SPEED_X := 0.9
+const ICBM_SPEED_X := 1.2
+const ICBM_CD_X := 0.8
+static func flight_ticks(ft: int, icbm: bool) -> int:
+	return maxi(1, int(ceil(float(ft) / (NUKE_SPEED_X * (ICBM_SPEED_X if icbm else 1.0)))))
+
 # ---------------------------------------------------------------- launch (SimNukes.launch_nuke)
 func launch_nuke(o: int, k: int, tile: int) -> bool:
 	if not k in NUKES or tile < 0 or tile >= W * H: return false
@@ -152,17 +160,23 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 		if o == PLAYER: notify("No missile silo is ready", "info")
 		return false
 	nations[o].gold -= cost
+	var icbm: bool = icbm_mode and o == PLAYER
 	_use_slot(silo, 0.0 if (o == PLAYER and (god_mode or no_cd)) else 1.0)
+	if icbm and not (god_mode or no_cd):
+		# ICBM: the silo is ready ICBM_CD_X as soon (the shot just fired is stamped earlier by the difference)
+		var shots: Array = silo.get("shots", [])
+		if not shots.is_empty():
+			shots[shots.size() - 1] = int(shots[shots.size() - 1]) - int(floor(float(sim_ars.reload_ticks(silo)) * (1.0 - ICBM_CD_X)))
 	var from := _tc(int(silo.tile), W)
 	var arc: Dictionary = sim_rules.munition_arc(H, from, tp, nk)
-	var ms := _spawn_missile(o, k, nk, from, tp, sim_rules.nuke_arc_ticks(arc, nk), arc)
+	var ms := _spawn_missile(o, k, nk, from, tp, flight_ticks(sim_rules.nuke_arc_ticks(arc, nk), icbm), arc, {"icbm": icbm})
 	ms.tgt_o = victim
 	# ICBM: one roll per launch (sim RNG), player only, never with the toggle off
-	ms["evade"] = icbm_mode and o == PLAYER and rng.randf() < ICBM_EVADE_P
+	ms["evade"] = icbm and rng.randf() < ICBM_EVADE_P
 	if nk == SimRules.N_MIRV:
 		mirvs_launched += 1
 	elif nk == SimRules.N_SCATTER:
-		_scatter_warheads(o, k, from, tile, int(ms.ft), bool(ms.evade))
+		_scatter_warheads(o, k, from, tile, int(ms.ft), bool(ms.evade), icbm)
 	if victim > 0:
 		nations[victim]["grudge_" + str(o)] = sim_atk.tick + SimRules.NUKE_GRUDGE_TICKS
 		nations[victim]["attacked_tick"] = sim_atk.tick
@@ -180,13 +194,13 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 # SimArsenal._scatter_warheads: SCATTER_MIN..MAX warheads evenly around the aim (a random turn, +-0.3 rad
 # jitter), SCATTER_NEAR..FAR tiles out, never onto the launcher's or an ally's land; each flies its own
 # arc from the silo and lands 2 ticks after the last (never before the core).
-func _scatter_warheads(o: int, k: int, from: Vector2, aim: int, flight: int, evade := false) -> void:
+func _scatter_warheads(o: int, k: int, from: Vector2, aim: int, flight: int, evade := false, icbm := false) -> void:
 	var fired := 0
 	for wp in sim_ars.scatter_targets(o, _tc(aim, W)):
 		fired += 1
 		var arc: Dictionary = sim_rules.nuke_arc(H, from, wp)
-		var ft := maxi(flight, sim_rules.nuke_arc_ticks(arc, SimRules.N_SCATTER)) + fired * 2
-		_spawn_missile(o, k, SimRules.N_WARHEAD, from, wp, ft, arc, {"evade": evade})
+		var ft := maxi(flight, flight_ticks(sim_rules.nuke_arc_ticks(arc, SimRules.N_SCATTER), icbm)) + fired * 2
+		_spawn_missile(o, k, SimRules.N_WARHEAD, from, wp, ft, arc, {"evade": evade, "icbm": icbm})
 
 # ---------------------------------------------------------------- per tick (SimNukes.nukes_tick)
 # Called once per sim tick, after sim_ars.tick() (SimNukes._sam_tick). `_dt` is ignored: flight is
@@ -281,8 +295,8 @@ func _split_mirv(ms) -> void:
 	for t in targets:
 		var dp := _tc(t, W)
 		var arc: Dictionary = sim_rules.nuke_arc(H, from, dp)
-		var ft: int = sim_rules.nuke_arc_ticks(arc, SimRules.N_WARHEAD) + rng.randi_range(0, 15)
-		_spawn_missile(o, 9, SimRules.N_WARHEAD, from, dp, ft, arc, {"mirv": true, "tgt_o": tg, "evade": bool(ms.get("evade", false))})
+		var ft: int = flight_ticks(sim_rules.nuke_arc_ticks(arc, SimRules.N_WARHEAD), bool(ms.get("icbm", false))) + rng.randi_range(0, 15)
+		_spawn_missile(o, 9, SimRules.N_WARHEAD, from, dp, ft, arc, {"mirv": true, "tgt_o": tg, "evade": bool(ms.get("evade", false)), "icbm": bool(ms.get("icbm", false))})
 
 func g_randi() -> int:
 	return rng.randi()

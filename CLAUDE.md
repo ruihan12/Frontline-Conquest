@@ -7,7 +7,9 @@ Last updated: 2026-11-22.
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
 - Tab console (password 5516, FPS counter, match-only)
 - Game speed slider 0.5x–10x
-- ICBM toggle (key I): +10% cost (player only); 35% seeded chance per launch to ignore SAMs. MIRV/Scattershot warheads share the carrier's roll.
+- ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
+- Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).
+- Range borders: armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
 - Graphics settings window (no gameplay effect)
 
 Everything else follows upstream: native 2000x1000 World (k_lin 1.0, 400 tribes, 10 maps), troops display /10,

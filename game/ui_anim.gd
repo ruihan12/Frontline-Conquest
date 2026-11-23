@@ -110,8 +110,24 @@ func _game_over(win: bool) -> void:
 	over_label.add_theme_color_override("font_color", ORANGE_Y if win else RED)
 	over_panel_p.get_node("sub").text = ("You hold 80% of the world." if win else "Your nation has fallen.") + "\nTime played: %s" % _fmt_time(elapsed)
 
+# The title screen shows a clean world, never the last match: the same state the game launches into
+# (a generated map, no nations, structures or units).
+func _reset_menu_world() -> void:
+	gen_map()
+	nations.clear(); nations.append({})
+	border.clear(); border.append({})
+	attacks.clear(); boats.clear(); missiles.clear(); warships.clear(); traders.clear()
+	structs.clear(); struct_at.clear(); _sv += 1
+	blasts.clear(); shells.clear(); notes.clear(); cap_fx.clear(); floats.clear(); trains.clear()
+	planes.clear(); beams.clear(); allies.clear()
+	if sim_ars: sim_ars.reset()
+	if sim_ws: sim_ws.reset()
+	sel_ws = null; build_sel = -1
+	dirty = true
+
 func _to_menu() -> void:
 	if audio_dir != null: audio_dir.end_match()
+	if state != "menu" and nations.size() > 1: _reset_menu_world()
 	state = "menu"
 	_stop_music()
 	if bool(save.get("settings", {}).get("music_on", true)): _play_music()

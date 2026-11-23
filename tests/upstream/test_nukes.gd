@@ -112,7 +112,7 @@ func run(H) -> void:
 	var src = _read_main()
 	H.expect(src != "", "game source readable", "")
 	H.expect(not _has(src, "NUKE_RANGE_SCALE") and not _has(src, "NUKE_RANGE_FRAC"), "no custom nuke range (upstream launch_range 0 for bombs)")
-	H.expect(not _has(src, "NUKE_SPEED_X"), "no custom nuke speed-up (upstream NUKE_SPEED_FULL)")
+	H.expect(_has(src, "NUKE_SPEED_X := 0.9"), "nukes fly at 0.9x upstream NUKE_SPEED_FULL (owner request)", "kept custom")
 	H.expect(not _has(src, "7.0 * BLAST_S"), "no custom x2.8 blast radii (upstream NUKE_OUTER_FULL / k_lin)")
 	H.expect(not _has(src, "_nuke_pill"), "no nuke countdown pill (upstream has none)")
 	H.expect(_has(src, "ICBM_FEE_PCT := 0.10") or _has(src, "ICBM_FEE_PCT := 0.1"), "ICBM +10% cost", "kept custom")

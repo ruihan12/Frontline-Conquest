@@ -57,8 +57,6 @@ var _gap3: Control
 var _gap4: Control
 var _buttons: HBoxContainer
 var _stars_btn: Button
-var _info_btn: Button
-var _info: Control = null
 var _again: Button
 var _spec: Button
 var _home: Button
@@ -160,15 +158,6 @@ func _init(c: UICtx) -> void:
 	sb.mouse_exited.connect(func() -> void: ctx.hide_hint(sb))
 	_stars_btn = sb
 	_buttons.add_child(sb)
-	# Tap/click version of the hover tooltip: an info button that opens the Stars breakdown.
-	var ib := T.button("", "GlassButton", "info", 52.0)
-	ib.custom_minimum_size = Vector2(52, 52)
-	ib.tooltip_text = "How Stars were earned"
-	_gold_button(ib, 0.06, 0.16, 0.24, 0.35, 10.0, 8.0)
-	ib.visible = false
-	ib.pressed.connect(_toggle_stars_info)
-	_info_btn = ib
-	_buttons.add_child(ib)
 	_again = T.button("PLAY AGAIN", "PrimaryButton", "play", 52.0)
 	_again.custom_minimum_size = Vector2(200, 52)
 	_again.pressed.connect(func() -> void: play_again.emit())
@@ -229,58 +218,11 @@ func _stars_spec() -> Dictionary:
 	}
 
 
-func _toggle_stars_info() -> void:
-	if _info != null and is_instance_valid(_info):
-		_info.queue_free()
-		_info = null
-		return
-	if _award == null:
-		return
-	var T := UITheme
-	var spec := _stars_spec()
-	var shade := ColorRect.new()
-	shade.color = Color(0, 0, 0, 0.45)
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shade.mouse_filter = Control.MOUSE_FILTER_STOP
-	shade.gui_input.connect(func(e: InputEvent) -> void:
-		if e is InputEventMouseButton and e.pressed: _toggle_stars_info())
-	var cc := CenterContainer.new()
-	cc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shade.add_child(cc)
-	var pc := PanelContainer.new()
-	pc.add_theme_stylebox_override("panel", T.box(Color(0.04, 0.06, 0.14, 0.97), T.R_MD, T.c(T.GOLD, 0.45), 1, 22.0, 18.0))
-	cc.add_child(pc)
-	var v := T.vbox(8)
-	v.custom_minimum_size = Vector2(320, 0)
-	pc.add_child(v)
-	v.add_child(T.label(spec.title, 18, 800, T.TEXT))
-	for r in spec.rows:
-		var h := T.hbox(12)
-		var l := T.label(str(r[0]), 14, 500, T.TEXT_2)
-		l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(l)
-		h.add_child(T.label(str(r[1]), 14, 700, r[2]))
-		v.add_child(h)
-	var body := T.label(spec.body, 13, 500, T.TEXT_2)
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	v.add_child(body)
-	v.add_child(T.label(spec.hint, 14, 700, T.GOLD))
-	var close := T.button("Close", "GlassButton", "", 40.0)
-	close.pressed.connect(_toggle_stars_info)
-	v.add_child(close)
-	add_child(shade)
-	_info = shade
-
-
 ## award: {total, balance, lines: [[key, stars]]} or null.
 func set_award(award) -> void:
 	if award == null or float(award.get("total", 0)) <= 0:
 		_award = null
 		_stars_btn.visible = false
-		_info_btn.visible = false
-		if _info != null and is_instance_valid(_info): _info.queue_free()
-		_info = null
 		_refresh_offers()
 		return
 	if _award == award:
@@ -291,7 +233,6 @@ func set_award(award) -> void:
 	_stars_done = false
 	_stars_btn.text = "+0"
 	_stars_btn.visible = true
-	_info_btn.visible = true
 	_refresh_offers()
 	if is_open:
 		UIFx.pop_in(_stars_btn, 0.0, 0.8, 0.35)

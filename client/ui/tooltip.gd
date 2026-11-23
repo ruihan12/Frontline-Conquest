@@ -57,6 +57,7 @@ func show_follow(spec: Dictionary) -> void:
 
 
 func show_anchor(spec: Dictionary, anchor: Control) -> void:
+	move_to_front()  # above full-screen panels (the Victory screen moves itself to the front)
 	_show(spec, PLACE_ANCHOR, anchor)
 
 

@@ -51,6 +51,7 @@ var _hover_owner := 0
 var _hover_focus := -1
 var _ui_focus := -1
 var _want: Array = []  # [tile, r, cls, col]
+var _seen_bsel := -2
 var _dirty := true
 var _unit := {}
 var _now := 0.0
@@ -299,7 +300,9 @@ func _rebuild() -> void:
 			elif own and auto:
 				cls = C_OWN_DEF
 		elif s[0] == Defs.S_AIRFIELD:
-			if own and (bk == Defs.S_AIRFIELD or (aiming_nuke and _aim_detail == "airstrike")):
+			# (the Air Strike tool armed: every finished airfield of yours shows how far its strike reaches,
+			# before the pointer is even over the map)
+			if own and (bk == Defs.S_AIRFIELD or (aiming_nuke and _aim_detail == "airstrike") or int(g.build_sel) == 14) and not pending:
 				cls = C_OWN_HI
 		else:
 			if atk != 0 and s[1] == atk:
@@ -341,6 +344,8 @@ func _rebuild() -> void:
 		else:
 			br = ViewRules.defense_range()
 		_want.append([_aim_tile, br, C_BUILD, Color.WHITE, -1])
+	elif _aim_tile >= 0 and _aim_detail == "warship":
+		_want.append([_aim_tile, ViewRules.warship_target_range(), C_BUILD, Color.WHITE, -1])
 
 
 static func smoothstep01(a: float, b: float, x: float) -> float:
@@ -352,6 +357,9 @@ func _process(dt: float) -> void:
 	if not is_visible_in_tree() or g.nations.size() < 2:
 		return
 	_now += dt
+	if int(g.build_sel) != _seen_bsel:
+		_seen_bsel = int(g.build_sel)
+		_dirty = true
 	var structs: Array = st.structures()
 	var cur := int(st.tick)
 	if cur != _seen_tick or structs.size() != _seen_structs.size():

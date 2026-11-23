@@ -263,7 +263,7 @@ func _medallion(icon_name: String, c: Color) -> Control:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	p.custom_minimum_size = Vector2(52, 52)
-	var sb := T.flat(T.c(c, 0.14), 26, T.c(c, 0.55), 1)
+	var sb := T.flat(T.c(c, 0.14), 25, T.c(c, 0.55), 1)  # (radius = exactly half the size left cross-shaped seams in the AA edge)
 	sb.shadow_color = T.c(c, 0.18)
 	sb.shadow_size = 10
 	p.add_theme_stylebox_override("panel", sb)

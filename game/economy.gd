@@ -136,7 +136,7 @@ func select_build(k: int) -> void:
 	if state != "play" or k < 0 or k >= build_data.size(): return
 	if k == 16:
 		set_icbm(not icbm_mode)
-		notify("ICBM %s: +10%% cost per launch, 35%% chance to evade SAMs" % ("ON" if icbm_mode else "OFF"), "info"); return
+		notify("ICBM %s: +10%% cost, 20%% SAM evasion, +20%% speed, -20%% cooldown" % ("ON" if icbm_mode else "OFF"), "info"); return
 	if k == 13:
 		try_build(k, -1); return
 	if k == 6:
