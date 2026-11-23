@@ -224,7 +224,14 @@ const engine = new Engine(GODOT_CONFIG);
 				}
 			},
 		}).then(() => {
-			setStatusMode('hidden');
+			// keep the cover up for a minimum time (about the average load) so it never flashes by
+			const MIN_COVER_MS = 3000;
+			const wait = Math.max(0, MIN_COVER_MS - performance.now());
+			setTimeout(() => {
+				statusOverlay.style.transition = 'opacity 0.4s';
+				statusOverlay.style.opacity = '0';
+				setTimeout(() => setStatusMode('hidden'), 420);
+			}, wait);
 		}, displayFailureNotice);
 	}
 }());

@@ -45,6 +45,9 @@ func _add_shake(amount: float) -> void:
 	var scaled := amount * mult
 	shake_amp = clampf(maxf(shake_amp, scaled) + scaled * 0.22, 0.0, 7.5 * mult)
 
+## Minimum time the "Deploying a new world" screen stays up (native map build ~0.7 s, web ~2-3 s).
+const MIN_LOAD_S := 3.0
+
 func _load_progress(v: float) -> void:
 	if load_bar: load_bar.value = v * 100.0
 	if client != null and _loading: client.set_loading(true, v)
@@ -68,11 +71,21 @@ func _start_game_ui() -> void:
 		(load_ov as ColorRect).color = Color(0, 0, 0, 0)
 		for ch in load_ov.get_children(): ch.visible = false
 	load_ov.visible = true; load_ov.move_to_front(); _load_progress(0.05)
+	var load_t0 := Time.get_ticks_msec()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_async_gen = true
 	await gen_map()
 	_async_gen = false
+	_load_progress(0.6)
+	# Hold the screen for a minimum time (about the average web load) so it reads as a prep beat
+	# instead of flashing by on fast machines; the bar fills smoothly through the wait.
+	if DisplayServer.get_name() != "headless":
+		var min_ms := int(MIN_LOAD_S * 1000.0)
+		while Time.get_ticks_msec() - load_t0 < min_ms:
+			var f := float(Time.get_ticks_msec() - load_t0) / float(min_ms)
+			_load_progress(maxf(0.6, f * 0.98))
+			await get_tree().process_frame
 	_load_progress(1.0)
 	await get_tree().process_frame
 	_skip_gen = true
