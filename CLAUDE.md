@@ -13,7 +13,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
 - Graphics settings window (no gameplay effect). On web only Quality, shake and audio do anything (resolution, window mode, FPS cap, V-Sync are skipped on web; MSAA needs a non-compatibility renderer).
 - Name tags: re-placed every 10 ticks (upstream 30), ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz (client/map/name_layer.gd; owner request 2026-11-23).
-- Cosmetic crates (client/ui/crates.gd, game/cosmetics.gd, game/cosmetics_data.gd generated from upstream Cosmetics.luau): 3000 Stars a crate, no duplicates, skins tile over the player's territory (client/map/map_surface.gd), flags are collected only (not drawn on name plates).
+- Cosmetic crates (title button client/ui/crate_button.gd, top-right corner with Arsenal to its left like upstream; window client/ui/crates.gd, game/cosmetics.gd, game/cosmetics_data.gd generated from upstream Cosmetics.luau): 3000 Stars a crate, no duplicates, skins tile over the player's territory (client/map/map_surface.gd), flags are collected only (not drawn on name plates).
 - Supply drops (game/economy.gd _supply_tick; only in matches started from the title, supply_on): a crate lands on neutral land every 2 min after 90 s (max 3, gone after 5 min); whoever's territory covers it first gets gold, troops or (player) a free crate item. Own rng stream; tests and parity never run it.
 
 Everything else follows upstream: native 2000x1000 World (k_lin 1.0, 400 tribes, 10 maps), troops display /10,

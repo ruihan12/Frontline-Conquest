@@ -73,7 +73,7 @@ var _solo_open := false
 var _start: Button
 var _credits: Label
 var _arsenal_btn: ArsenalButton
-var _crates_btn: Button
+var _crates_btn: CrateButton
 var _building := false
 var _shown := false
 
@@ -152,7 +152,7 @@ func _init(c: UICtx, main) -> void:
 	_arsenal_btn = ArsenalButton.new(c)
 	_arsenal_btn.pressed.connect(func() -> void: open_arsenal.emit())
 	add_child(_arsenal_btn)
-	_crates_btn = UITheme.button("Crates", "GhostButton", "crate", 40.0)
+	_crates_btn = CrateButton.new(c)
 	_crates_btn.pressed.connect(func() -> void: open_crates.emit())
 	add_child(_crates_btn)
 	visibility_changed.connect(_on_visibility)
@@ -410,13 +410,16 @@ func _place_arsenal_button(compact: bool, head_top: float) -> void:
 	var asz := a.size_px()
 	var right := vp.x - maxf(14.0, ins.z * 0.45) if compact else vp.x - ins.z - 28.0
 	var top := maxf(6.0, ins.y * 0.5) if compact else head_top
+	var gap := 10.0 if compact else 22.0
+	var csz := Vector2.ZERO
+	if _crates_btn != null:
+		_crates_btn.set_scale_k(CrateButton.PHONE_K if compact else 1.0)
+		csz = _crates_btn.size_px()
+		_crates_btn.size = csz
+		_crates_btn.position = Vector2(right - csz.x, top)
+		right -= csz.x + gap
 	a.position = Vector2(right - asz.x - a.overhang(), top)
 	a.size = asz
-	if _crates_btn != null:
-		var cs := _crates_btn.get_combined_minimum_size()
-		_crates_btn.size = cs
-		# (under the Arsenal, right-aligned with it)
-		_crates_btn.position = Vector2(a.position.x + a.overhang() + asz.x - cs.x, top + asz.y + 14.0)
 
 
 func _refresh_greeting() -> void:
@@ -577,7 +580,9 @@ func on_show() -> void:
 	_credits.modulate.a = 0.0
 	t.tween_property(_credits, "modulate:a", 1.0, 0.8).set_delay(2.6)
 	_arsenal_btn.modulate.a = 0.0
+	_crates_btn.modulate.a = 0.0
 	t.tween_property(_arsenal_btn, "modulate:a", 1.0, 0.7).set_delay(2.1)
+	t.tween_property(_crates_btn, "modulate:a", 1.0, 0.7).set_delay(2.1)
 	_sweep_t = 0.0
 
 
@@ -589,7 +594,7 @@ func finish_show() -> void:
 	if _slide_tween != null:
 		_slide_tween.kill()
 		_slide_tween = null
-	for n: CanvasItem in [_emblem, _word, _glow, _tag_row, _credits, _dock, _arsenal_btn]:
+	for n: CanvasItem in [_emblem, _word, _glow, _tag_row, _credits, _dock, _arsenal_btn, _crates_btn]:
 		n.modulate.a = 1.0
 	_fade.modulate.a = 0.0
 	_word.scale = Vector2.ONE
