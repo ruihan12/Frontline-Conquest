@@ -41,7 +41,8 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 3. Run parity solo (must be 0 fail), plus test_input_world, test_client_clicks, test_tutorial, test_map_camera, test_console_spawn, test_nav.
 4. Web export (threads on -> needs COOP/COEP; serve.py on port 8060 sends them, serve.bat runs it). Zip and deliver.
 5. Later: multiplayer. Phase 1 LAN with host-run sim (ENet desktop, relay for web). Phase 2 online dedicated headless Godot server on the Oracle VM (WebSocket + ENet, lobby, server-authoritative sim, console disabled online, maybe rofront.henrymc.org).
-6. Paused backlog: batch 3 UI / ships / nukes-SAM-reinforce-SFX, custom cargo + transport planes.
+6. Luau experiment (2026-11-23): tools/luau_proto shows Luau runs in a Godot 4.5 web export (~3x GDScript on the attack kernel). Not integrated; needs Godot 4.5 and Luau-owned hot state.
+7. Paused backlog: batch 3 UI / ships / nukes-SAM-reinforce-SFX, custom cargo + transport planes.
 
 ## Rules for agents
 - Verify claims: check git log -1, git status, and build zip dates/sizes before reporting.
