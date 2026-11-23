@@ -247,9 +247,15 @@ func _process_inner(dt: float) -> void:
 		var p0 := Time.get_ticks_usec()
 		if _paint_pending(): more = _flush_paint_budget(_paint_budget_us())  # spread big repaints over frames (time budget)
 		var up := 0
-		for k in chunk_dirty.size():
+		# round robin from where the last frame stopped: scanning from chunk 0 every frame let the top
+		# rows' constant repaints eat the whole per-frame budget, so the chunks below never uploaded
+		# (a hard horizontal seam of stale map, worse on slow devices)
+		var ncd := chunk_dirty.size()
+		var cap_up := 8 if OS.has_feature("web") else 24
+		for n in ncd:
+			var k := (_up_cursor + n) % ncd
 			if chunk_dirty[k] == 1:
-				if up >= (8 if OS.has_feature("web") else 24): more = true; break
+				if up >= cap_up: more = true; _up_cursor = k; break
 				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1; _pf_add("uploads", 1)
 		dirty = more
 		_pf_add("paint", Time.get_ticks_usec() - p0)

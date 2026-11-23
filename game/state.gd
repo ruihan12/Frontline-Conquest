@@ -72,6 +72,7 @@ var chunk_img := []
 var chunk_tex := []
 var chunk_sp := []
 var chunk_dirty := PackedByteArray()
+var _up_cursor := 0
 var elev_map := PackedFloat32Array()
 var coast_dist := PackedInt32Array()
 var settings_status_lbl: Label
