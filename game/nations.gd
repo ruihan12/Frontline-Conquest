@@ -91,11 +91,14 @@ func _start_game_ui() -> void:
 	_skip_gen = true
 	_start_game()
 	_skip_gen = false
+	supply_on = true
+	_supply_rng.seed = int(rng.seed) ^ 0x5eed  # (its own stream: the sim's rng is not touched)
 	load_ov.visible = false
 	_loading = false
 	if client != null: client.set_loading(false)
 
 func _start_game() -> void:
+	supply_on = false; drops.clear(); _supply_next = 0
 	_ema_init = false
 	mirvs_launched = 0
 	ally_requests.clear(); ally_req_last.clear(); ally_replies.clear()

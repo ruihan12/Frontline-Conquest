@@ -105,7 +105,9 @@ static func contrast(v: float, k: float) -> float:
 func _palette(o: int) -> Dictionary:
 	var c: Color = g.nations[o].color
 	var p = _pal.get(o)
-	if p != null and p.col == c:
+	var sk = g.skin_of(o)
+	var sid: String = "" if sk == null else str(sk.id)
+	if p != null and p.col == c and p.sid == sid:
 		return p
 	var f := saturate(c, SATURATION)
 	var hi_k := 1.0 + HIGHLIGHT_BRIGHTEN
@@ -121,7 +123,18 @@ func _palette(o: int) -> Dictionary:
 		"border_hi": bh,
 		"border_ally": Color(b.r * (1.0 - ft), b.g + (1.0 - b.g) * ft, b.b * (1.0 - ft)),
 		"border_ally_hi": Color(bh.r * (1.0 - ft), bh.g + (1.0 - bh.g) * ft, bh.b * (1.0 - ft)),
+		"sid": sid,
 	}
+	if sk != null:
+		# an equipped skin (cosmetic crates): its secondary tiles over the territory
+		var sm := CosmeticsRules.mask_of(sk)
+		p["mw"] = int(sm.w)
+		p["mh"] = int(sm.h)
+		p["bits"] = sm.bits
+		p["sc"] = int(sk.scale)
+		p["fill2"] = CosmeticsRules.secondary(sk, f)
+		var f2: Color = p.fill2
+		p["fill2_hi"] = Color(contrast(f2.r, hi_k), contrast(f2.g, hi_k), contrast(f2.b, hi_k))
 	_pal[o] = p
 	return p
 
@@ -159,6 +172,11 @@ func tile_color(i: int) -> Color:
 			return p.border_ally_hi if hl else p.border_ally
 		return p.border_hi if hl else p.border
 	var fc: Color = p.fill_hi if (hl and _hover_fill) else p.fill
+	if p.has("bits"):
+		var sc: int = p.sc
+		var mi := (((i / W) >> sc) % int(p.mh)) * int(p.mw) + ((x >> sc) % int(p.mw))
+		if p.bits[mi] == 1:
+			return tc.lerp(p.fill2_hi if (hl and _hover_fill) else p.fill2, float(RWCosmetics.SECONDARY_ALPHA) / 255.0)
 	return tc.lerp(fc, float(TERRITORY_ALPHA) / 255.0)
 
 

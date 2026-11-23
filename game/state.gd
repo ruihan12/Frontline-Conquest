@@ -346,6 +346,12 @@ var _oc_ver := -1
 var _oc_lvl := {}
 var _oc_cnt := {}
 var def_posts := {}  # owner -> PackedInt32Array of finished defense post tiles (rebuilt each tick)
+# Supply drops (custom, owner request): a crate lands on neutral land now and then; whoever's territory
+# first covers it gets a prize. Only in matches started from the title (supply_on); tests and parity never run it.
+var supply_on := false
+var drops := []  # {tile, t0 (sim tick)}
+var _supply_next := 0
+var _supply_rng := RandomNumberGenerator.new()
 var _ai_place_budget := 0  # AI placement searches (flood fills) left this tick
 # ================= v5 systems: weapons, ships, notifications =================
 # (legacy map scale, no longer used for nuke radii). W is a var, so this cannot be a const.
@@ -590,6 +596,7 @@ const QUAL_NAMES := ["Low", "Medium", "High", "Ultra"]
 const MSAA_NAMES := ["Off", "2x MSAA", "4x MSAA", "8x MSAA"]
 const SHAKE_MULT := [0.0, 1.0, 1.6]
 var save := {
+	"cosmetics": {"owned": {}, "skin": "", "flag": "", "opened": 0, "last": ""},
 	"stars": 0,
 	"unlocked": ["mega", "reinf"],
 	"settings": {"res_i": 3, "win_i": 0, "fps_i": 3, "qual_i": 3, "msaa_i": 2, "vsync": false, "shake_i": 1, "vol_master": 0.8, "vol_music": 0.5, "vol_sfx": 0.8}
@@ -835,6 +842,16 @@ func _T(parent: Node, t: String, pos: Vector2, fs: int, col := TEXT, font: Font 
 func _head(parent: Node, t: String, pos: Vector2, fs := 12, col := MUTED, w := 0.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	return null  # forward declaration; implemented in game/ui_build.gd
 
+## The skin (a RWCosmetics.SKINS entry) equipped on nation `o`'s territory, or null. Local player only.
+func skin_of(o: int):
+	if o != PLAYER:
+		return null
+	var sid := str(save.get("cosmetics", {}).get("skin", ""))
+	if sid == "":
+		return null
+	var it = CosmeticsRules.item(sid)
+	return it if it != null and it.kind == "skin" else null
+
 func _close_x(_b: Button) -> void:
 	pass  # forward declaration; implemented in game/ui_build.gd
 
@@ -875,6 +892,9 @@ func _try_unlock_web_audio(_e: InputEvent = null) -> void:
 	pass  # implemented in game/audio.gd
 
 func load_save() -> void:
+	pass  # forward declaration; implemented in game/ui_build.gd
+
+func write_save() -> void:
 	pass  # forward declaration; implemented in game/ui_build.gd
 
 func apply_settings(recolor_map := true) -> void:

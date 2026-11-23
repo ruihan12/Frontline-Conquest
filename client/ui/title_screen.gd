@@ -15,6 +15,7 @@ signal play_solo(difficulty: int)
 signal pick_map
 signal show_help
 signal open_arsenal
+signal open_crates
 
 const NAME := "FRONTLINE CONQUEST"
 const TAG := "CONQUER THE WORLD"
@@ -72,6 +73,7 @@ var _solo_open := false
 var _start: Button
 var _credits: Label
 var _arsenal_btn: ArsenalButton
+var _crates_btn: Button
 var _building := false
 var _shown := false
 
@@ -150,6 +152,9 @@ func _init(c: UICtx, main) -> void:
 	_arsenal_btn = ArsenalButton.new(c)
 	_arsenal_btn.pressed.connect(func() -> void: open_arsenal.emit())
 	add_child(_arsenal_btn)
+	_crates_btn = UITheme.button("Crates", "GhostButton", "crate", 40.0)
+	_crates_btn.pressed.connect(func() -> void: open_crates.emit())
+	add_child(_crates_btn)
 	visibility_changed.connect(_on_visibility)
 	apply_layout()
 
@@ -407,6 +412,11 @@ func _place_arsenal_button(compact: bool, head_top: float) -> void:
 	var top := maxf(6.0, ins.y * 0.5) if compact else head_top
 	a.position = Vector2(right - asz.x - a.overhang(), top)
 	a.size = asz
+	if _crates_btn != null:
+		var cs := _crates_btn.get_combined_minimum_size()
+		_crates_btn.size = cs
+		# (under the Arsenal, right-aligned with it)
+		_crates_btn.position = Vector2(a.position.x + a.overhang() + asz.x - cs.x, top + asz.y + 14.0)
 
 
 func _refresh_greeting() -> void:

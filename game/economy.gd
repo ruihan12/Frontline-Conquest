@@ -603,7 +603,70 @@ func _tick_boats(dt: float) -> void:
 func retreat(at) -> void:
 	sim_atk.retreat(at)
 
+# ---------- supply drops (custom) ----------
+const SUPPLY_FIRST_TICKS := 900    # 90 s into the match
+const SUPPLY_GAP_TICKS := 1200     # then one every 2 min at 1x
+const SUPPLY_LIFE_TICKS := 3000    # unclaimed after 5 min: gone
+const SUPPLY_MAX := 3
+
+func _supply_pick_tile() -> int:
+	for _i in 400:
+		var t := _supply_rng.randi() % (W * H)
+		if owner_map[t] == NEUTRAL and fallout[t] != 1:
+			return t
+	return -1
+
+func _supply_tick() -> void:
+	var tick := sim_atk.tick
+	if tick < SUPPLY_FIRST_TICKS:
+		return
+	if _supply_next == 0:
+		_supply_next = tick
+	if tick >= _supply_next and drops.size() < SUPPLY_MAX:
+		_supply_next = tick + SUPPLY_GAP_TICKS
+		var t := _supply_pick_tile()
+		if t >= 0:
+			drops.append({"tile": t, "t0": tick})
+			notify("Supply drop landed: take the land to claim it", "info")
+			sfx("spawn")
+	for d in drops.duplicate():
+		var o: int = owner_map[d.tile]
+		if o > 0 and nations[o].alive:
+			drops.erase(d)
+			_supply_claim(o, d)
+		elif tick - int(d.t0) > SUPPLY_LIFE_TICKS:
+			drops.erase(d)
+
+# A claimed drop: gold, troops, or (the player only) a free cosmetic crate.
+func _supply_claim(o: int, d: Dictionary) -> void:
+	var n = nations[o]
+	var r := _supply_rng.randf()
+	var msg := ""
+	if o == PLAYER and r < 0.18 and client != null and client.ctx.session != null:
+		var co: Dictionary = save.cosmetics
+		var id := CosmeticsRules.roll(co.owned, _supply_rng.randf(), _supply_rng.randf())
+		if id != "":
+			co.owned[id] = true
+			co.last = id
+			write_save()
+			msg = "Supply drop: a free crate item, %s" % CosmeticsRules.item(id).name
+	if msg == "":
+		if r < 0.6:
+			var gold := clampf(float(n.gold) * 0.15, 250000.0, 20000000.0)
+			n.gold += gold
+			msg = "Supply drop: +%s gold" % _fmt(gold)
+		else:
+			var add := minf(troop_cap(o) * 0.12, maxf(0.0, troop_cap(o) - float(n.troops)))
+			n.troops += add
+			msg = "Supply drop: +%s troops" % _fmt(add)
+	if o == PLAYER:
+		notify(msg, "good")
+		sfx("spawn")
+	elif allied(PLAYER, o):
+		notify("%s claimed a supply drop" % _nname(o), "info")
+
 func _economy(dt: float) -> void:
+	if supply_on: _supply_tick()
 	fallout_count = fallout_list.size()
 	var city_lv := {}
 	for st in structs:

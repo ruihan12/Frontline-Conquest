@@ -240,7 +240,7 @@ func bonus(tile: int, gold: float) -> void:
 
 
 func _process(_dt: float) -> void:
-	if _fx.is_empty() and _pops.is_empty() and _bonus.is_empty() and _bursts.is_empty() and _debris.is_empty():
+	if _fx.is_empty() and _pops.is_empty() and _bonus.is_empty() and _bursts.is_empty() and _debris.is_empty() and g.drops.is_empty():
 		return
 	queue_redraw()
 
@@ -260,8 +260,31 @@ func _draw() -> void:
 	g._pf_add("fxl", Time.get_ticks_usec() - _pt0)
 
 
+var _drop_tex: Texture2D
+
+
+## Supply drops waiting on the map (custom): the crate with a slow pulse, so it reads from far away.
+func _draw_drops(now: float) -> void:
+	if g.drops.is_empty():
+		return
+	if _drop_tex == null:
+		_drop_tex = load("res://assets/rw/crate/crate_icon.svg")
+	var w: int = g.W
+	for d: Dictionary in g.drops:
+		var tile: int = d.tile
+		@warning_ignore("integer_division")
+		var c := _screen(tile % w + 0.5, tile / w + 0.5)
+		if not _on_screen(c, 60.0):
+			continue
+		var pulse := 0.5 + 0.5 * sin(now * 3.0)
+		var sz := 26.0
+		draw_arc(c, sz * (0.7 + 0.35 * pulse), 0.0, TAU, 32, Color(1.0, 0.82, 0.3, 0.7 - 0.45 * pulse), 2.0, true)
+		draw_texture_rect(_drop_tex, Rect2(c - Vector2(sz, sz) * 0.5, Vector2(sz, sz)), false, Color(1, 1, 1, 1))
+
+
 func _draw_body() -> void:
 	var now := FrameClock.now()
+	_draw_drops(now)
 	var scale_px: float = g.cam.zoom.x * g.TS
 	var k := k_lin()
 	# rings

@@ -1001,6 +1001,9 @@ func load_save() -> void:
 		if d is Dictionary:
 			save.stars = int(d.get("stars", 0))
 			save.unlocked = d.get("unlocked", save.unlocked)
+			if d.has("cosmetics") and d.cosmetics is Dictionary:
+				for k in d.cosmetics:
+					save.cosmetics[k] = d.cosmetics[k]
 			if d.has("settings") and d.settings is Dictionary:
 				for k in d.settings:
 					save.settings[k] = d.settings[k]

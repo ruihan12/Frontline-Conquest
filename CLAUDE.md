@@ -1,7 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
 Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
-Last updated: 2026-11-22.
+Last updated: 2026-11-23.
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -11,7 +11,10 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).
 - Range borders: armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
 - Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
-- Graphics settings window (no gameplay effect)
+- Graphics settings window (no gameplay effect). On web only Quality, shake and audio do anything (resolution, window mode, FPS cap, V-Sync are skipped on web; MSAA needs a non-compatibility renderer).
+- Name tags: re-placed every 10 ticks (upstream 30), ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz (client/map/name_layer.gd; owner request 2026-11-23).
+- Cosmetic crates (client/ui/crates.gd, game/cosmetics.gd, game/cosmetics_data.gd generated from upstream Cosmetics.luau): 3000 Stars a crate, no duplicates, skins tile over the player's territory (client/map/map_surface.gd), flags are collected only (not drawn on name plates).
+- Supply drops (game/economy.gd _supply_tick; only in matches started from the title, supply_on): a crate lands on neutral land every 2 min after 90 s (max 3, gone after 5 min); whoever's territory covers it first gets gold, troops or (player) a free crate item. Own rng stream; tests and parity never run it.
 
 Everything else follows upstream: native 2000x1000 World (k_lin 1.0, 400 tribes, 10 maps), troops display /10,
 upstream max-troops formula, boat 0.35 / warship 0.7, upstream nuke speeds and radii, silos reach whole map,
@@ -32,6 +35,12 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Web export of vanilla-merge delivered as roworld_web.zip (needs COOP/COEP headers; serve.py/serve.bat are in release/).
 - Perf, name labels (client/map/name_layer.gd): text metrics cached per plate, troop text refreshed at 10 Hz, layer redrawn only when the camera or hover changes or every 0.1 s (was every frame). In xvfb software GL with --perfstart --webprof: names 7.4 -> 4.4 ms/frame; process still ~25 ms/frame there (sim 13.5 of it, atk 10.9; paint 3.7, cam_paint 3.8, client_proc 5.8). xvfb frame time (~75 ms) is software rendering, not representative of a GPU.
 - Not merged: fix-input (alternative), density-test. vanilla itself is unchanged: merge vanilla-merge into it when approved.
+
+## Done on 2026-11-23 (branch vanilla-merge, pushed)
+- Rails: stations are city/port/factory only (upstream; defense posts, SAMs and silos were wrongly linked); rail_path is now upstream's minimap A* (land only); the unfinished web is cached per frame (60 factories: train tick avg 52 -> 4 ms, worst 14.6 s -> 0.24 s); road layer culls and caches edges.
+- docs/PLACE_COMPARE.md: RoWorld.rbxl (built about Nov 13-14) vs the repo copy (Nov 4): 160/182 scripts identical, sim identical; all 10 maps match exactly.
+- Multiplayer finding: the sim is NOT lockstep-safe. It depends on time budgets (sim/nav.gd budget_us, sim_naval.defer_paths from elapsed microseconds, per-frame rail budgets, `elapsed` from real dt) and PLAYER is a const used in about 500 places. LAN options: (A) host-authoritative state replication to a thin client, or (B) make the sim tick-deterministic (count-based budgets, elapsed from ticks), make PLAYER a variable, flag human nations so the AI skips them, then lockstep intents (RWSession.send_intent already routes by owner). Needs the owner's choice.
+- tests/test_input_world.gd failed once in three full-suite runs and passed twice solo: flaky, cause not found.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

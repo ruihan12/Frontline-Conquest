@@ -152,12 +152,57 @@ func use_credit(_kind: String, _target := 0) -> bool:
 	return false
 
 
+## A crate costs Stars here (upstream: Robux). Takes the Stars, rolls an item the player doesn't own and
+## keeps it (its id is in last_crate_item). False when the Stars fall short or everything is owned.
+var last_crate_item := ""
+var _crate_rng := RandomNumberGenerator.new()
+
+
+func cosmetics() -> Dictionary:
+	return g.save.cosmetics
+
+
+func crate_cost() -> int:
+	return CosmeticsRules.CRATE_COST
+
+
+func crate_owned() -> Dictionary:
+	return g.save.cosmetics.owned
+
+
 func open_crate() -> bool:
-	return false
+	var co: Dictionary = g.save.cosmetics
+	if int(g.save.stars) < CosmeticsRules.CRATE_COST:
+		return false
+	_crate_rng.randomize()
+	var id := CosmeticsRules.roll(co.owned, _crate_rng.randf(), _crate_rng.randf())
+	if id == "":
+		return false
+	g.save.stars = int(g.save.stars) - CosmeticsRules.CRATE_COST
+	co.owned[id] = true
+	co.opened = int(co.opened) + 1
+	co.last = id
+	last_crate_item = id
+	g.write_save()
+	return true
 
 
-func equip(_slot: String, _id) -> bool:
-	return false
+## Put an owned item on ("skin" or "flag"); "" takes it off. True when done.
+func equip(slot: String, id) -> bool:
+	var co: Dictionary = g.save.cosmetics
+	var sid := str(id) if id != null else ""
+	if slot != "skin" and slot != "flag":
+		return false
+	if sid != "":
+		var it = CosmeticsRules.item(sid)
+		if it == null or it.kind != slot or not co.owned.has(sid):
+			return false
+	co[slot] = sid
+	g.write_save()
+	if slot == "skin" and g.surface != null:
+		g.surface._pal.clear()
+		g._recompute_base_colors()
+	return true
 
 
 func starter_seen() -> bool:
