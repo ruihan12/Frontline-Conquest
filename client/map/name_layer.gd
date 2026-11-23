@@ -510,9 +510,15 @@ func _draw_body() -> void:
 		var hovered := id == hover_owner
 		var sp: Vector2 = g._screen_of(Vector2(wx, wy) * g.TS)
 		var m := line_px * 4.0
-		# (owner's request: a name always shows on its territory, however small it is on screen)
-		line_px = maxf(line_px, MIN_LABEL_PX)
-		var vis := sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
+		# A name shows when upstream would show it, or when it fits inside its own territory on screen
+		# (so a territory big enough to hold its name always has it, without every tiny tribe cluttering the map).
+		var fits := false
+		if not (line_px >= cull_px or hovered):
+			var bbn: Rect2i = g.nations[id].bb
+			var eff := maxf(line_px, MIN_LABEL_PX)
+			fits = bbn.size != Vector2i.ZERO and float(bbn.size.x) * scale_px * 0.8 >= float(_label_name(id).length()) * eff * 0.55
+			if fits: line_px = eff
+		var vis := (line_px >= cull_px or hovered or fits) and sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
 		p.shown = vis
 		if not vis:
 			continue
