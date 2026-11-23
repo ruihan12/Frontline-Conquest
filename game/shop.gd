@@ -61,7 +61,7 @@ func _build_settings() -> void:
 	_draw_ctl(p, Rect2(32, 24, 34, 34), func(cc: Control): _draw_gear(cc, Vector2(17, 17), 13.0, CYAN))
 	_head(p, "SETTINGS & GRAPHICS", Vector2(78, 18), 28, TEXT)
 	_T(p, "Configure display resolution (up to 1440p), 180 FPS cap, anti-aliasing, and visual quality.", Vector2(78, 54), 14, MUTED)
-	var x := _card_btn(p, Rect2(1012, 20, 42, 42)); x.text = "✕"
+	var x := _card_btn(p, Rect2(1012, 20, 42, 42)); _close_x(x)
 	x.pressed.connect(func(): _fade_out(settings_dlg))
 	# Row 1: Display Resolution (up to 2560 x 1440 / 1440p)
 	_head(p, "DISPLAY RESOLUTION  (MAX 1440P)", Vector2(36, 102), 12, GOLD_C)
@@ -241,7 +241,7 @@ func _build_console() -> void:
 	# Prominent Live FPS Counter badge in the Tab Menu header
 	var fps_pill := _P(console_panel, Rect2(620, 10, 470, 40), Color(0.08, 0.14, 0.12, 0.95), 8, GREEN, 1, false)
 	console_fps_lbl = _T(fps_pill, "FPS: 180 / 180   ·   5.5 ms", Vector2(0, 9), 15, GREEN, f_bold, 470, HORIZONTAL_ALIGNMENT_CENTER)
-	var x := _card_btn(console_panel, Rect2(1104, 12, 40, 36)); x.text = "✕"
+	var x := _card_btn(console_panel, Rect2(1104, 12, 40, 36)); _close_x(x)
 	x.pressed.connect(func(): toggle_console())
 	# 1. Password Lock Gate ("5516")
 	console_lock_box = Control.new()

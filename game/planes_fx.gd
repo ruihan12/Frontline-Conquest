@@ -88,20 +88,33 @@ func _draw_world_fx(z: float) -> void:
 	# railways: factories to nearby owned/allied cities, ports, and factories
 	var drawn_rails := {}
 	var rail_edges := []
-	var vr := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).grow(FACTORY_RANGE * 2.0 * TS * z)
-	for st in structs:
-		if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
-		if not vr.has_point(_screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)): continue
-		var nbrs := _rail_neighbors(st)
-		for c in nbrs:
-			var rkey := "%d:%d" % [mini(st.tile, c.tile), maxi(st.tile, c.tile)]
-			if drawn_rails.has(rkey): continue
-			drawn_rails[rkey] = true
-			if client != null:
-				rail_edges.append([st.tile, c.tile])
-				continue
-			var rcol := GOLD_C if c.o != st.o else Color(0.95, 0.95, 0.98, 0.88)
-			_draw_railway(st, c, rcol)
+	if client != null:
+		# the edge list changes only when structures do: rebuilt twice a second, not every frame
+		var now_r := FrameClock.now()
+		if now_r - _rail_edges_t >= 0.5 or _rail_edges_sv != _sv or _rail_pending:
+			_rail_edges_t = now_r
+			_rail_edges_sv = _sv
+			var seen := {}
+			_rail_edges_cache = []
+			for st in structs:
+				if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
+				for c in _rail_neighbors(st):
+					var rk := (mini(st.tile, c.tile) << 22) | maxi(st.tile, c.tile)
+					if seen.has(rk): continue
+					seen[rk] = true
+					_rail_edges_cache.append([st.tile, c.tile])
+		rail_edges = _rail_edges_cache
+	else:
+		var vr := Rect2(Vector2.ZERO, get_viewport().get_visible_rect().size).grow(FACTORY_RANGE * 2.0 * TS * z)
+		for st in structs:
+			if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
+			if not vr.has_point(_screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)): continue
+			for c in _rail_neighbors(st):
+				var rkey := "%d:%d" % [mini(st.tile, c.tile), maxi(st.tile, c.tile)]
+				if drawn_rails.has(rkey): continue
+				drawn_rails[rkey] = true
+				var rcol := GOLD_C if c.o != st.o else Color(0.95, 0.95, 0.98, 0.88)
+				_draw_railway(st, c, rcol)
 	if client != null:
 		# railroads, coloured by the land under them: client/map/road_layer.gd
 		if road_layer == null: road_layer = RoadLayer.new(self)

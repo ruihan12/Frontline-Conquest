@@ -406,11 +406,15 @@ const ICBM_EVADE_P := 0.20  # ...and each bomb the player launches with it on ha
 var icbm_mode := false
 var _land_w := -1.0
 var mirvs_launched := 0  # Rules.nuke_cost: MIRV +15M per MIRV already launched in the match (Rules.luau 785-789)
-const RAIL_KINDS := [0, 1, 2, 3, 4, 5]  # city, port, factory, defense post, SAM, silo: any two can be linked
+const RAIL_KINDS := [0, 1, 2]  # city, port, factory: upstream stations are only these (kind > S_FACTORY never is)
+var _rail_edges_cache := []
+var _rail_edges_t := -1.0
+var _rail_edges_sv := -1
 var _rail_nb_cache := {}
 var _own_sv := {}
 var _rail_calc_left := 40
-var _rail_bfs_left := 4  # land BFS route searches allowed per frame (26k nodes each)
+var _rail_frame := 0
+var _rail_bfs_left := 40  # route searches allowed per frame (A* on a minimap, ~0.25 ms each)
 var _rail_pending := false
 var rail_cache := {}  # rail geometry, separate from boat path_cache (which is flushed at 400 entries)
 var _rail_nb_ver := ""
@@ -830,6 +834,9 @@ func _T(parent: Node, t: String, pos: Vector2, fs: int, col := TEXT, font: Font 
 
 func _head(parent: Node, t: String, pos: Vector2, fs := 12, col := MUTED, w := 0.0, align := HORIZONTAL_ALIGNMENT_LEFT) -> Label:
 	return null  # forward declaration; implemented in game/ui_build.gd
+
+func _close_x(_b: Button) -> void:
+	pass  # forward declaration; implemented in game/ui_build.gd
 
 func _draw_ctl(parent: Node, r: Rect2, f: Callable) -> Control:
 	return null  # forward declaration; implemented in game/ui_build.gd

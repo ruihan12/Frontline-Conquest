@@ -63,6 +63,16 @@ func _vline(parent: Node, x: float, y: float, h: float) -> void:
 	c.position = Vector2(x, y); c.size = Vector2(1, h); c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(c)
 
+## A close button's cross, drawn (the font has no U+2715, so a "✕" label showed as an empty box).
+func _close_x(b: Button) -> void:
+	b.text = ""
+	_draw_ctl(b, Rect2(Vector2.ZERO, b.size), func(cc: Control):
+		var c := cc.size * 0.5
+		var d := minf(cc.size.x, cc.size.y) * 0.19
+		var col := Color(0.86, 0.89, 0.95)
+		cc.draw_line(c + Vector2(-d, -d), c + Vector2(d, d), col, 2.2, true)
+		cc.draw_line(c + Vector2(-d, d), c + Vector2(d, -d), col, 2.2, true))
+
 func _draw_ctl(parent: Node, r: Rect2, f: Callable) -> Control:
 	var c := Control.new()
 	c.position = r.position; c.size = r.size
@@ -556,7 +566,7 @@ func _build_help() -> void:
 	var c := Control.new(); c.custom_minimum_size = Vector2(984, 624); help_panel.add_child(c)
 	_head(c, "HOW TO PLAY", Vector2(28, 18), 28, TEXT)
 	_T(c, "Grow from a single foothold to 80% of the world.", Vector2(28, 58), 15, MUTED)
-	var x := _card_btn(c, Rect2(924, 16, 44, 44)); x.text = "✕"
+	var x := _card_btn(c, Rect2(924, 16, 44, 44)); _close_x(x)
 	x.pressed.connect(func(): help_panel.visible = false)
 	var items := [
 		["01", "Found your nation", "Click unclaimed land. You have 5 seconds to change your mind.", ORANGE_Y],

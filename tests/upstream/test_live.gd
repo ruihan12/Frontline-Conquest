@@ -800,7 +800,7 @@ func _naval_and_warships() -> void:
 	var rail_b: int = rail_t[2] if rail_t.size() >= 3 else -1
 	if fac_t >= 0 and rail_a >= 0 and rail_b >= 0 and fac_t != rail_a and rail_a != rail_b and fac_t != rail_b:
 		var made := []
-		for pr in [[2, fac_t], [3, rail_a], [3, rail_b]]:
+		for pr in [[2, fac_t], [0, rail_a], [0, rail_b]]:
 			m._struct_add(pr[0], pr[1], P)
 			if m.struct_at.has(pr[1]):
 				m.struct_at[pr[1]].bt = 0.0

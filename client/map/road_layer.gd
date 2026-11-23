@@ -192,18 +192,33 @@ static func luminance(c: Color) -> float:
 # Frame
 # ---------------------------------------------------------------------------------------------
 
-func _road(a: int, b: int) -> Dictionary:
+func _road(a: int, b: int, now: float) -> Dictionary:
 	var lo := mini(a, b)
 	var hi := maxi(a, b)
-	var key := "r%d:%d" % [lo, hi]
+	var key := (lo << 22) | hi  # (an int key: a string key per edge per frame was a lot of garbage)
+	var r = _roads.get(key)
+	# the game's curve is re-checked twice a second, not every frame
+	if r != null and now - float(r.chk) < RECOLOR_S:
+		return r
 	var rc: Array = g._rail_curve(lo, hi)
 	if rc.is_empty():
+		_roads.erase(key)
 		return {}
-	var r = _roads.get(key)
 	if r == null or not is_same(r.src, rc):
 		var tiles := tiles_of(rc[0], g.W)
-		r = {"src": rc, "tiles": tiles, "runs": build_runs(tiles, g.W, RUN_MAX), "pieces": build_pieces(tiles, g.W, RUN_MAX)}
+		var w: int = g.W
+		var x0 := 1 << 30
+		var y0 := 1 << 30
+		var x1 := -1
+		var y1 := -1
+		for t in tiles:
+			x0 = mini(x0, t % w)
+			x1 = maxi(x1, t % w)
+			y0 = mini(y0, t / w)
+			y1 = maxi(y1, t / w)
+		r = {"src": rc, "tiles": tiles, "runs": build_runs(tiles, w, RUN_MAX), "pieces": build_pieces(tiles, w, RUN_MAX), "bb": Rect2(x0 - 1, y0 - 1, x1 - x0 + 3, y1 - y0 + 3)}
 		_roads[key] = r
+	r["chk"] = now
 	return r
 
 
@@ -244,9 +259,14 @@ func draw(ci: CanvasItem, edges: Array) -> void:
 		me_col = DARK if luminance(g.nations[g.PLAYER].color) > LIGHT_ABOVE else LIGHT
 	var vp: Vector2 = g.get_viewport_rect().size
 	var w: int = g.W
+	# the visible part of the map in tiles: a road wholly outside it is skipped
+	var vis: Rect2 = g.get_canvas_transform().affine_inverse() * Rect2(Vector2.ZERO, vp)
+	vis = Rect2(vis.position / g.TS, vis.size / g.TS)
 	for e in edges:
-		var r := _road(int(e[0]), int(e[1]))
+		var r := _road(int(e[0]), int(e[1]), now)
 		if r.is_empty():
+			continue
+		if not vis.intersects(r.bb):
 			continue
 		if detail:
 			for pc in r.pieces:
@@ -280,4 +300,4 @@ func draw(ci: CanvasItem, edges: Array) -> void:
 				dir /= len
 			else:
 				dir = Vector2.RIGHT
-			ci.draw_line(p0 - dir * thick * 0.5, p1 + dir * thick * 0.5, col, thick, false)
+			ci.draw_line(p0 - dir * thick * 0.5, p1 + dir * thick * 0.5, col, thick, g._line_aa())

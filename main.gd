@@ -15,8 +15,9 @@ func _pf_line() -> String:
 	_pf = {}
 	return out
 func _process(dt: float) -> void:
-	_rail_bfs_left = 4
+	_rail_bfs_left = 40
 	_rail_calc_left = 40
+	_rail_frame += 1
 	var _t0 := Time.get_ticks_usec()
 	map_t += dt
 	if map_mat: map_mat.set_shader_parameter("t_anim", fmod(map_t, 1000.0))

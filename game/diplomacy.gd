@@ -306,7 +306,7 @@ func _build_diplo_menu() -> void:
 		c.draw_rect(Rect2(0, 0, 16, 16), Color(1, 1, 1, 0.7), false, 1.0))
 	diplo_refs.title = _T(diplo_panel, "", Vector2(40, 11), 18, TEXT, f_bold, 220)
 	diplo_refs.sub = _T(diplo_panel, "", Vector2(16, 36), 13, MUTED, f_reg, 280)
-	var x := _card_btn(diplo_panel, Rect2(276, 10, 32, 30)); x.text = "✕"
+	var x := _card_btn(diplo_panel, Rect2(276, 10, 32, 30)); _close_x(x)
 	x.pressed.connect(func(): diplo_panel.visible = false)
 	diplo_refs.b_ally = _big_btn(diplo_panel, Rect2(16, 64, 288, 36), "PROPOSE ALLIANCE", ORANGE_Y, 14)
 	diplo_refs.b_ally.pressed.connect(func():
