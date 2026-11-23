@@ -1439,6 +1439,7 @@ func _attract_active() -> bool:
 	return attract_on and state == "menu"
 
 func _attract_boost() -> float:
+	if _attract_t < 3.0: return 20.0  # fast opening so nations are visible within ~2 s
 	return ATTRACT_LAPSE_X if _attract_t < ATTRACT_LAPSE_S else 1.0
 
 func _attract_tick(rdt: float) -> void:
