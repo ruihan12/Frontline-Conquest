@@ -20,7 +20,7 @@ extends Control
 const NAME_SCALE_FACTOR := 0.4
 const NAME_SCALE_CAP := 3.0
 const TROOP_SIZE_MULT := 0.6
-const LERP_SPEED := 10.0
+const LERP_SPEED := 18.0  # custom (owner): upstream 10, plates follow their territory faster
 const CULL_VW := 0.004
 const CULL_MIN_PX := 6.0
 ## smallest name size drawn (px); names are no longer culled below the old CULL_MIN_PX
@@ -29,10 +29,10 @@ const SHADE_NATION := 0.3
 const SHADE_BOT := 0.4
 ## outline px per text px
 const OUTLINE_K := 0.085
-const REPLACE_TICKS := 30
+const REPLACE_TICKS := 10  # custom (owner): upstream 30, tags re-placed every second at 1x
 ## full-size tiles
 const SPAWN_DIAMETER := 8
-const BUDGET_S := 0.0015
+const BUDGET_S := 0.003  # custom (owner): upstream-ish 1.5 ms; placement finishes sooner
 ## tiles a flood fill takes between two looks at the clock
 const FILL_CHECK := 2048
 const LINE_K := 1.0
@@ -66,7 +66,7 @@ var _status: Texture2D
 ## Troop counts on the plates refresh this often (s); the sim only changes them once per tick anyway.
 const TROOP_TEXT_S := 0.0
 ## Longest gap between redraws while the camera is still (s).
-const REDRAW_S := 0.1
+const REDRAW_S := 0.05
 var _redraw_t := 0.0
 ## True while a plate is still easing to a new spot: redraw every frame so the move stays smooth.
 var _easing := false
@@ -377,7 +377,7 @@ func _placement_step() -> void:
 	# (port) a new pass only once the last one is through (a pass of a few hundred flood fills goes
 	# over many frames here; upstream starts one every REPLACE_TICKS), and every 3 s of real time for a
 	# game that is paused or stepped by hand
-	if (_queue.is_empty() and _job == null) and (tick - _last_place_tick >= REPLACE_TICKS or tick < _last_place_tick or now_s - _last_place_s > 3.0):
+	if (_queue.is_empty() and _job == null) and (tick - _last_place_tick >= REPLACE_TICKS or tick < _last_place_tick or now_s - _last_place_s > 1.5):
 		_last_place_tick = tick
 		_last_place_s = now_s
 		_refresh_queue()
