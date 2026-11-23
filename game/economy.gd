@@ -204,10 +204,10 @@ func try_build(k: int, tile: int, o := PLAYER) -> bool:
 		return false
 	if site.upgrade != null:
 		_upgrade_struct(site.upgrade)
-		if o == PLAYER: build_sel = -1; sfx(BUILD_SFX.get(k, "build_city"))
+		if o == PLAYER: build_sel = -1; sfx("warship" if k == 6 else "build")
 		return true
 	_struct_add(k, int(site.tile), o)
-	if o == PLAYER: build_sel = -1; sfx(BUILD_SFX.get(k, "build_city"))
+	if o == PLAYER: build_sel = -1; sfx("warship" if k == 6 else "build")
 	return true
 
 # Airfield / Railgun tool on land that isn't yours fires the munition (upstream: Air Strike / Slug buttons)
@@ -339,8 +339,7 @@ func launch_attack(a: int, t: int, share: float) -> bool:
 		return false
 	n.troops -= troops
 	var started := sim_atk.start(a, t, troops) != null
-	if started and a == PLAYER:
-		sfx("order")
+	# (no launch sound for a land attack: the land-gain pops are its sound)
 	return started
 
 func _frontier(a: int, t: int) -> Array:

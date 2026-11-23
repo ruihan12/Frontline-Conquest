@@ -249,6 +249,7 @@ func _process_inner(dt: float) -> void:
 		dirty = more
 		_pf_add("paint", Time.get_ticks_usec() - p0)
 	_pf_add("cam_paint", Time.get_ticks_usec() - _q3)
+	_pop_tick(rdt)
 	ui_timer += dt
 	if ui_timer > 0.25 and state != "menu":
 		ui_timer = 0
@@ -1397,3 +1398,22 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_R: select_build(13)
 			KEY_MINUS, KEY_KP_SUBTRACT: set_speed_x(sim_speed / SPEED_BASE - 0.5)
 			KEY_EQUAL, KEY_PLUS, KEY_KP_ADD: set_speed_x(sim_speed / SPEED_BASE + 0.5)
+
+
+# Upstream's land-gain "bubble" pops (AudioDirector.pop): every 0.1 s the player's gained tiles go to the director.
+var _pop_clock := 0.0
+var _pop_land := -1
+func _pop_tick(rdt: float) -> void:
+	_pop_clock += rdt
+	if _pop_clock < 0.1: return
+	_pop_clock = 0.0
+	if state != "play" or audio_dir == null or PLAYER >= nations.size():
+		_pop_land = -1
+		return
+	var land := int(nations[PLAYER].land)
+	if _pop_land >= 0 and land > _pop_land:
+		var lin: float = sim_rules.k_lin if sim_rules != null else 1.0
+		var tiles := float(land - _pop_land) * lin * lin
+		var prog := clampf(float(land) / maxf(float(land_total), 1.0) / 0.8, 0.0, 1.0)
+		audio_dir.pop(tiles, prog)
+	_pop_land = land
