@@ -617,7 +617,7 @@ func _economy(dt: float) -> void:
 		if n.land <= 0 and (id != PLAYER or state == "play"):
 			n.alive = false
 			if id != PLAYER and n.get("last_by", 0) == PLAYER:
-				stats.elims += 1; sfx("conquered")
+				stats.elims += 1; sfx("eliminate")  # upstream UIAdvisor.on_owner_eliminated: the kill sound, not the old 3 s conquer sting
 				if kind_of(id) != SimRules.KIND_TRIBE: stats["conq"] = int(stats.get("conq", 0)) + 1  # Stars: tribes don't count
 			if id != PLAYER and (is_prot(id) or rng.randf() < 0.15): notify("%s has been eliminated" % n.name, "info")
 			continue

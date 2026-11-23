@@ -205,6 +205,8 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	if _sfx_log:
 		print("SFX %s t=%.1fs key=%s who=%d vol=%.0fdB" % ["PLAY" if allowed else "BLOCK", (sim_atk.tick / 10.0) if sim_atk else 0.0, key, who, vol_db])
 	if not allowed: return
+	if audio_dir != null and not _audio_dir_known.has(key):
+		_audio_dir_known[key] = audio_dir.has_sfx(key)  # keys the legacy table lacks (eliminate, ...)
 	if audio_dir != null and (_audio_dir_known.get(key, false) or key == "build"):
 		audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
 		return

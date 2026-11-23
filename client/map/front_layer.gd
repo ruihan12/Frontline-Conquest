@@ -218,7 +218,10 @@ func _draw_body() -> void:
 	var now := now_s()
 	var ds: float = g.hud._device_scale() if g.hud and g.hud.has_method("_device_scale") else 1.0
 	var fs := maxi(1, int(round(TEXT_PX / ds)))
-	var stroke := maxi(1, int(round(STROKE_PX * 2.0 / ds)))
+	# UIStroke 1.5 px is the outline's full width in Roblox; Godot's outline_size is the width it adds
+	# outside the glyph, so 3 px (twice the stroke) was heavy enough to swallow the fill
+	var stroke := maxi(1, int(round(STROKE_PX / ds)))
+	var dev := maxf(0.25, g.get_viewport().get_final_transform().get_scale().x)  # window px per base px
 	var f := _font
 	var vs := size
 	var stack := {}  # (opponent, direction) -> labels drawn so far: several attacks on one front stack, not overprint
@@ -235,6 +238,7 @@ func _draw_body() -> void:
 			if sp.x < -40 or sp.y < -40 or sp.x > vs.x + 40 or sp.y > vs.y + 40:
 				continue
 			# whole pixels only: a fractional origin smears glyph edges
-			var pos := Vector2(roundf(sp.x - ts.x * 0.5), roundf(sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5) + float(layer) * float(fs + 2))
+			var pos := Vector2(sp.x - ts.x * 0.5, sp.y + (f.get_ascent(fs) - f.get_descent(fs)) * 0.5 + float(layer) * float(fs + 2))
+			pos = (pos * dev).round() / dev  # whole window pixels (the stretch scale made whole base pixels fractional on screen)
 			draw_string_outline(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, stroke, Color.BLACK)
 			draw_string(f, pos, e.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, col)
