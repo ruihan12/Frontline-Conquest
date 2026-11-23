@@ -151,7 +151,7 @@ func _ports_tick(t: int) -> void:
 			p.water = water_next_to(p.tile); p.body = body[p.water] if p.water >= 0 else 0
 		if p.slot != slot or p.water < 0 or not g.nations[p.o].alive: continue
 		var hit := false
-		for _l in int(p.get("level", 1)):
+		for _l in mini(int(p.get("level", 1)), 1000):
 			if rng.randi() % R.trade_spawn_rate(p.rej, n_trade) == 0:
 				hit = true; break
 			p.rej += 1

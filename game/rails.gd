@@ -341,7 +341,7 @@ func _trains_tick() -> void:
 		if tick < int(f.get("last_spawn", -1000)) + SimRules.TRAIN_COOLDOWN_TICKS: continue
 		var rate := SimRules.train_spawn_rate(int(fac_lv.get(f.o, 0)), units_w)
 		var go := false
-		for _l in int(f.get("level", 1)):
+		for _l in mini(int(f.get("level", 1)), 1000):
 			if rng.randi() % rate == 0: go = true; break
 		if go and spawn_train_from(f): f["last_spawn"] = tick
 	for tr in trains.duplicate():

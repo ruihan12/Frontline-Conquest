@@ -393,7 +393,7 @@ var _fps_hitch_t := 0.0
 func _console_spawn(parts: PackedStringArray) -> void:
 	var q := parts[1].to_lower()
 	var lvl := int(parts[2]) if parts.size() >= 3 and parts[2].is_valid_int() else 1
-	lvl = maxi(1, lvl)
+	lvl = clampi(lvl, 1, 1000)  # (a huge level froze the per-level spawn loops)
 	var ship_kind := ""
 	if q in ["warship", "wars", "ws"] or q == "6":
 		ship_kind = "warship"
