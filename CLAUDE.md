@@ -46,5 +46,5 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 ## Rules for agents
 - Verify claims: check git log -1, git status, and build zip dates/sizes before reporting.
 - Every Web release zip must include release/serve.py and release/serve.bat (owner's rule): copy both next to index.html before zipping.
-- Don't push to GitHub unless the owner says so.
+- Push to GitHub after every large update (feature, fix batch, or release build), on the current working branch only. Never push to `vanilla` or force-push without the owner saying so. Verify with `git ls-remote origin <branch>` == HEAD.
 - Keep the vanilla customs list above as the only deviations from upstream.
