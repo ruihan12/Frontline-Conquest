@@ -67,6 +67,8 @@ var _map_btn: Button
 var _diff_row: HBoxContainer
 var _diff_caption: Label
 var _diff_desc: Label
+const PLAYER_COLORS: Array[String] = ["#268cff", "#e53935", "#43a047", "#fdd835", "#8e24aa", "#fb8c00", "#00acc1", "#ec407a", "#7cb342", "#6d4c41", "#26c6da", "#ff7043"]
+var _color_btns: Array[Button] = []
 var _solo_panel: GlassPanel
 var _solo_v: VBoxContainer
 var _solo_open := false
@@ -491,6 +493,40 @@ func _build_solo_menu() -> void:
 	v.add_child(bdesc)
 	_refresh_bots()
 
+	# (port, owner request 2026-11-24) your colour for this match; stored as save.settings.player_color
+	var cr := T.hbox(8)
+	var ccap := T.caption("Your colour")
+	ccap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ccap.custom_minimum_size = Vector2(84, 0)
+	cr.add_child(ccap)
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for hx: String in PLAYER_COLORS:
+		var sw := Button.new()
+		sw.custom_minimum_size = Vector2(34, 34)
+		sw.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		sw.focus_mode = Control.FOCUS_NONE
+		sw.set_meta("hex", hx)
+		var col := Color.html(hx)
+		for st: String in ["normal", "hover", "pressed", "focus"]:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = col.lightened(0.12) if st == "hover" else col
+			sb.set_corner_radius_all(8)
+			sw.add_theme_stylebox_override(st, sb)
+		sw.pressed.connect(func() -> void:
+			if not g.save.has("settings"): g.save["settings"] = {}
+			g.save["settings"]["player_color"] = hx
+			g.write_save()
+			_refresh_color())
+		_color_btns.append(sw)
+		grid.add_child(sw)
+	cr.add_child(grid)
+	v.add_child(cr)
+	_refresh_color()
+
 	var start := T.button("START", "PrimaryButton", "play", 58.0)
 	start.add_theme_constant_override("icon_max_width", 18)
 	start.add_theme_font_size_override("font_size", 19)
@@ -498,6 +534,16 @@ func _build_solo_menu() -> void:
 	_start = start
 	v.add_child(start)
 	p.visible = false
+
+
+func _refresh_color() -> void:
+	var cur := str(g.save.get("settings", {}).get("player_color", PLAYER_COLORS[0])).to_lower()
+	for b: Button in _color_btns:
+		var on := str(b.get_meta("hex")).to_lower() == cur
+		for st: String in ["normal", "hover", "pressed", "focus"]:
+			var sb := b.get_theme_stylebox(st) as StyleBoxFlat
+			sb.set_border_width_all(3 if on else 0)
+			sb.border_color = Color.WHITE
 
 
 func _refresh_bots() -> void:

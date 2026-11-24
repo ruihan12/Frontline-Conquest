@@ -152,7 +152,10 @@ func _start_game() -> void:
 	set_speed(0)
 	border.clear(); border.append({})
 	nations.append({})  # 0 neutral placeholder
-	_new_nation("You", Color(0.15, 0.55, 1.0), false)
+	var pc := Color(0.15, 0.55, 1.0)
+	var phex := str(save.get("settings", {}).get("player_color", ""))
+	if phex != "" and not attract_on: pc = Color.html(phex)  # owner request 2026-11-24: colour picked in the solo menu
+	_new_nation("You", pc, false)
 	_rw_spawn_all()
 	shield_until.clear()
 	if bot_players > 0: add_bot_players(bot_players)
