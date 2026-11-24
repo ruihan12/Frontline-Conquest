@@ -47,6 +47,7 @@ func _ready() -> void:
 	gen_map()
 	sim_atk = SimAttacks.new(self, sim_rules)
 	sim_ai = SimAI.new(self, sim_rules)
+	_tick_stage = 0
 	sim_struct = SimStructures.new(self, sim_rules)
 	sim_ars = SimArsenal.new(self, sim_rules)
 	sim_ws = SimWarships.new(self, sim_rules)

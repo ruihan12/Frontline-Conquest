@@ -19,11 +19,21 @@ func _run():
 	var acc := {}; for k in keys: acc[k] = 0
 	var worst := {}; for k in keys: worst[k] = 0
 	var tot_worst := 0
+	var slice_max := 0
 	var blk := 600
 	for i in ticks:
 		var ts := []
 		ts.append(Time.get_ticks_usec()); m._tick_attacks()
-		ts.append(Time.get_ticks_usec()); m._ai(0.1)
+		ts.append(Time.get_ticks_usec())
+		if "--sliced" in OS.get_cmdline_user_args():
+			m._ai_place_budget = 24; m.sim_ai.begin_tick()
+			while true:
+				var q0 := Time.get_ticks_usec()
+				var dn: bool = m.sim_ai.run_slice(q0 + (2500 if "--real" in OS.get_cmdline_user_args() else 50))
+				slice_max = maxi(slice_max, Time.get_ticks_usec() - q0)
+				if dn: break
+		else:
+			m._ai(0.1)
 		ts.append(Time.get_ticks_usec()); m.sim_naval.tick()
 		ts.append(Time.get_ticks_usec()); m.ticks_done += 1; m._economy(0.1)
 		ts.append(Time.get_ticks_usec()); m.sim_ars.tick()
@@ -50,4 +60,5 @@ func _run():
 			for id in range(1, m.nations.size()): tr += float(m.nations[id].troops) * (id % 13 + 1) + float(m.nations[id].gold) * 0.001
 			print("   HASH t=", i + 1, " owner=", hsum, " troops=", tr)
 			tot_worst = 0
+	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
 	quit()

@@ -132,6 +132,7 @@ func _start_game() -> void:
 	elapsed = 0.0
 	sim_atk = SimAttacks.new(self, sim_rules)
 	sim_ai = SimAI.new(self, sim_rules)
+	_tick_stage = 0
 	_rebuild_kind_cache()
 	sim_ai.setup()
 	start_tile = -1

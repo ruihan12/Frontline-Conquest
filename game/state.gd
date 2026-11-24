@@ -107,6 +107,7 @@ var start_tile := -1
 var rng := RandomNumberGenerator.new()
 var ai_timer := 0.0
 var ui_timer := 0.0
+var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass (one tick can span several frames)
 var tick_acc := 0.0
 var autoshot := false
 var strike_only := false  # the Air Strike / Slug slot is armed (they share build ids 14 / 15 with Airfield / Railgun)

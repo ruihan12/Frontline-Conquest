@@ -162,23 +162,31 @@ func _process_inner(dt: float) -> void:
 		# frame budget: the sim gets a slice of the frame; a long attacks pass is time-sliced over frames
 		# (upstream runs a local step as a Coop job spread over frames), so the window never stalls and the
 		# sim simply runs slower than the chosen speed when it can't keep up
-		while (tick_acc >= 0.1 or sim_atk.pass_open) and nt < MAX_TICKS_PER_FRAME:
+		while (tick_acc >= 0.1 or _tick_stage > 0) and nt < MAX_TICKS_PER_FRAME:
 			if Time.get_ticks_usec() - loop_t0 > sim_budget: break
-			if not sim_atk.pass_open:
+			var a0 := Time.get_ticks_usec()
+			if _tick_stage == 0:
 				tick_acc -= 0.1
 				nt += 1
 				_rebuild_def_posts()
 				sim_atk.begin_tick()
-			var a0 := Time.get_ticks_usec()
-			var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
-			prof.atk += Time.get_ticks_usec() - a0
-			_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
-			if not atk_done: break
+				_tick_stage = 1
+			if _tick_stage == 1:
+				var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
+				prof.atk += Time.get_ticks_usec() - a0
+				_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
+				if not atk_done: break
+				_tick_stage = 2
+				_ai_place_budget = 24
+				sim_ai.begin_tick()
+			# the AI pass is spread over frames too (same nations, same order)
 			a0 = Time.get_ticks_usec()
-			_ai(0.1)
+			var ai_done := sim_ai.run_slice(loop_t0 + sim_budget)
 			var e_ai := Time.get_ticks_usec() - a0
 			_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
 			prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
+			if not ai_done: break
+			_tick_stage = 0
 			a0 = Time.get_ticks_usec()
 			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
 			if not OS.has_environment("NO_TRADE"): sim_naval.tick()

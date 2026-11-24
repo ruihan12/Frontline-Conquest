@@ -42,6 +42,11 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Multiplayer finding: the sim is NOT lockstep-safe. It depends on time budgets (sim/nav.gd budget_us, sim_naval.defer_paths from elapsed microseconds, per-frame rail budgets, `elapsed` from real dt) and PLAYER is a const used in about 500 places. LAN options: (A) host-authoritative state replication to a thin client, or (B) make the sim tick-deterministic (count-based budgets, elapsed from ticks), make PLAYER a variable, flag human nations so the AI skips them, then lockstep intents (RWSession.send_intent already routes by owner). Needs the owner's choice.
 - tests/test_input_world.gd failed once in three full-suite runs and passed twice solo: flaky, cause not found.
 
+## Done on 2026-11-24 (branch vanilla-merge, pushed)
+- Settings window removed (gear opens upstream's page), FPS uncapped, V-Sync off on desktop.
+- Frame hitches at high fps: the AI pass is time-sliced like the attack pass (sim/ai.gd begin_tick/run_slice, main.gd _tick_stage), and the water-body census (~100 ms, was inside the first AI think) now runs in SimAI.setup. Worst single AI slice 184 ms -> 9 ms (tests/perf_sim.gd --sliced --real). Sliced and unsliced give the same hash with --navfree (nav's time budget makes runs differ otherwise). A real worker thread was judged unsafe: the sim calls UI/fx/audio about 80 times and the client reads sim state in about 138 places.
+- Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
+
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
    Known hotspots: per-tick attack pass ~80–90ms in web build (sliced 8ms/frame -> only ~1–1.5 ticks/s in software-rendered Chrome);

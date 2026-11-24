@@ -103,6 +103,7 @@ func setup() -> void:
 	st.clear(); rank.clear(); nuke_cool.clear(); doomed.clear()
 	leader = 0; leader_share = 0.0; runaway_human = 0; last_capitulation = -100000
 	_crowded = null; _body_src_size = -1
+	if g.sim_naval != null: _body_size(0)  # the water-body census (~100 ms) is paid at match setup, not inside the first AI think
 	for k in stats: stats[k] = 0
 	var rng: RandomNumberGenerator = g.rng
 	for id in range(2, g.nations.size()):
@@ -142,6 +143,16 @@ func tribe_answers(id: int) -> bool:
 	return s.started and s.attack_rate > 0 and g.sim_atk.tick % int(s.attack_rate) == int(s.attack_tick)
 
 func tick() -> void:
+	begin_tick()
+	run_slice(0)
+
+# The pass is resumable so the game can spread it over frames (at 240 fps a frame is 4 ms and one pass can take
+# 20+ ms, 100+ ms right after the spawn phase). Same nations in the same order, same rng draws: slicing only
+# changes when the work happens, never what it does (tick() runs it whole for tests and the headless sim).
+var pass_open := false
+var _cursor := 2
+
+func begin_tick() -> void:
 	var t: int = g.sim_atk.tick
 	if t % 50 == 0 or rank.is_empty(): _update_leader()
 	# AI nations at war with each owner: live non-counter attacks plus transports under way to a human
@@ -157,24 +168,41 @@ func tick() -> void:
 	for k in pairs:
 		attackers_on[k % 4096] = attackers_on.get(k % 4096, 0) + 1
 	if not doomed.is_empty(): _delete_doomed()
-	for id in range(2, g.nations.size()):
-		var n = g.nations[id]
-		if not n.alive or n.land <= 0 or not st.has(id): continue
-		var s: Dictionary = st[id]
-		if g.kind_of(id) == SimRules.KIND_TRIBE:
+	_cursor = 2
+	pass_open = true
+
+## Think for the nations from the cursor on; false when `deadline_us` (ticks_usec, 0 = none) ran out first.
+func run_slice(deadline_us: int) -> bool:
+	var t: int = g.sim_atk.tick
+	var total: int = g.nations.size()
+	var id := _cursor
+	var n_done := 0
+	while id < total:
+		if deadline_us > 0 and (n_done & 3) == 3 and Time.get_ticks_usec() > deadline_us:
+			_cursor = id
+			return false
+		n_done += 1
+		var cur := id
+		id += 1
+		var n = g.nations[cur]
+		if not n.alive or n.land <= 0 or not st.has(cur): continue
+		var s: Dictionary = st[cur]
+		if g.kind_of(cur) == SimRules.KIND_TRIBE:
 			if t % s.attack_rate == s.attack_tick:
 				if not s.started:
 					s.started = true
-					scan_border(id)
-					_tribe_send_tn(id)
+					scan_border(cur)
+					_tribe_send_tn(cur)
 				else:
-					_think_tribe(id)
+					_think_tribe(cur)
 			continue
 		if s.next_think > t: continue
 		if not s.started:
-			_first_attack(id); continue
+			_first_attack(cur); continue
 		s.next_think = t + NATION_THINK + g.rng.randi_range(-3, 3)
-		_think_nation(id)
+		_think_nation(cur)
+	pass_open = false
+	return true
 
 func _update_leader() -> void:
 	var best := 0; var bt := 0; var second := 0

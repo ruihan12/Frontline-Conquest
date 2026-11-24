@@ -186,7 +186,7 @@ _None this run._
 | `Rules.luau 853-916` | flat munitions fly a straight line | pass | got 300 (want 300) |
 | `simsys_nukes.luau` | game source readable | pass |  |
 | `simsys_nukes.luau` | no custom nuke range (upstream launch_range 0 for bombs) | pass |  |
-| `simsys_nukes.luau` | no custom nuke speed-up (upstream NUKE_SPEED_FULL) | pass |  |
+| `simsys_nukes.luau` | nukes fly at 0.9x upstream NUKE_SPEED_FULL (owner request) | pass | kept custom |
 | `simsys_nukes.luau` | no custom x2.8 blast radii (upstream NUKE_OUTER_FULL / k_lin) | pass |  |
 | `simsys_nukes.luau` | no nuke countdown pill (upstream has none) | pass |  |
 | `simsys_nukes.luau` | ICBM +10% cost | pass | kept custom |
@@ -423,23 +423,23 @@ _None this run._
 | `simsys_nukes.luau` | live atom charged 825K with ICBM on | pass | got 825000 (want 825000) |
 | `simsys_nukes.luau` | atom is in flight on the sim clock (launch tick + flight ticks) | pass |  |
 | `simsys_nukes.luau` | silo spent its missile and is reloading | pass |  |
-| `simsys_nukes.luau` | atom leaves the missile list after flight / intercept | pass | ticks=19 |
-| `simsys_nukes.luau` | foe SAM shot down the atom bomb | pass | fired=1 hits=1 ticks=9 |
+| `simsys_nukes.luau` | atom leaves the missile list after flight / intercept | pass | ticks=18 |
+| `simsys_nukes.luau` | foe SAM shot down the atom bomb | pass | fired=1 hits=1 ticks=10 |
 | `simsys_nukes.luau` | the SAM spent its missile | pass |  |
-| `simsys_nukes.luau` | H-bomb: whole inner disc is fallout | pass | inner 18397/18397 ticks=17 |
-| `simsys_nukes.luau` | H-bomb: about half the outer ring is fallout | pass | share=0.52 ring 4969/9619 |
-| `simsys_nukes.luau` | fresh fallout carries the glow clock (60 s, heat only; fallout itself stays until recaptured) | pass | stamped=23366 |
-| `simsys_nukes.luau` | bomb troop loss follows ((T-n)/T)^5 (plus income during flight) | pass | before=113485 after=238 expect<=5884 |
-| `simsys_nukes.luau` | MIRV launch | pass | foe=29 land=1910 gold=455219300 silo=true |
+| `simsys_nukes.luau` | H-bomb: whole inner disc is fallout | pass | inner 18397/18397 ticks=16 |
+| `simsys_nukes.luau` | H-bomb: about half the outer ring is fallout | pass | share=0.51 ring 4907/9619 |
+| `simsys_nukes.luau` | fresh fallout carries the glow clock (60 s, heat only; fallout itself stays until recaptured) | pass | stamped=23304 |
+| `simsys_nukes.luau` | bomb troop loss follows ((T-n)/T)^5 (plus income during flight) | pass | before=112936 after=267 expect<=5884 |
+| `simsys_nukes.luau` | MIRV launch | pass | foe=29 land=1956 gold=455219200 silo=true |
 | `simsys_nukes.luau` | live first MIRV charged 27.5M with ICBM on | pass | got 27500000 (want 27500000) |
 | `simsys_nukes.luau` | mirvs_launched increments | pass |  |
 | `simsys_nukes.luau` | MIRV bus flies toward the aim, then branches | pass |  |
 | `simsys_nukes.luau` | live second MIRV costs 44M (+15M step, +10% ICBM) | pass |  |
-| `simsys_nukes.luau` | scattershot launches (4-6 warheads when land around the aim is valid) | pass | ok=true warheads=4 extra=5 |
-| `arsenal.luau` | railgun slug fired at any range | pass | tgt=739167 owner=29 ready=0 bt=0 notes=[{ "text": "Railgun slug on its way to Ethiopia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "The Pebblerowers captured your Missile Silo!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "The Sparkrunners has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "The Pebblerowers captured your Artillery!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "Coralsong has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }] |
+| `simsys_nukes.luau` | scattershot launches (4-6 warheads when land around the aim is valid) | pass | ok=true warheads=6 extra=7 |
+| `arsenal.luau` | railgun slug fired at any range | pass | tgt=869170 owner=29 ready=0 bt=0 notes=[{ "text": "Railgun slug on its way to Ethiopia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "The Pebblerowers captured your Artillery!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "The Pebblerowers captured your Missile Silo!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "The Pebblerowers captured your Artillery!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "Scattershot launched at Ethiopia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }] |
 | `arsenal.luau` | structure HP: 0 HP drops a level, then destroys at level 1 | pass |  |
 | `arsenal.luau` | Rapid Reload stays off unless unlocked | pass | unlocked=false mult=1.00 |
-| `simsys_naval.luau` | shared land border: launch_boat does not convert to launch_attack | pass | ok=true atk 66->66 |
+| `simsys_naval.luau` | shared land border: launch_boat does not convert to launch_attack | pass | ok=true atk 60->60 |
 | `simsys_naval.luau` | boat can land on a bordered nation's coast (upstream) | pass | boats 1->2 |
 | `simsys_naval.luau` | launch_boat to an overseas coast | pass | dest=160342 foe=2 |
 | `simsys_naval.luau` | a transport is at sea | pass |  |
@@ -447,20 +447,20 @@ _None this run._
 | `simsys_naval.luau` | player boat cap is MAX_BOATS_PLAYER (10) | pass |  |
 | `simsys_naval.luau` | AI boat cap is 3 | pass |  |
 | `simsys_warships.luau` | build / spawn a warship | pass | ok=true n=1 water=604992 port=true |
-| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=7 sunk=1 en_hp=0 state=1 rival=2 alive=true |
+| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=5 sunk=1 en_hp=0 state=1 rival=2 alive=true |
 | `simsys_warships.luau` | order_warship accepts reachable water | pass |  |
-| `simsys_warships.luau` | ordered warship sails toward the target | pass | d0=35.6 d1=26.1 |
-| `simsys_warships.luau` | warship speed respects warship_speed (0.35x) | pass | moved=9.51 cap=21.01 |
-| `simsys_warships.luau` | rails connect stations 15..110 tiles apart (SimStructures._link_nearby) | pass | fac=759018 a=774985 b=740985 |
+| `simsys_warships.luau` | ordered warship sails toward the target | pass | d0=35.8 d1=25.9 |
+| `simsys_warships.luau` | warship speed respects warship_speed (0.35x) | pass | moved=9.94 cap=21.01 |
+| `simsys_warships.luau` | rails connect stations 15..110 tiles apart (SimStructures._link_nearby) | pass | fac=774985 a=740985 b=723000 |
 | `simsys_warships.luau` | launch_plane is a no-op (no custom cargo/transport planes) | pass |  |
 | `simsys_warships.luau` | atom flight ticks = ceil(arc length x k_lin / 10) (upstream speed) | pass | ft=36 arc=353.8 |
 | `simsys_warships.luau` | warship has max HP | pass |  |
-| `sim_units.luau` | player attack starts (25% HUD share) | pass | ok=true attacks=61 tgt_o=50 |
-| `sim_units.luau` | expansion does not shrink the player (land 12162 -> 14119) | pass |  |
+| `sim_units.luau` | player attack starts (25% HUD share) | pass | ok=true attacks=59 tgt_o=50 |
+| `sim_units.luau` | expansion does not shrink the player (land 12148 -> 12913) | pass |  |
 | `sim_units.luau` | live Rules.conquer_gold still half of a human's gold | pass | 500 |
 | `simsys_ai.luau` | AI driver is attached | pass |  |
 | `simsys_ai.luau` | grace constants still 5/3/2 min | pass |  |
-| `simsys_ai.luau` | AI + economy soak 200 ticks, player still in the match | pass | alive 185 -> 160 |
+| `simsys_ai.luau` | AI + economy soak 200 ticks, player still in the match | pass | alive 183 -> 162 |
 | `simsys_ai.luau` | sim_nav: water bodies were computed | pass | nonzero samples=13520 |
 | `growth_rules.luau` | World is the native 2000x1000 grid | pass | 2000x1000 |
 | `growth_rules.luau` | World row 0 is water and the bottom row is land | pass | top=0 bottom=2000 |
@@ -478,7 +478,7 @@ _None this run._
 | `bot_skill.luau` | bot players count as people (kind HUMAN) and build like nations | pass |  |
 | `bot_skill.luau` | which bots are smart is deterministic | pass |  |
 | `bot_skill.luau` | a novice waits twice the Easy grace before attacking a player | pass |  |
-| `bot_skill.luau` | and may attack after it | pass | base=3752 |
+| `bot_skill.luau` | and may attack after it | pass | base=3587 |
 | `bot_skill.luau` | a smart bot waits the Easy grace (no doubling) | pass |  |
 | `sim_bots.luau spawn_shield` | a match with bot players is not solo | pass |  |
 | `sim_bots.luau spawn_shield` | every person gets a spawn shield when play starts | pass |  |
