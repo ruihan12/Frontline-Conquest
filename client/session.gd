@@ -210,8 +210,10 @@ func equip(slot: String, id) -> bool:
 	co[slot] = sid
 	g.write_save()
 	if slot == "skin" and g.surface != null:
+		# only the player's territory changes with a skin: repaint it over a few frames (the terrain
+		# recolour of the whole map froze the game for about 4 s)
 		g.surface._pal.clear()
-		g._recompute_base_colors()
+		g.surface._sweep(int(g.PLAYER), true)
 	return true
 
 

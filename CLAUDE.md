@@ -47,6 +47,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 ## Done on 2026-11-24 (branch vanilla-merge, pushed)
 - Settings window removed (gear opens upstream's page), FPS uncapped, V-Sync off on desktop.
 - Frame hitches at high fps: the AI pass is time-sliced like the attack pass (sim/ai.gd begin_tick/run_slice, main.gd _tick_stage), and the water-body census (~100 ms, was inside the first AI think) now runs in SimAI.setup. Worst single AI slice 184 ms -> 9 ms (tests/perf_sim.gd --sliced --real). Sliced and unsliced give the same hash with --navfree (nav's time budget makes runs differ otherwise). A real worker thread was judged unsafe: the sim calls UI/fx/audio about 80 times and the client reads sim state in about 138 places.
+- New round: the finished round's sim lists and client layers are cleared and the world hidden while the map builds (nations.gd _clear_round_state/_set_world_visible; was: old territory, buildings and names showed through). Choosing a skin repaints only the player's territory (session.gd equip; was a whole-map recolour, ~4 s freeze).
 - Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
 
 ## What's left

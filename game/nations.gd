@@ -52,6 +52,29 @@ func _load_progress(v: float) -> void:
 	if load_bar: load_bar.value = v * 100.0
 	if client != null and _loading: client.set_loading(true, v)
 
+## Drops everything the finished round left in the sim lists and the client layers (no map work).
+func _clear_round_state() -> void:
+	nations.clear(); nations.append({})
+	border.clear(); border.append({})
+	attacks.clear(); boats.clear(); missiles.clear(); warships.clear(); traders.clear()
+	structs.clear(); struct_at.clear(); _sv += 1
+	blasts.clear(); shells.clear(); notes.clear(); cap_fx.clear(); floats.clear(); trains.clear()
+	planes.clear(); beams.clear(); allies.clear()
+	if sim_ars: sim_ars.reset()
+	if sim_ws: sim_ws.reset()
+	sel_ws = null; build_sel = -1
+	if names != null: names.unbind()
+	if ranges != null: ranges.unbind()
+	if fx_layer != null: fx_layer.unbind()
+	if surface != null: surface.clear()
+	dirty = true
+
+func _set_world_visible(on: bool) -> void:
+	for sp in chunk_sp:
+		if is_instance_valid(sp): sp.visible = on
+	if fx_layer != null and fx_layer.get_parent() is CanvasLayer:
+		fx_layer.get_parent().visible = on
+
 func _start_game_ui() -> void:
 	if _loading: return
 	_loading = true
@@ -72,11 +95,15 @@ func _start_game_ui() -> void:
 		for ch in load_ov.get_children(): ch.visible = false
 	load_ov.visible = true; load_ov.move_to_front(); _load_progress(0.05)
 	var load_t0 := Time.get_ticks_msec()
+	# the finished round must not show through while the new map builds (old territory, buildings, names)
+	if nations.size() > 1: _clear_round_state()
+	_set_world_visible(false)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_async_gen = true
 	await gen_map()
 	_async_gen = false
+	_set_world_visible(false)  # (gen_map may have made new chunk sprites)
 	_load_progress(0.6)
 	# Hold the screen for a minimum time (about the average web load) so it reads as a prep beat
 	# instead of flashing by on fast machines; the bar fills smoothly through the wait.
@@ -91,6 +118,7 @@ func _start_game_ui() -> void:
 	_skip_gen = true
 	_start_game()
 	_skip_gen = false
+	_set_world_visible(true)
 	supply_on = true
 	_supply_rng.seed = int(rng.seed) ^ 0x5eed  # (its own stream: the sim's rng is not touched)
 	load_ov.visible = false

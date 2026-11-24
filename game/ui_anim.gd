@@ -114,16 +114,7 @@ func _game_over(win: bool) -> void:
 # (a generated map, no nations, structures or units).
 func _reset_menu_world() -> void:
 	gen_map()
-	nations.clear(); nations.append({})
-	border.clear(); border.append({})
-	attacks.clear(); boats.clear(); missiles.clear(); warships.clear(); traders.clear()
-	structs.clear(); struct_at.clear(); _sv += 1
-	blasts.clear(); shells.clear(); notes.clear(); cap_fx.clear(); floats.clear(); trains.clear()
-	planes.clear(); beams.clear(); allies.clear()
-	if sim_ars: sim_ars.reset()
-	if sim_ws: sim_ws.reset()
-	sel_ws = null; build_sel = -1
-	dirty = true
+	_clear_round_state()
 
 func _to_menu() -> void:
 	if audio_dir != null: audio_dir.end_match()
