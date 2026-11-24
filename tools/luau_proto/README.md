@@ -23,3 +23,9 @@ Build recipe for the extension (not in upstream repo, which has no web target):
 4. Known: logs "Class 'Object' doesn't exist" at load (harmless so far); Luau C++ exception paths (`__cxa_throw`) are unresolved imports.
 
 Not done: integration. owner_map/border/nations live in GDScript; a real port needs the hot state owned by Luau.
+
+Native Linux build (headless tests, 2026-11-23): in the extension checkout run
+`cmake -S . -B build-linux -DCMAKE_POSITION_INDEPENDENT_CODE=ON -DCMAKE_CXX_FLAGS=-fPIC -DCMAKE_C_FLAGS=-fPIC -DBUILD_TESTING=OFF && cmake --build build-linux --target gdluau -j4`
+(without PIC the link fails). Copy `libgdluau.linux.x86_64.` to `bin/libgdluau.so` and add
+`linux.release.x86_64 = "res://bin/libgdluau.so"` (and `.debug`) to luau.gdextension. Godot 4.5 headless then runs
+the kernel: Luau 234 ms vs GDScript 672 ms on the 200k x 50 loop (2.9x). Prebuilt copy: /home/claude/luautest/proj.
