@@ -43,6 +43,15 @@ func _init() -> void:
 	_ok(_same(hm, cm), "deltas keep owner_map identical after 300 ticks")
 	_ok(hm.nations[1].land == cm.nations[1].land, "land counts match (%d)" % hm.nations[1].land)
 	_ok(absf(float(hm.nations[1].troops) - float(cm.nations[1].troops)) < 0.01, "troops replicated")
+	# entity lists: a structure and its fields survive the pipe, owners swapped for client nation 3
+	hm._struct_add(3, 7 * hm.W + 7, 2)
+	var lp: PackedByteArray = NetRep.encode_lists(hm, 1)
+	NetRep.apply_lists(cm, lp)
+	_ok(cm.structs.size() == hm.structs.size() and cm.structs.size() > 0, "structs replicated (%d)" % cm.structs.size())
+	_ok(cm.struct_at.has(7 * cm.W + 7) and int(cm.struct_at[7 * cm.W + 7].o) == 2, "struct_at rebuilt with owner")
+	_ok(cm.boats.size() == hm.boats.size() and cm.warships.size() == hm.warships.size() and cm.missiles.size() == hm.missiles.size(), "boats/warships/missiles counts match")
+	NetRep.apply_lists(cm, NetRep.encode_lists(hm, 3))
+	_ok(int(cm.struct_at[7 * cm.W + 7].o) == 2, "id 2 unchanged by swap(1,3)")
 	# id remap: a client whose nation is 3 sees itself as 1 and the host's player as 3
 	_ok(NetRep.swap_id(1, 3) == 3 and NetRep.swap_id(3, 3) == 1 and NetRep.swap_id(5, 3) == 5 and NetRep.swap_id(0, 3) == 0, "remap swaps 1 and my only")
 	var snap3: PackedByteArray = NetRep.encode_snapshot(hm, 3)

@@ -114,3 +114,47 @@ static func apply_nations(main, packet: PackedByteArray) -> void:
 			nn.troops = e[1]
 			nn.gold = e[2]
 			nn.alive = e[3]
+
+
+# ---- entity lists (structures, boats, trade ships, warships, missiles) ----
+# Plain dictionaries, so the whole list travels as one var blob (versioned by the sender: structs only when
+# main._sv changes, the moving lists every tick for now). `own` names the keys holding nation ids (swapped per client).
+# attacks are not here yet: their frontier arrays are large and the client only needs the display fields.
+const LISTS := {
+	"structs": {"own": ["o"]},
+	"boats": {"own": ["a"]},
+	"traders": {"own": ["o"]},
+	"warships": {"own": ["o"]},
+	"missiles": {"own": ["o", "tgt_o"]},
+}
+
+
+static func encode_lists(main, my := 1, names := []) -> PackedByteArray:
+	var out := {}
+	for name in LISTS:
+		if not names.is_empty() and not names.has(name):
+			continue
+		var own: Array = LISTS[name].own
+		var arr := []
+		for e in main.get(name):
+			var d: Dictionary = e.duplicate(false)
+			for k in own:
+				if d.has(k):
+					d[k] = swap_id(int(d[k]), my)
+			arr.append(d)
+		out[name] = arr
+	return var_to_bytes(out).compress(FileAccess.COMPRESSION_DEFLATE)
+
+
+static func apply_lists(main, packet: PackedByteArray) -> void:
+	var raw := packet.decompress_dynamic(64 * 1024 * 1024, FileAccess.COMPRESSION_DEFLATE)
+	var got: Dictionary = bytes_to_var(raw)
+	for name in got:
+		var dst: Array = main.get(name)
+		dst.clear()
+		dst.append_array(got[name])
+	if got.has("structs"):
+		main.struct_at.clear()
+		for st in main.structs:
+			main.struct_at[int(st.tile)] = st
+		main._sv += 1
