@@ -100,7 +100,7 @@ func write_parity_md(path: String) -> void:
 	lines.append("")
 	lines.append("| Deviation | Port value | Upstream (for reference) |")
 	lines.append("| --- | --- | --- |")
-	lines.append("| ICBM toggle (key I, slot after MIRV) | +10% of the player's bomb price, 35% chance to evade SAMs (seeded) | not present |")
+	lines.append("| ICBM toggle (key I, slot after MIRV) | +10% of the player's bomb price, 20% chance to evade SAMs (seeded) | not present |")
 	lines.append("| Tab dev console | password 5516, FPS, match-only | not present |")
 	lines.append("| Game speed slider | 0.5–10× | not present |")
 	lines.append("| Graphics settings window | non-gameplay (resolution, shake, audio) | none or different |")

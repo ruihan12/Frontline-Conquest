@@ -1,4 +1,4 @@
-# Port-only slot (not in upstream): the ICBM toggle (+10% cost, 35% chance to evade SAMs), drawn like a
+# Port-only slot (not in upstream): the ICBM toggle (+10% cost, 20% chance to evade SAMs), drawn like a
 # BuildButton so it sits in the command bar's nuke group. On: bombs ignore silo range for +10% cost.
 class_name IcbmSlot
 extends Button
@@ -42,8 +42,8 @@ func hint_spec() -> Dictionary:
 		"title": "ICBM mode",
 		"badge": "I",
 		"badge_color": UITheme.TEXT_2,
-		"body": "Each bomb you launch has a 35% chance to evade SAMs.",
-		"rows": [["Cost", "+10% per launch", UITheme.GOLD], ["SAMs", "35% chance to evade SAMs", UITheme.AMBER]],
+		"body": "Each bomb you launch has a 20% chance to evade SAMs, flies 20% faster, and its silo reloads 20% sooner.",
+		"rows": [["Cost", "+10% per launch", UITheme.GOLD], ["SAMs", "20% chance to evade SAMs", UITheme.AMBER], ["Flight", "+20% speed, -20% silo cooldown", UITheme.AMBER]],
 		"hint": "On" if _on() else "Click to switch on",
 		"hint_color": UITheme.AMBER if _on() else UITheme.CYAN,
 		"hint_icon": "target",

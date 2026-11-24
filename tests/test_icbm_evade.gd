@@ -1,4 +1,4 @@
-# ICBM toggle (kept custom): +10% cost and a 35% chance per launch to evade SAMs entirely.
+# ICBM toggle (kept custom): +10% cost and a 20% chance per launch to evade SAMs entirely.
 #   godot --headless --path . --script tests/test_icbm_evade.gd
 # Seeded sim RNG: about 35% of N launches evade (3 sigma band), the roll is deterministic for a seed, only
 # the player rolls and only with ICBM on, a MIRV's warheads (and a Scattershot's) inherit the launch roll, and

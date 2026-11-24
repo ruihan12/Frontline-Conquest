@@ -182,7 +182,7 @@ func hint_spec() -> Dictionary:
 		var bid: int = RWGameState.BUILD_ID.get(kind, -1)
 		if ctx.state != null and bid in [7, 8, 9, 11, 12]:
 			rows.append(["Range", ctx.state.g.nuke_range_label(bid), UITheme.TEXT])
-			if ctx.state.g.icbm_mode: rows.append(["ICBM", "35% chance to evade SAMs", UITheme.AMBER])
+			if ctx.state.g.icbm_mode: rows.append(["ICBM", "20% chance to evade SAMs", UITheme.AMBER])
 	var item = UIRules.arsenal_item(kind)
 	if _av.get("arsenal") != null and item != null:
 		# locked: what unlocks it

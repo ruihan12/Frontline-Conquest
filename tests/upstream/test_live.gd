@@ -454,7 +454,7 @@ func _nukes_and_sam() -> void:
 		# fly to impact (or intercept)
 		var flight: int = _fly()
 		H.expect(m.missiles.is_empty(), "atom leaves the missile list after flight / intercept", "ticks=%d" % flight)
-	# foe SAM intercept (ICBM off: with it on, a launch has a 35% chance to evade SAMs; see tests/test_icbm_evade.gd)
+	# foe SAM intercept (ICBM off: with it on, a launch has a 20% chance to evade SAMs; see tests/test_icbm_evade.gd)
 	if m.has_method("set_icbm"):
 		m.set_icbm(false)
 	var fc: int = _owned_tile(foe)
