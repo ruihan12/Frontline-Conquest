@@ -1064,7 +1064,7 @@ func _draw_overlay_inner() -> void:
 		if mt >= 0:
 			var ok: bool = build_req(build_sel, mt) == "" and nations[PLAYER].gold >= build_cost(PLAYER, build_sel)
 			var mp := get_viewport().get_mouse_position()
-			var rr := {3: sim_rules.defense_range, 4: sim_rules.sam_range(1), 10: sim_rules.artillery_range()}.get(build_sel, 0.0) as float
+			var rr := {3: sim_rules.defense_range, 4: sim_rules.sam_range(1), 10: sim_rules.artillery_range(), 14: (0.0 if strike_only else sim_rules.airfield_range())}.get(build_sel, 0.0) as float  # (14: the Airfield's reach, shown before it is built)
 			if build_sel in NUKES: rr = sim_rules.nuke_radii(SimRules.NUKE_KIND_OF[build_sel]).y if build_sel == 9 else float(NUKE_R[build_sel])  # (MapView.set_aim: the kind's outer radius; MIRV its spread)
 			var strike_aim := _is_strike_click(build_sel, mt, PLAYER)
 			if strike_aim: rr = sim_rules.strike_radius(SimRules.N_AIRSTRIKE if build_sel == 14 else SimRules.N_SLUG)

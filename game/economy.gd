@@ -216,6 +216,10 @@ func try_build(k: int, tile: int, o := PLAYER) -> bool:
 
 # Airfield / Railgun tool on land that isn't yours fires the munition (upstream: Air Strike / Slug buttons)
 func _is_strike_click(k: int, tile: int, o: int) -> bool:
+	# the Airfield / Railgun tool fires at land that is not yours; water is not a target for it (an invalid
+	# spot to build on, no crosshair), only the armed Air Strike / Slug slot may aim at the sea
+	if (k == 14 or k == 15) and tile >= 0 and tile < owner_map.size() and owner_map[tile] == WATER and not strike_only:
+		return false
 	return (k == 14 or k == 15) and tile >= 0 and tile < owner_map.size() and owner_map[tile] != o
 
 func tile_cost(a: int, t: int) -> float:

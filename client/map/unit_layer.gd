@@ -271,3 +271,15 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 		var q1: Vector2 = g._screen_of(fw.lerp(to_w, f2))
 		if _on_screen(q1, px, vp):
 			sprite(ci, COL_SAM, _owner_col(int(sm.o)), q1, px)
+	# warship (and defense post) shells in flight: from the shooter to where the target is now
+	if g.sim_ws != null:
+		for sh in g.sim_ws.shells:
+			if not (sh.has("from") and sh.has("target")):
+				continue
+			var t1: float = float(sh.t1)
+			var f3: float = clampf((tf - float(sh.get("t0", t1 - 3.0))) / maxf(1.0, t1 - float(sh.get("t0", t1 - 3.0))), 0.0, 1.0)
+			var tgp: Vector2 = g.sim_ws.unit_pos(sh.target)
+			var q2: Vector2 = g._screen_of((sh.from as Vector2).lerp(tgp, f3) * g.TS)
+			if _on_screen(q2, px, vp):
+				var c3: Color = _owner_col(int(sh.o)) if int(sh.o) > 0 and int(sh.o) < g.nations.size() else Color(1, 0.6, 0.3)
+				sprite(ci, COL_SHELL, c3, q2, px * SHELL_SCALE)
