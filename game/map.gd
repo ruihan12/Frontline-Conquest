@@ -712,14 +712,19 @@ func _repaint(i: int) -> void:
 	# append to the member itself: a local `var ls := _rp_list` is a copy once appended to, which dropped
 	# queued tiles (stale colours that never went away)
 	if _rp_mark[i] == 0: _rp_mark[i] = 1; _rp_list.append(i)
+	# the neighbours only change colour when they are owned (their border and alpha follow the owners
+	# around them): neutral land and water look the same whatever is next to them (fallout aside), so
+	# they are not queued (5 tiles a flip became about 2 at a front: the backlog showed as stale dots)
+	var om := owner_map
+	var hasf := fallout.size() == N
 	var j := i + 1
-	if j < N and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
+	if j < N and _rp_mark[j] == 0 and (om[j] > 0 or (hasf and fallout[j] == 1)): _rp_mark[j] = 1; _rp_list.append(j)
 	j = i - 1
-	if j >= 0 and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
+	if j >= 0 and _rp_mark[j] == 0 and (om[j] > 0 or (hasf and fallout[j] == 1)): _rp_mark[j] = 1; _rp_list.append(j)
 	j = i + W
-	if j < N and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
+	if j < N and _rp_mark[j] == 0 and (om[j] > 0 or (hasf and fallout[j] == 1)): _rp_mark[j] = 1; _rp_list.append(j)
 	j = i - W
-	if j >= 0 and _rp_mark[j] == 0: _rp_mark[j] = 1; _rp_list.append(j)
+	if j >= 0 and _rp_mark[j] == 0 and (om[j] > 0 or (hasf and fallout[j] == 1)): _rp_mark[j] = 1; _rp_list.append(j)
 	dirty = true
 
 # Paints queued tiles until `budget_us` microseconds have passed (<= 0: all). True when some are left.
@@ -944,6 +949,8 @@ func _paint_budget_us() -> int:
 	# A big attack queues thousands of tiles a tick; at a flat 3 ms a frame the queue took ~5 s to drain and
 	# the new land showed its dark border colour meanwhile. Spend more when the backlog is deep.
 	var base := 2500 if OS.has_feature("web") else 3000
+	# the faster the game runs the more tiles change a second: paint more a frame (to 4x)
+	base = int(base * clampf(float(sim_speed), 1.0, 4.0))
 	var n := _paint_pending_count()
 	if n > 60000: return base * 4
 	if n > 20000: return base * 3
