@@ -109,6 +109,18 @@ var ai_timer := 0.0
 var ui_timer := 0.0
 var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass (one tick can span several frames)
 var tick_acc := 0.0
+## How far through the current sim tick the picture is, 0..1, for smooth motion between ticks. A tick that has
+## begun (sliced over frames) already took its 0.1 s off tick_acc but has not moved anything yet, so it counts as
+## a whole tick of progress; and when the sim is behind (tick_acc piles up) it stops at 1 instead of running
+## ahead and snapping back, which made trains and ships jiggle.
+## The same for times counted in sim_atk.tick, which already counts a tick that has begun.
+func sub_tick_counted() -> float:
+	if sim_paused: return 0.0
+	return clampf(tick_acc * 10.0, 0.0, 1.0)
+## For things advanced when a tick ends (trains, ships, nukes: their own `t`).
+func sub_tick() -> float:
+	if sim_paused: return 0.0
+	return clampf(tick_acc * 10.0 + (1.0 if _tick_stage > 0 else 0.0), 0.0, 1.0)
 var autoshot := false
 var strike_only := false  # the Air Strike / Slug slot is armed (they share build ids 14 / 15 with Airfield / Railgun)
 var _webprof_on := false

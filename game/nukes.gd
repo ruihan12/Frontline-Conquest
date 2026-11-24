@@ -110,7 +110,7 @@ func _missile_screen_pos(ms, s: float, _z := 1.0) -> Vector2:
 # the render dt or the zoom.
 func missile_frac(ms) -> float:
 	if not ms.has("lt"): return clampf(float(ms.get("t", 0.0)) / maxf(0.001, float(ms.get("dur", 1.0))), 0.0, 1.0)
-	var sub := 0.0 if sim_paused else clampf(tick_acc * 10.0, 0.0, 1.0)
+	var sub := sub_tick()
 	return clampf((float(sim_atk.tick - int(ms.lt)) + sub) / maxf(1.0, float(ms.ft)), 0.0, 1.0)
 
 # SimNukes._spawn_nuke

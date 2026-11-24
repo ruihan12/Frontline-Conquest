@@ -134,7 +134,7 @@ func draw(ci: CanvasItem) -> void:
 	for tr in g.trains:
 		if not g._has_rail_link(tr.src, tr.dst):
 			continue
-		var f: float = clampf((tr.t + g.tick_acc * 10.0) / maxf(0.01, tr.dur), 0.0, 1.0)
+		var f: float = clampf((tr.t + g.sub_tick()) / maxf(0.01, tr.dur), 0.0, 1.0)
 		var rp: Array = g._rail_pos(tr.src, tr.dst, f)
 		var col: Color = _owner_col(int(tr.o))
 		if cars_shown:
@@ -245,7 +245,7 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 	if g.sim_ars == null:
 		return
-	var tf: float = float(g.sim_atk.tick) + g.tick_acc * 10.0
+	var tf: float = float(g.sim_atk.tick) + g.sub_tick_counted()
 	for m in g.sim_ars.munitions:
 		var f: float = clampf((tf - float(m.t0)) / maxf(1.0, float(m.t1 - m.t0)), 0.0, 1.0)
 		var a: Vector2 = m.from
