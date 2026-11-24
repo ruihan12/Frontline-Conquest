@@ -29,7 +29,8 @@ const SHADE_NATION := 0.3
 const SHADE_BOT := 0.4
 ## outline px per text px
 const OUTLINE_K := 0.085
-const REPLACE_TICKS := 10  # custom (owner): upstream 30, tags re-placed every second at 1x
+const REPLACE_PLAY_S := 1.0     # custom (owner): upstream every 30 ticks; in a match a new placement pass starts every second (real time)
+const REPLACE_SPAWN_S := 0.001  # custom (owner): before the match (spawn phase) a new pass starts every millisecond, i.e. as soon as the last one is through
 ## full-size tiles
 const SPAWN_DIAMETER := 8
 const BUDGET_S := 0.003  # custom (owner): upstream-ish 1.5 ms; placement finishes sooner
@@ -375,9 +376,9 @@ func _placement_step() -> void:
 					_targets[id0] = t0p
 		return
 	# (port) a new pass only once the last one is through (a pass of a few hundred flood fills goes
-	# over many frames here; upstream starts one every REPLACE_TICKS), and every 3 s of real time for a
+	# over many frames here; upstream starts one every REPLACE_PLAY_S), and every 3 s of real time for a
 	# game that is paused or stepped by hand
-	if (_queue.is_empty() and _job == null) and (tick - _last_place_tick >= REPLACE_TICKS or tick < _last_place_tick or now_s - _last_place_s > 1.5):
+	if (_queue.is_empty() and _job == null) and (tick < _last_place_tick or now_s - _last_place_s >= (REPLACE_SPAWN_S if spawn else REPLACE_PLAY_S)):
 		_last_place_tick = tick
 		_last_place_s = now_s
 		_refresh_queue()
