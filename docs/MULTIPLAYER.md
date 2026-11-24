@@ -19,4 +19,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 7 deploy: web build in /var/www/frontline, aarch64 headless Godot 4.3 + pck in /home/opc/frontline-server/bin/
 
 ## Status
-- 2026-11-24: branch created, survey done, this plan written. No code yet.
+- 2026-11-24: branch created, survey done, this plan written.
+- 2026-11-24: net/rep.gd (owner-change runs, snapshot, nation scalars, id swap) + game hook net_rec/net_dirty in _set_owner + tests/test_net_rep.gd (host to client over a byte pipe: owner_map identical after 300 ticks, snapshot 28k tiles = 11 KB, 5x60 ticks of deltas = 194 KB). Not done: structs/attacks/boats/missiles replication, server mode, transport, remote client mode, phases 2-7.

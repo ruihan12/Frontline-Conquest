@@ -55,6 +55,8 @@ const NAVY := Color(0.07, 0.09, 0.16, 0.94)
 const ORANGE := Color(0.95, 0.52, 0.12)
 
 var owner_map := PackedInt32Array()
+var net_rec := false  # multiplayer host: record owner changes in net_dirty (net/rep.gd)
+var net_dirty := PackedInt32Array()
 var base_col := PackedColorArray()
 var boats := []
 var boat_uid := 0

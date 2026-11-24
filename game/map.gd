@@ -851,6 +851,7 @@ func _set_owner(i: int, o: int) -> void:
 		if old > 0: nations[old].pop -= tp
 		if o > 0: nations[o].pop += tp
 	om[i] = o
+	if net_rec: net_dirty.append(i)
 	if old > 0 and o > 0: nations[old]["last_by"] = o
 	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]
