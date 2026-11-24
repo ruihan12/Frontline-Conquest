@@ -374,6 +374,7 @@ func show_over(win: bool, eliminated: bool, leader: int, earned: int) -> void:
 ## UIRoot._maybe_next_match: a new player's first match (a solo one) ended: NEXT MATCH, once,
 ## NextMatch.DELAY_S after the results.
 func _maybe_next_match() -> void:
+	return  # owner request 2026-11-24: no NEXT MATCH panel over the results (the menu preview still opens it)
 	if _next_shown or int(ctx.setting("matches", 0)) != 1 or ctx.mode() != UICtx.MODE_SOLO:
 		return
 	_next_shown = true
