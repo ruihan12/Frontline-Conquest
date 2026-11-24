@@ -936,8 +936,9 @@ func radial_items(tile: int) -> Array:
 			var pl2 := placement(k2, tile)
 			var ok2: bool = av2.ok and pl2.ok
 			var it2 := {"id": "nuke:" + k2, "label": SHORT[k2], "icon": k2, "ok": ok2, "reason": str(av2.reason) if not av2.ok else str(pl2.reason), "danger": true, "cost": av2.cost}
-			# atom bombs stack (x2 against a SAM): a bulk launch
-			if ok2 and k2 == "atom":
+			# bombs stack (x2 against a SAM): a bulk launch (custom, owner request: for every bomb, not only the atom bomb;
+			# the strikes, the Air Strike and the Slug, stay single)
+			if ok2 and k2 in ["atom", "hydrogen", "mirv", "mega", "scatter"]:
 				var ring2 := bulk_ring("nuke", k2)
 				if not ring2.is_empty():
 					it2["sub"] = ring2

@@ -8,6 +8,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Tab console (password 5516, FPS counter, match-only)
 - Game speed slider 0.5x–10x
 - ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
+- Bulk launch ring (x1, x2, x5, most affordable) for every bomb (atom, hydrogen, MIRV, Mega, Scattershot; upstream: atom only), client/ui/ui_rules.gd (owner request 2026-11-24).
 - Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).
 - Range borders: armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
 - Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
