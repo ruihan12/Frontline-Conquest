@@ -312,6 +312,9 @@ func apply_layout() -> void:
 	var word_px := clampf(minf(vp.x * 0.078, vp.y * 0.15), 44.0, 132.0)
 	_size_word(word_px)
 	var w_cap := vp.x * WORD_MAX_W
+	if not compact:
+		# stay clear of the Arsenal + Crates cluster in the top-right corner
+		w_cap = minf(w_cap, 2.0 * (vp.x * 0.5 - _cluster_w() - 24.0))
 	var w_now := _word.get_combined_minimum_size().x
 	if w_now > w_cap:
 		word_px = maxf(44.0, word_px * w_cap / w_now)
@@ -402,6 +405,14 @@ func apply_layout() -> void:
 
 ## Top right, level with the head. (Upstream's _place_crate_button: the crate takes this corner and
 ## the Arsenal sits left of it; with no crate the Arsenal takes the corner.)
+## Width the Arsenal + Crates cluster takes from the right edge (desktop).
+func _cluster_w() -> float:
+	var a := _arsenal_btn
+	a.set_scale_k(1.0)
+	_crates_btn.set_scale_k(1.0)
+	return ctx.insets.z + 28.0 + _crates_btn.size_px().x + 6.0 + a.size_px().x + a.overhang()
+
+
 func _place_arsenal_button(compact: bool, head_top: float) -> void:
 	var vp := ctx.vp
 	var ins := ctx.insets
@@ -410,7 +421,7 @@ func _place_arsenal_button(compact: bool, head_top: float) -> void:
 	var asz := a.size_px()
 	var right := vp.x - maxf(14.0, ins.z * 0.45) if compact else vp.x - ins.z - 28.0
 	var top := maxf(6.0, ins.y * 0.5) if compact else head_top
-	var gap := 10.0 if compact else 22.0
+	var gap := 10.0 if compact else 6.0
 	var csz := Vector2.ZERO
 	if _crates_btn != null:
 		_crates_btn.set_scale_k(CrateButton.PHONE_K if compact else 1.0)

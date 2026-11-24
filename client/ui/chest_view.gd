@@ -135,10 +135,19 @@ func tick(dt: float) -> void:
 	if w < dur:
 		var k := 1.0 - w / dur
 		_rig.rotation_degrees.z = sin(w * 32.0) * 5.0 * k
-		_lid.rotation_degrees.x = -sin(w / dur * PI) * 14.0
+		_lid.rotation_degrees.x = sin(w / dur * PI) * 14.0
 	else:
 		_rig.rotation_degrees.z = 0.0
 		_lid.rotation_degrees.x = 0.0
+
+
+## The opening show's pose: shake 0..1 (the rattle before it opens), lid 0..1 (0 closed, 1 wide open).
+func pose(shake: float, lid: float, t: float) -> void:
+	_rig.position.y = 0.0
+	_rig.rotation_degrees.z = sin(t * 55.0) * 7.0 * shake
+	_rig.rotation_degrees.x = sin(t * 43.0 + 1.0) * 3.0 * shake
+	_rig.scale = Vector3.ONE * (1.0 + 0.04 * shake)
+	_lid.rotation_degrees.x = lid * 118.0
 
 
 func _process(dt: float) -> void:

@@ -10,13 +10,26 @@ func _initialize() -> void:
 	m.shots_dir = out
 	if m.client.title != null: m.client.title.finish_show()
 	for _f in 60: await process_frame
+	m._shot("a_title.png")
 	m.save.stars = 20000
 	m.client.crates.open()
 	for _f in 40: await process_frame
 	m._shot("e_locker.png")
-	for i in 3: m.client.ctx.session.open_crate()
-	m.client.crates._refresh()
-	for _f in 40: await process_frame
-	m._shot("f_locker_after.png")
+	m.save.stars = 400000
+	var cr = m.client.crates
+	cr._start_open(1)
+	for tt in [1.0, 1.7, 3.2]:
+		cr._rt = tt
+		for _f in 4: await process_frame
+		cr._rt = tt
+		m._shot("g_open_%d.png" % int(tt * 10))
+	cr._end_show()
+	cr._start_open(10)
+	cr._rt = 3.6
+	for _f in 6: await process_frame
+	m._shot("h_open10.png")
+	cr._end_show()
+	for _f in 20: await process_frame
+	m._shot("i_after.png")
 	print("CRATES_SHOT done")
 	quit(0)

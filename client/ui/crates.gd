@@ -26,6 +26,17 @@ var _count: Label
 var _body: HBoxContainer
 var _tab := 0
 var _chest: ChestView
+var _rev: Control
+var _rt := 0.0
+var _rids: Array = []
+var _rchest: ChestView
+var _rglow: TextureRect
+var _rrays: TextureRect
+var _rflash: ColorRect
+var _rbox: Control
+var _rcards: Array = []
+var _rdone := false
+var _rcol := Color.WHITE
 var _note := ""
 var _flash_id := ""
 
@@ -212,41 +223,17 @@ func _crate_card(s, owned: Dictionary) -> Control:
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.clip_contents = false
 	v.add_child(art)
-	var won = CosmeticsRules.item(_flash_id) if _flash_id != "" else null
-	_chest = null
-	if won != null:
-		# the reveal: the item in its rarity's colour
-		var rc := _rarity_col(won)
-		var pic := TextureRect.new()
-		pic.texture = _skin_tex(won) if won.kind == "skin" else _flag_tex(won)
-		pic.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if won.kind == "skin" else CanvasItem.TEXTURE_FILTER_LINEAR
-		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		pic.size = Vector2(CRATE_W - 32.0, 110)
-		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art.add_child(pic)
-		var nl := UITheme.label("NEW!  " + str(won.name), 15, 800, rc)
-		nl.position = Vector2(0, 118)
-		nl.size = Vector2(CRATE_W - 32.0, 20)
-		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		art.add_child(nl)
-		var rl := UITheme.label(str(CosmeticsRules.rarity(str(won.rarity)).name).to_upper(), 11, 700, rc)
-		rl.position = Vector2(0, 136)
-		rl.size = Vector2(CRATE_W - 32.0, 14)
-		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		art.add_child(rl)
-	else:
-		var glow := TextureRect.new()
-		glow.texture = load("res://assets/rw/crate/glow.svg")
-		glow.modulate = Color(GOLD, 0.5)
-		glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		glow.size = Vector2(190, 150)
-		glow.position = Vector2((CRATE_W - 32.0 - 190.0) * 0.5, 0)
-		glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		art.add_child(glow)
-		_chest = ChestView.new()
-		_chest.size = Vector2(CRATE_W - 32.0, 150)
-		art.add_child(_chest)
+	_chest = ChestView.new()
+	_chest.size = Vector2(CRATE_W - 32.0, 150)
+	var glow := TextureRect.new()
+	glow.texture = load("res://assets/rw/crate/glow.svg")
+	glow.modulate = Color(GOLD, 0.5)
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.size = Vector2(190, 150)
+	glow.position = Vector2((CRATE_W - 32.0 - 190.0) * 0.5, 0)
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art.add_child(glow)
+	art.add_child(_chest)
 	var t := UITheme.label("COSMETIC CRATE", 16, 800, UITheme.TEXT, 2)
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(t)
@@ -272,20 +259,19 @@ func _crate_card(s, owned: Dictionary) -> Control:
 			ob.add_child(row)
 		v.add_child(ob)
 		var stars := int(g.save.stars)
+		var left := total - owned.size()
+		var many := mini(mini(10, int(stars / CosmeticsRules.CRATE_COST)), left)
 		var openb := UITheme.button("%s" % UICtx.commas(CosmeticsRules.CRATE_COST), "PrimaryButton", "star", 48.0)
 		openb.custom_minimum_size = Vector2(CRATE_W - 32.0, 48)
 		openb.disabled = stars < CosmeticsRules.CRATE_COST
-		openb.pressed.connect(func() -> void:
-			if s.open_crate():
-				_flash_id = s.last_crate_item
-				var it = CosmeticsRules.item(_flash_id)
-				_tab = 1 if it.kind == "flag" else 0
-				ctx.sfx("unlock")
-				_note = ""
-			else:
-				_note = "Not enough Stars"
-			_refresh())
+		openb.pressed.connect(func() -> void: _start_open(1))
 		v.add_child(openb)
+		if left >= 2:
+			var tenb := UITheme.button("Open ×%d  ·  %s" % [maxi(many, 10) if many < 2 else many, UICtx.commas(CosmeticsRules.CRATE_COST * (many if many >= 2 else mini(10, left)))], "GhostButton", "", 38.0)
+			tenb.custom_minimum_size = Vector2(CRATE_W - 32.0, 38)
+			tenb.disabled = many < 2
+			tenb.pressed.connect(func() -> void: _start_open(many))
+			v.add_child(tenb)
 		_note_line(v, _note if _note != "" else "You have %s Stars  ·  Never a duplicate" % UICtx.commas(stars))
 	else:
 		_note_line(v, "You own every skin and flag.")
@@ -367,3 +353,202 @@ func _refresh() -> void:
 	var p := area.position + (area.size - sz) * 0.5
 	_panel.position = Vector2(floorf(p.x + 0.5), floorf(maxf(p.y, area.position.y + 4.0) + 0.5))
 	_panel.size = sz
+
+
+func _start_open(n: int) -> void:
+	var se = _session()
+	if se == null:
+		return
+	var ids: Array = se.open_crates(n)
+	if ids.is_empty():
+		_note = "Not enough Stars"
+		_refresh()
+		return
+	var best := 9
+	var rank := {"legendary": 0, "epic": 1, "rare": 2, "common": 3}
+	for id in ids:
+		var it = CosmeticsRules.item(id)
+		best = mini(best, int(rank.get(str(it.rarity), 3)))
+		_tab = 1 if it.kind == "flag" else 0
+	_rcol = _rarity_col(CosmeticsRules.item(ids[0]))
+	for id in ids:
+		var it2 = CosmeticsRules.item(id)
+		if int(rank.get(str(it2.rarity), 3)) == best:
+			_rcol = _rarity_col(it2)
+			break
+	_rids = ids
+	_note = ""
+	_build_show()
+	ctx.sfx("open")
+
+
+## The opening: the chest rattles, bursts open, then the item (or all of them) comes out.
+func _build_show() -> void:
+	if _rev != null:
+		_rev.queue_free()
+	_rt = 0.0
+	_rdone = false
+	_rev = Control.new()
+	_rev.name = "CrateShow"
+	_rev.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rev.mouse_filter = Control.MOUSE_FILTER_STOP
+	var dim := ColorRect.new()
+	dim.color = UITheme.rgba(0.0, 0.01, 0.03, 0.9)
+	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rev.add_child(dim)
+	var area := ctx.clear_rect()
+	var cx := area.position.x + area.size.x * 0.5
+	var cy := area.position.y + area.size.y * 0.5
+	_rbox = Control.new()
+	_rbox.position = Vector2(cx, cy)
+	_rbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rev.add_child(_rbox)
+	_rrays = TextureRect.new()
+	_rrays.texture = load("res://assets/rw/crate/rays.svg")
+	_rrays.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rrays.size = Vector2(900, 900)
+	_rrays.position = Vector2(-450, -450)
+	_rrays.pivot_offset = Vector2(450, 450)
+	_rrays.modulate = Color(_rcol, 0.0)
+	_rrays.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rbox.add_child(_rrays)
+	_rglow = TextureRect.new()
+	_rglow.texture = load("res://assets/rw/crate/glow.svg")
+	_rglow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_rglow.size = Vector2(520, 420)
+	_rglow.position = Vector2(-260, -210)
+	_rglow.modulate = Color(_rcol, 0.0)
+	_rglow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rbox.add_child(_rglow)
+	_rchest = ChestView.new()
+	_rchest.running = false
+	_rchest.size = Vector2(360, 330)
+	_rchest.position = Vector2(-180, -175)
+	_rchest.pivot_offset = Vector2(180, 175)
+	_rbox.add_child(_rchest)
+	_rflash = ColorRect.new()
+	_rflash.color = Color(1, 1, 1, 0.0)
+	_rflash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_rflash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_rev.add_child(_rflash)
+	_rev.gui_input.connect(func(e: InputEvent) -> void:
+		if e is InputEventMouseButton and e.pressed and e.button_index == MOUSE_BUTTON_LEFT:
+			if _rdone:
+				_end_show()
+			elif _rt > 0.4:
+				_rt = maxf(_rt, 2.6))  # skip ahead to the reveal
+	add_child(_rev)
+	_rcards.clear()
+	set_process(true)
+
+
+func _end_show() -> void:
+	if _rev != null:
+		_rev.queue_free()
+		_rev = null
+	_rchest = null
+	_rcards.clear()
+	_refresh()
+
+
+func _reveal_cards() -> void:
+	var n := _rids.size()
+	var area := ctx.clear_rect()
+	var per_row := 1 if n == 1 else (5 if n > 6 else 3)
+	var cw := 190.0 if n == 1 else 112.0
+	var chh := 230.0 if n == 1 else 138.0
+	var gap := 12.0
+	var rows := int(ceil(float(n) / per_row))
+	var total_h := rows * chh + (rows - 1) * gap
+	for i in n:
+		var it = CosmeticsRules.item(_rids[i])
+		var rc := _rarity_col(it)
+		var r := i / per_row
+		var cols_in_row := mini(per_row, n - r * per_row)
+		var c := i % per_row
+		var row_w := cols_in_row * cw + (cols_in_row - 1) * gap
+		var card := Control.new()
+		card.size = Vector2(cw, chh)
+		card.pivot_offset = card.size * 0.5
+		card.position = Vector2(c * (cw + gap) - row_w * 0.5, r * (chh + gap) - total_h * 0.5 - 20.0)
+		card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var bg := Panel.new()
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bg.add_theme_stylebox_override("panel", UITheme.flat(UITheme.c(rc, 0.16), 14, rc, 2))
+		card.add_child(bg)
+		var tr := TextureRect.new()
+		tr.texture = _skin_tex(it) if it.kind == "skin" else _flag_tex(it)
+		tr.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST if it.kind == "skin" else CanvasItem.TEXTURE_FILTER_LINEAR
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.position = Vector2(12, 12)
+		tr.size = Vector2(cw - 24.0, chh - (70.0 if n == 1 else 52.0))
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(tr)
+		var nm := UITheme.label(str(it.name), 18 if n == 1 else 12, 800, UITheme.TEXT)
+		nm.position = Vector2(6, chh - (54.0 if n == 1 else 38.0))
+		nm.size = Vector2(cw - 12.0, 22 if n == 1 else 16)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nm.clip_text = true
+		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(nm)
+		var rl := UITheme.label(str(CosmeticsRules.rarity(str(it.rarity)).name).to_upper(), 12 if n == 1 else 10, 700, rc)
+		rl.position = Vector2(6, chh - (28.0 if n == 1 else 20.0))
+		rl.size = Vector2(cw - 12.0, 16)
+		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		rl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(rl)
+		card.modulate.a = 0.0
+		card.scale = Vector2(0.4, 0.4)
+		_rbox.add_child(card)
+		_rcards.append(card)
+	var hint := UITheme.label("Click to continue", 12, 600, UITheme.TEXT_3)
+	hint.position = Vector2(-80, total_h * 0.5 + 10.0)
+	hint.size = Vector2(160, 16)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.name = "Hint"
+	hint.modulate.a = 0.0
+	_rbox.add_child(hint)
+
+
+func _process(dt: float) -> void:
+	if _rev == null:
+		return
+	_rt += dt
+	var t := _rt
+	var shake := clampf(t / 1.5, 0.0, 1.0)
+	var lid := 0.0
+	if t > 1.5:
+		shake = maxf(0.0, 1.0 - (t - 1.5) / 0.15)
+		var k := clampf((t - 1.5) / 0.45, 0.0, 1.0)
+		lid = 1.0 - pow(1.0 - k, 3.0)
+	if _rchest != null:
+		_rchest.pose(shake, lid, t)
+	_rglow.modulate.a = clampf(shake * 0.5 + lid * 0.5, 0.0, 1.0)
+	_rrays.modulate.a = lid * 0.4
+	_rrays.rotation_degrees += dt * 14.0
+	# the burst
+	if t > 1.5 and t < 2.1:
+		_rflash.color.a = (1.0 - (t - 1.5) / 0.6) * 0.55 if t > 1.55 else (t - 1.5) / 0.05 * 0.55
+	else:
+		_rflash.color.a = 0.0
+	if t >= 1.95 and _rcards.is_empty() and not _rids.is_empty():
+		_reveal_cards()
+		ctx.sfx("unlock")
+	if not _rcards.is_empty():
+		var n := _rcards.size()
+		for i in n:
+			var q := clampf((t - 1.95 - i * 0.09) / 0.35, 0.0, 1.0)
+			var e := 1.0 - pow(1.0 - q, 3.0)
+			var cd: Control = _rcards[i]
+			cd.modulate.a = e
+			cd.scale = Vector2.ONE * (0.4 + 0.6 * e + sin(q * PI) * 0.08)
+		if _rchest != null:
+			_rchest.modulate.a = clampf(1.0 - (t - 2.0) / 0.4, 0.0, 1.0)
+		var h = _rbox.get_node_or_null("Hint")
+		if h != null:
+			h.modulate.a = clampf((t - 1.95 - n * 0.09 - 0.5) / 0.4, 0.0, 1.0)
+		if t > 1.95 + n * 0.09 + 0.35:
+			_rdone = true

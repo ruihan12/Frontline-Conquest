@@ -187,6 +187,16 @@ func open_crate() -> bool:
 	return true
 
 
+## Open up to n crates in a row (stops when the Stars or the items run out). The item ids, in order.
+func open_crates(n: int) -> Array:
+	var out: Array = []
+	for _i in n:
+		if not open_crate():
+			break
+		out.append(last_crate_item)
+	return out
+
+
 ## Put an owned item on ("skin" or "flag"); "" takes it off. True when done.
 func equip(slot: String, id) -> bool:
 	var co: Dictionary = g.save.cosmetics
