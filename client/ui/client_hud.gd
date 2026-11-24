@@ -131,8 +131,6 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	help.closed.connect(_update_pause)
 	pause = PauseMenu.new(ctx)
 	root.add_child(pause)
-	# (this port keeps its own Settings window)
-	pause.port_settings = func() -> void: g._open_settings()
 	pause.closed.connect(_update_pause)
 	pause.help_requested.connect(toggle_help)
 	pause.leave_requested.connect(func() -> void:
@@ -406,6 +404,16 @@ func toggle_help() -> void:
 		help.open()
 		help.move_to_front()
 		tooltip.move_to_front()
+	_update_pause()
+
+
+## The settings page of the game menu (the gear on the top bar, the speed slider's gear; works on the title too).
+func open_settings_page() -> void:
+	if pause.is_open:
+		pause.show_settings()
+		return
+	pause.open(true, "settings")
+	pause.move_to_front()
 	_update_pause()
 
 

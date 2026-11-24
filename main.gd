@@ -622,7 +622,7 @@ func _qualshot() -> void:
 		3: _shot("22b_quality_medium.png"); save.settings["qual_i"] = 2; apply_settings()
 		4: _shot("22c_quality_high.png"); save.settings["qual_i"] = 3; apply_settings()
 		5: _shot("23_quality_ultra.png"); _open_settings()
-		6: _shot("24_settings_slider.png"); settings_dlg.visible = false
+		6: _shot("24_settings_slider.png"); if settings_dlg: settings_dlg.visible = false
 		7, 9, 11:
 			var hq := _q()
 			var n = nations[PLAYER]
@@ -980,7 +980,7 @@ func _autoshot(dt: float) -> void:
 			_open_settings()
 		25:
 			_shot("20_settings_graphics.png")
-			settings_dlg.visible = false
+			if settings_dlg: settings_dlg.visible = false
 			console_unlocked = false
 			toggle_console()
 			console_pass_in.text = "5516"

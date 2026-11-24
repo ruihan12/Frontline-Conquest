@@ -1022,41 +1022,17 @@ func _line_aa() -> bool:
 func apply_settings(recolor_map := true) -> void:
 	_qual_c = -1
 	var cfg: Dictionary = save.get("settings", {})
-	var res_i := clampi(int(cfg.get("res_i", 3)), 0, RES_LIST.size() - 1)
-	var win_i := clampi(int(cfg.get("win_i", 0)), 0, 2)
-	var fps_i := clampi(int(cfg.get("fps_i", 3)), 0, FPS_LIST.size() - 1)
 	var qual_i := clampi(int(cfg.get("qual_i", 3)), 0, 3)
 	var msaa_i := clampi(int(cfg.get("msaa_i", 2)), 0, 3)
-	var vs: bool = bool(cfg.get("vsync", false))
 	var on_web := OS.has_feature("web")
-	# On the web the browser already drives frames via rAF (vsync-tied). A 180 cap fights that and hitchs.
-	Engine.max_fps = 0 if on_web else FPS_LIST[fps_i]
+	Engine.max_fps = 0  # no frame cap
 	if get_viewport():
 		if str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "")) != "gl_compatibility": get_viewport().msaa_2d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_4X, Viewport.MSAA_8X][msaa_i] as Viewport.MSAA
 	_map_material().set_shader_parameter("quality", qual_i)
 	if not autoshot and not bench and DisplayServer.get_name() != "headless" and not on_web:
-		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vs else DisplayServer.VSYNC_DISABLED)
-		# Only resize or switch OS Window Mode when NOT running inside Godot 4.4's embedded editor Game tab!
-		if not _is_embedded_window():
-			if win_i == 0:
-				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
-				DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
-				var target_sz: Vector2i = RES_LIST[res_i]
-				var scr := DisplayServer.window_get_current_screen()
-				var srect := DisplayServer.screen_get_usable_rect(scr)
-				if srect.size.x > 0 and srect.size.y > 0:
-					var fit_w := mini(target_sz.x, srect.size.x)
-					var fit_h := mini(target_sz.y, srect.size.y)
-					DisplayServer.window_set_size(Vector2i(fit_w, fit_h))
-					DisplayServer.window_set_position(srect.position + (srect.size - Vector2i(fit_w, fit_h)) / 2)
-				else:
-					DisplayServer.window_set_size(target_sz)
-			elif win_i == 1:
-				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
-			else:
-				DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
+		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)  # lowest input lag
 	if menu_settings_sub:
-		menu_settings_sub.text = "%dp · %d FPS · %s" % [RES_LIST[res_i].y, FPS_LIST[fps_i], QUAL_NAMES[qual_i]]
+		menu_settings_sub.text = "Uncapped FPS · %s" % QUAL_NAMES[qual_i]
 	if recolor_map and owner_map.size() == W * H:
 		_recompute_base_colors()
 	if overlay:

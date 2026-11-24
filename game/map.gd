@@ -10,7 +10,7 @@ func _ready() -> void:
 		if x.begins_with("--pace="): _pace = {"init": true}
 	rng.randomize()
 	if autoshot or bench: save_path = "user://save_test.json"
-	Engine.max_fps = 0 if OS.has_feature("web") else 180
+	Engine.max_fps = 0  # uncapped
 	load_save()
 	RenderingServer.set_default_clear_color(Color(0.20, 0.42, 0.62))
 	if autoshot: Engine.time_scale = 4.0

@@ -49,163 +49,13 @@ func _draw_gear(c: Control, o: Vector2, r: float, col: Color) -> void:
 	c.draw_circle(o, r * 0.36, Color(0.07, 0.09, 0.16))
 
 func _open_settings() -> void:
-	_refresh_settings()
-	_pop_in(settings_dlg)
+	# The settings are upstream's own page of the game menu (client/ui/pause_menu.gd); this port has no window of its own.
+	if client != null:
+		client.open_settings_page()
 
 func _build_settings() -> void:
-	settings_dlg = Control.new(); settings_dlg.set_anchors_preset(Control.PRESET_FULL_RECT); settings_dlg.visible = false
-	ui.add_child(settings_dlg)
-	var sh := ColorRect.new(); sh.color = Color(0.01, 0.02, 0.05, 0.65); sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	settings_dlg.add_child(sh)
-	var p := _P(settings_dlg, Rect2(260, 14, 1080, 872), Color(0.07, 0.085, 0.15, 0.98), 8)
-	_draw_ctl(p, Rect2(32, 24, 34, 34), func(cc: Control): _draw_gear(cc, Vector2(17, 17), 13.0, CYAN))
-	_head(p, "SETTINGS & GRAPHICS", Vector2(78, 18), 28, TEXT)
-	_T(p, "Configure display resolution (up to 1440p), 180 FPS cap, anti-aliasing, and visual quality.", Vector2(78, 54), 14, MUTED)
-	var x := _card_btn(p, Rect2(1012, 20, 42, 42)); _close_x(x)
-	x.pressed.connect(func(): _fade_out(settings_dlg))
-	# Row 1: Display Resolution (up to 2560 x 1440 / 1440p)
-	_head(p, "DISPLAY RESOLUTION  (MAX 1440P)", Vector2(36, 102), 12, GOLD_C)
-	settings_btns["res"] = []
-	for k in RES_NAMES.size():
-		var b := _card_btn(p, Rect2(36 + k * 254, 126, 242, 54))
-		_T(b, RES_NAMES[k], Vector2(0, 16), 14, TEXT, f_bold, 242, HORIZONTAL_ALIGNMENT_CENTER)
-		var kk: int = k
-		b.pressed.connect(func():
-			save.settings["res_i"] = kk
-			write_save(); apply_settings(); _refresh_settings())
-		settings_btns["res"].append(b)
-	# Row 2: Window Mode
-	_head(p, "WINDOW MODE", Vector2(36, 198), 12, CYAN)
-	var wmodes := ["Windowed", "Borderless Fullscreen", "Exclusive Fullscreen"]
-	settings_btns["win"] = []
-	for k in wmodes.size():
-		var b := _card_btn(p, Rect2(36 + k * 340, 222, 324, 50))
-		_T(b, wmodes[k], Vector2(0, 14), 15, TEXT, f_bold, 324, HORIZONTAL_ALIGNMENT_CENTER)
-		var kk: int = k
-		b.pressed.connect(func():
-			save.settings["win_i"] = kk
-			write_save(); apply_settings(); _refresh_settings())
-		settings_btns["win"].append(b)
-	# Row 3: Max Frame Rate Cap (up to 180 FPS)
-	_head(p, "MAX FRAME RATE CAP  (DEFAULT 180 FPS)", Vector2(36, 290), 12, GOLD_C)
-	settings_btns["fps"] = []
-	for k in FPS_LIST.size():
-		var b := _card_btn(p, Rect2(36 + k * 254, 314, 242, 50))
-		_T(b, "%d FPS%s" % [FPS_LIST[k], " (MAX)" if k == 3 else ""], Vector2(0, 14), 15, TEXT, f_bold, 242, HORIZONTAL_ALIGNMENT_CENTER)
-		var kk: int = k
-		b.pressed.connect(func():
-			save.settings["fps_i"] = kk
-			write_save(); apply_settings(); _refresh_settings())
-		settings_btns["fps"].append(b)
-	# Row 4: Graphics & Trail Animation Quality
-	_head(p, "GRAPHICS & MISSILE TRAIL QUALITY", Vector2(36, 382), 12, CYAN)
-	var qdescs := ["LOW · flat pixels", "MEDIUM · smooth", "HIGH · relief + waves", "ULTRA · full detail + glow"]
-	var sl := HSlider.new()
-	sl.min_value = 0; sl.max_value = 3; sl.step = 1; sl.tick_count = 4; sl.ticks_on_borders = true
-	sl.position = Vector2(48, 410); sl.size = Vector2(980, 24)
-	sl.value = clampi(int(save.get("settings", {}).get("qual_i", 3)), 0, 3)
-	p.add_child(sl)
-	settings_btns["qual"] = []
-	for k in QUAL_NAMES.size():
-		settings_btns["qual"].append(_T(p, qdescs[k], Vector2(36 + k * 254, 438), 13, TEXT, f_bold, 242, HORIZONTAL_ALIGNMENT_CENTER))
-	settings_btns["qual_slider"] = sl
-	sl.value_changed.connect(func(v: float):
-		if int(v) == int(save.settings.get("qual_i", 3)): return
-		save.settings["qual_i"] = int(v)
-		write_save(); apply_settings(); _refresh_settings())
-	# Row 5: Anti-Aliasing (2D MSAA)
-	_head(p, "ANTI-ALIASING  (2D MSAA & SMOOTH VECTORS)", Vector2(36, 478), 12, GOLD_C)
-	settings_btns["msaa"] = []
-	for k in MSAA_NAMES.size():
-		var b := _card_btn(p, Rect2(36 + k * 254, 502, 242, 50))
-		_T(b, MSAA_NAMES[k], Vector2(0, 14), 15, TEXT, f_bold, 242, HORIZONTAL_ALIGNMENT_CENTER)
-		var kk: int = k
-		b.pressed.connect(func():
-			save.settings["msaa_i"] = kk
-			write_save(); apply_settings(); _refresh_settings())
-		settings_btns["msaa"].append(b)
-	# Row 6: V-Sync & Screen Shake Intensity
-	_head(p, "V-SYNC & BLAST SCREEN SHAKE", Vector2(36, 570), 12, CYAN)
-	var vs_b := _card_btn(p, Rect2(36, 594, 324, 50))
-	settings_btns["vsync_lbl"] = _T(vs_b, "V-Sync: OFF (Uncapped 180 FPS)", Vector2(0, 14), 14, TEXT, f_bold, 324, HORIZONTAL_ALIGNMENT_CENTER)
-	vs_b.pressed.connect(func():
-		save.settings["vsync"] = not bool(save.settings.get("vsync", false))
-		write_save(); apply_settings(); _refresh_settings())
-	settings_btns["vsync"] = vs_b
-	var sh_names := ["Shake: Off", "Shake: Light (Default)", "Shake: Strong"]
-	settings_btns["shake"] = []
-	for k in 3:
-		var b := _card_btn(p, Rect2(380 + k * 224, 594, 212, 50))
-		_T(b, sh_names[k], Vector2(0, 14), 14, TEXT, f_bold, 212, HORIZONTAL_ALIGNMENT_CENTER)
-		var kk: int = k
-		b.pressed.connect(func():
-			save.settings["shake_i"] = kk
-			write_save(); _refresh_settings()
-			if kk > 0: _add_shake(3.2 if kk == 1 else 5.5))
-		settings_btns["shake"].append(b)
-	# Row 7: Audio volumes (Master / Music / SFX), saved in save.settings
-	_head(p, "AUDIO VOLUME", Vector2(36, 662), 12, GOLD_C)
-	var mus_b := _btn("MUSIC: ON" if bool(save.settings.get("music_on", true)) else "MUSIC: OFF", bool(save.settings.get("music_on", true)))
-	mus_b.position = Vector2(924, 654); mus_b.size = Vector2(120, 26); mus_b.add_theme_font_size_override("font_size", 12)
-	p.add_child(mus_b)
-	_pill(mus_b, bool(save.settings.get("music_on", true)), 13)
-	mus_b.pressed.connect(func():
-		var on := not bool(save.settings.get("music_on", true))
-		save.settings["music_on"] = on
-		mus_b.text = "MUSIC: ON" if on else "MUSIC: OFF"; _pill(mus_b, on, 13)
-		_apply_volumes()
-		if on: _play_music()
-		else: _stop_music()
-		write_save())
-	var vkeys := [["vol_master", "Master", 0.8], ["vol_music", "Music", 0.5], ["vol_sfx", "SFX", 0.8]]
-	for k in vkeys.size():
-		var vk: String = vkeys[k][0]
-		var vx := 36 + k * 340
-		var vl := _T(p, "", Vector2(vx, 686), 14, TEXT, f_bold, 324)
-		var vs_sl := HSlider.new()
-		vs_sl.min_value = 0; vs_sl.max_value = 100; vs_sl.step = 1
-		vs_sl.position = Vector2(vx, 712); vs_sl.size = Vector2(316, 24)
-		vs_sl.value = roundi(float(save.settings.get(vk, vkeys[k][2])) * 100.0)
-		p.add_child(vs_sl)
-		var vname: String = vkeys[k][1]
-		vl.text = "%s: %d%%" % [vname, int(vs_sl.value)]
-		settings_btns["vol_" + str(k)] = vs_sl
-		vs_sl.value_changed.connect(func(v: float):
-			save.settings[vk] = v / 100.0
-			vl.text = "%s: %d%%" % [vname, int(v)]
-			_apply_volumes())
-		vs_sl.drag_ended.connect(func(_c: bool): write_save())
-	var status_bar := _P(p, Rect2(36, 754, 1008, 30), Color(0.04, 0.06, 0.11, 0.95), 4, Color(0.35, 0.80, 1.0, 0.35), 1, false)
-	settings_status_lbl = _T(status_bar, "", Vector2(12, 5), 13, CYAN, f_bold, 984)
-	var done_b := _big_btn(p, Rect2(764, 798, 280, 52), "APPLY & CLOSE", ORANGE_Y, 18)
-	done_b.pressed.connect(func(): write_save(); apply_settings(); _fade_out(settings_dlg))
+	pass
 
-func _refresh_settings() -> void:
-	if settings_dlg == null or settings_btns.is_empty(): return
-	var cfg: Dictionary = save.get("settings", {})
-	var res_i := clampi(int(cfg.get("res_i", 3)), 0, 3)
-	var win_i := clampi(int(cfg.get("win_i", 0)), 0, 2)
-	var fps_i := clampi(int(cfg.get("fps_i", 3)), 0, 3)
-	var qual_i := clampi(int(cfg.get("qual_i", 3)), 0, 3)
-	var msaa_i := clampi(int(cfg.get("msaa_i", 2)), 0, 3)
-	var shake_i := clampi(int(cfg.get("shake_i", 1)), 0, 2)
-	var vs := bool(cfg.get("vsync", false))
-	for k in 4:
-		_card_style(settings_btns["res"][k], k == res_i)
-		_card_style(settings_btns["fps"][k], k == fps_i)
-		(settings_btns["qual"][k] as Label).modulate = Color(0.45, 1.0, 1.0) if k == qual_i else Color(0.6, 0.6, 0.6)
-		_card_style(settings_btns["msaa"][k], k == msaa_i)
-	for k in 3:
-		_card_style(settings_btns["win"][k], k == win_i)
-		_card_style(settings_btns["shake"][k], k == shake_i)
-	_card_style(settings_btns["vsync"], vs)
-	if settings_btns.has("qual_slider"): (settings_btns["qual_slider"] as HSlider).set_value_no_signal(qual_i)
-	settings_btns["vsync_lbl"].text = "V-Sync: ON" if vs else "V-Sync: OFF (180 FPS Ready)"
-	if settings_status_lbl:
-		var fps_now := int(Engine.get_frames_per_second())
-		if fps_now <= 0: fps_now = FPS_LIST[fps_i]
-		var emb_note := "  ·  [Embedded Editor Pane: internal scaling active]" if _is_embedded_window() else ""
-		settings_status_lbl.text = "ACTIVE: %s  ·  Cap: %d FPS (Live: %d FPS)  ·  Quality: %s  ·  AA: %s%s" % [RES_NAMES[res_i], FPS_LIST[fps_i], fps_now, QUAL_NAMES[qual_i], MSAA_NAMES[msaa_i], emb_note]
 
 func _input(e: InputEvent) -> void:
 	_try_unlock_web_audio(e)
@@ -347,14 +197,12 @@ func _update_console_fps(dt: float) -> void:
 		if _fps_hitch_t >= 1.0:
 			_fps_hitch_ms = lerpf(_fps_hitch_ms, _fps_ema_ms, 0.35)
 			_fps_hitch_t = 0.0
-	if settings_dlg != null and settings_dlg.visible:
-		_refresh_settings()
 	if console_panel == null or not console_panel.visible or console_fps_lbl == null:
 		return
 	var fps_now := int(Engine.get_frames_per_second())
 	if fps_now <= 0: fps_now = int(round(1000.0 / maxf(0.5, _fps_ema_ms)))
 	var cap_now := Engine.max_fps
-	var cap_s := "rAF" if (OS.has_feature("web") and cap_now <= 0) else str(cap_now if cap_now > 0 else 180)
+	var cap_s := "rAF" if (OS.has_feature("web") and cap_now <= 0) else str(cap_now if cap_now > 0 else "inf")
 	var avg_ms := 1000.0 / maxf(1.0, float(fps_now))
 	var res_i := clampi(int(save.get("settings", {}).get("res_i", 3)), 0, RES_LIST.size() - 1)
 	var r_v: Vector2i = RES_LIST[res_i]
