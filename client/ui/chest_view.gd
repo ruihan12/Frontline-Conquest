@@ -1,9 +1,8 @@
 # The cosmetic crate's 3D chest (port of src/client/UI/ChestView.luau + shared/Assets/CrateModel): a
 # blocky wooden chest in a transparent SubViewport, seen from the same camera (fov 28, yaw 24 deg).
-# Upstream's meshes are Roblox uploads this port does not have, so the parts are boxes with generated
-# pixel-art planks: planked body, a red-brown rim, a tall lid with vertical planks, dark straps at the
-# corners and a grey latch. idle(t, every) is the small views' life: a bob, and every `every` seconds a
-# wiggle with the lid cracking.
+# The chest is the studio's own voxel chest: two meshes and a texture fetched from Roblox (assets
+# 8562367045 lid, 8562367050 body, 8562367073 texture) and converted to assets/rw/crate/chest_*.obj/png.
+# idle(t, every) is the small views' life: a bob, and every `every` seconds a wiggle with the lid cracking.
 class_name ChestView
 extends SubViewportContainer
 
@@ -101,29 +100,28 @@ func _init() -> void:
 	_build()
 
 
+## The real parts (the studio's BedWars voxel chest, shared/Assets/CrateModel.luau): two meshes, one
+## texture, each part scaled 1.7012 about its centre; the lid hinges at the back top of the body.
 func _build() -> void:
-	var wood := Color8(160, 108, 70)
-	var body_m := _mat(_planks(true, wood, 4))
-	var lid_m := _mat(_planks(false, wood.lightened(0.06), 5))
-	var rim_m := _mat(null, Color8(138, 70, 56))
-	var strap_m := _mat(null, Color8(70, 44, 32))
-	var latch_m := _mat(null, Color8(112, 134, 150), 0.5, 0.3)
-	# body (bottom 2.33) and rim ledge
-	_box(_rig, Vector3(4.67, 2.33, 4.67), Vector3(0, 1.17, 0), body_m)
-	_box(_rig, Vector3(5.0, 0.3, 5.0), Vector3(0, 2.4, 0), rim_m)
-	# corner straps on the body (front corners and back)
-	for sx in [-1, 1]:
-		_box(_rig, Vector3(0.55, 2.4, 4.9), Vector3(sx * 2.0, 1.2, 0), strap_m)
-	# the lid (hinged at the back top of the body)
+	var tex: Texture2D = load("res://assets/rw/crate/chest_tex.png")
+	var m := _mat(tex, Color.WHITE, 0.85)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	var bottom := MeshInstance3D.new()
+	bottom.mesh = load("res://assets/rw/crate/chest_bottom.obj")
+	bottom.material_override = m
+	bottom.scale = Vector3.ONE * 1.7012
+	bottom.position = Vector3(0, 1.1667, 0)
+	_rig.add_child(bottom)
+	# the lid: its pivot is the hinge, the part sits where it would at rest (relative to it)
 	_lid = Node3D.new()
-	_lid.position = Vector3(0, 2.55, 2.5)
+	_lid.position = Vector3(0, 1.6667, 2.5)
 	_rig.add_child(_lid)
-	_box(_lid, Vector3(4.8, 2.4, 5.0), Vector3(0, 1.2, -2.5), lid_m)
-	for sx in [-1, 1]:
-		_box(_lid, Vector3(0.45, 2.45, 5.1), Vector3(sx * 1.9, 1.2, -2.5), strap_m)
-	# the latch on the front seam
-	_box(_rig, Vector3(0.9, 1.1, 0.35), Vector3(0, 2.5, -2.6), latch_m)
-	_box(_rig, Vector3(0.35, 0.35, 0.2), Vector3(0, 2.25, -2.82), _mat(null, Color8(40, 48, 58)))
+	var lid := MeshInstance3D.new()
+	lid.mesh = load("res://assets/rw/crate/chest_lid.obj")
+	lid.material_override = m
+	lid.scale = Vector3.ONE * 1.7012
+	lid.position = Vector3(0, 3.1666 - 1.6667, -2.5)
+	_lid.add_child(lid)
 
 
 ## Bob and a wiggle every `every` s with the lid cracking (the small views' life).
