@@ -1067,13 +1067,14 @@ func _draw_overlay_inner() -> void:
 			var rr := {3: sim_rules.defense_range, 4: sim_rules.sam_range(1), 10: sim_rules.artillery_range(), 14: (0.0 if strike_only else sim_rules.airfield_range())}.get(build_sel, 0.0) as float  # (14: the Airfield's reach, shown before it is built)
 			if build_sel in NUKES: rr = sim_rules.nuke_radii(SimRules.NUKE_KIND_OF[build_sel]).y if build_sel == 9 else float(NUKE_R[build_sel])  # (MapView.set_aim: the kind's outer radius; MIRV its spread)
 			var strike_aim := _is_strike_click(build_sel, mt, PLAYER)
+			_feed_ranges(mt, strike_aim)
 			if strike_aim: rr = sim_rules.strike_radius(SimRules.N_AIRSTRIKE if build_sel == 14 else SimRules.N_SLUG)
 			if build_sel == 14 and ranges == null:
 				for st in structs:
 					if st.o == PLAYER and st.k == 14 and st.get("bt", 0.0) <= 0.0:
 						var spa := _screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)
 						overlay.draw_arc(spa, sim_rules.airfield_range() * TS * z, 0, TAU, 96, Color(0.4, 0.8, 1.0, 0.7), 1.6, true)
-			if rr > 0 and not (ranges != null and build_sel in [3, 4, 10] and not strike_aim):  # (RangeLayer draws the build ring)
+			if rr > 0 and not (ranges != null and build_sel in [3, 4, 10, 14] and not strike_aim):  # (RangeLayer draws the build ring)
 				var cc := Color(1, 0.3, 0.25) if (build_sel in NUKES or strike_aim) else Color(0.3, 0.6, 1)
 				overlay.draw_circle(mp, rr * TS * z, Color(cc, 0.12))
 				overlay.draw_arc(mp, rr * TS * z, 0, TAU, 64, Color(cc, 0.85), 2.0)
@@ -1101,6 +1102,8 @@ func _draw_overlay_inner() -> void:
 					unit_layer.sprite(overlay, UnitLayer.COL_WARSHIP, Color(gc, 0.7), mp, unit_layer.sprite_px(), true)
 				elif not (struct_layer != null and struct_layer.draw_ghost(overlay, build_sel, mp, ok)):
 					_map_icon(mp, build_sel, Color(0.3, 0.9, 0.4) if ok else Color(0.95, 0.3, 0.3), 0.8)
+	elif _rl_fed:
+		_feed_ranges(-1, false)
 	# attack fronts: upstream FrontLayer.luau (plain stroked troop text on the local player's fronts)
 	# (attack-front troop labels: client/map/front_layer.gd)
 	# boats with curved routes
@@ -1276,6 +1279,37 @@ func _zoom_at(f: float, screen: Vector2) -> void:
 	var after := get_canvas_transform().affine_inverse() * screen
 	cam.position += before - after
 	_clamp_cam()
+
+var _rl_fed := false
+
+## The range rings of what is being placed or aimed (RangeLayer: the SAM / post / airfield / artillery / factory
+## ring before it is built, the warship's 130 tiles, the hostile SAMs covering a nuke's aim). The client feeds
+## the layer from its touch ghost; with a mouse nothing did, so no ring showed before placing.
+func _feed_ranges(mt: int, strike_aim: bool) -> void:
+	if ranges == null or (client != null and client.ctx.touch):
+		return
+	var kind := ""
+	var det := ""
+	if mt >= 0 and build_sel >= 0:
+		if build_sel in NUKES:
+			kind = "nuke"
+			det = {7: "atom", 8: "hydrogen", 9: "mirv", 11: "mega", 12: "scatter"}.get(build_sel, "")
+		elif strike_aim:
+			kind = "nuke"
+			det = "airstrike" if build_sel == 14 else "slug"
+		elif build_sel == 6:
+			kind = "warship"
+			det = "warship"
+		else:
+			det = {2: "factory", 3: "defense", 4: "sam", 10: "artillery", 14: "airfield"}.get(build_sel, "")
+			if det != "": kind = "build"
+	if kind == "":
+		if _rl_fed:
+			_rl_fed = false
+			ranges.set_aim("", -1)
+		return
+	_rl_fed = true
+	ranges.set_aim(kind, mt, det, 1)
 
 func _screen_of(world: Vector2) -> Vector2:
 	return get_canvas_transform() * world

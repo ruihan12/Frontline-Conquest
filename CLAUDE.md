@@ -10,7 +10,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
 - Bulk launch ring (x1, x2, x5, most affordable) for every bomb (atom, hydrogen, MIRV, Mega, Scattershot; upstream: atom only), client/ui/ui_rules.gd (owner request 2026-11-24).
 - Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).
-- Range borders: armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
+- Range borders (with a mouse too: main.gd _feed_ranges feeds RangeLayer the aim; before 2026-11-24 only the touch ghost did, so SAM, post, artillery, airfield, factory and warship rings never showed before placing): armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
 - Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
 - No custom settings window any more (removed 2026-11-24): the gear/Settings rows open upstream's own settings page (client/ui/pause_menu.gd). FPS is uncapped (Engine.max_fps = 0) and V-Sync is off on desktop; the web follows the browser.
 - Name tags: a new placement pass every 1 s of real time in a match and every 1 ms (as soon as the last pass is through) before the match, i.e. in the spawn phase (upstream: every 30 ticks); ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz (client/map/name_layer.gd; owner request 2026-11-24).
