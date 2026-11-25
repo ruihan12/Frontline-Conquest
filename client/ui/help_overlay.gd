@@ -34,7 +34,7 @@ const LEGAL := [
 	"Maps made with Natural Earth and NOAA ETOPO1 data (public domain). Country flags from Wikimedia Commons (public domain). Music by Rodrigo Flores.",
 	"Not affiliated with or endorsed by OpenFront or RoWorld.",
 ]
-const SOURCE_REPO := "ruihan12/roworldgodot"
+const SOURCE_REPO := "ruihan12/Frontline-Conquest"
 const SOURCE_TIP := {"title": "Source code", "body": "Source available on the github website under " + SOURCE_REPO}
 const SOURCE_TIP_S := 4.0
 
