@@ -177,6 +177,9 @@ func offer(id: String, target: Callable = Callable(), arg: String = "") -> void:
 	# (the tutorial's steps are the tips while it runs: UI/Tutorial)
 	if muted or not TIPS.has(id) or id == current:
 		return
+	# the Settings > Tutorial switch off: no coach tips at all (owner request 2026-11-25), the "keep 20% at home" one included
+	if bool(ctx.setting("tutorial_off", false)):
+		return
 	var tip: Dictionary = TIPS[id]
 	if not tip.get("again", false) and seen(id):
 		return
