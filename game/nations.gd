@@ -154,7 +154,7 @@ func _start_game() -> void:
 	nations.append({})  # 0 neutral placeholder
 	var pc := Color(0.15, 0.55, 1.0)
 	var phex := str(save.get("settings", {}).get("player_color", ""))
-	if phex != "" and not attract_on: pc = Color.html(phex)  # owner request 2026-11-24: colour picked in the solo menu
+	if phex != "" and not attract_building: pc = Color.html(phex)  # owner request 2026-11-24: colour picked in the solo menu
 	var hn: Array = net_hello.get("nations", [])
 	if net_remote and not hn.is_empty():
 		# remote viewer: the host's nations in this client's id order (we are nation 1); no local spawning

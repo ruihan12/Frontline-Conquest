@@ -161,6 +161,13 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	pause.music_volume_changed.connect(func(v: float, final: bool) -> void: ctx.set_music_volume(v, final))
 	pause.next_match_preview.connect(func() -> void: open_next_match("preview"))
 	pause.pops_toggled.connect(func(on: bool) -> void: ctx.set_pops(on))
+	# "Replay as new player": the tutorial and the match count start over, and the tutorial runs from the title
+	pause.new_player_requested.connect(func() -> void:
+		ctx.set_setting("tutorial", "")
+		ctx.set_setting("matches", 0)
+		ctx.set_setting("tutorial_off", false)
+		if g.state == "menu":
+			start_tutorial())
 	top.rank_provider = board.my_rank
 	top.tapped.connect(func() -> void:
 		if ctx.compact:
@@ -739,6 +746,10 @@ func _check_new_player(forced: bool = false) -> void:
 	if tutorial == null or tutorial.active:
 		return
 	if not forced:
+		# (owner request 2026-11-25) no automatic tutorial on first load: a new player lands on the title and starts
+		# it themselves (How to play, or "Replay as new player" in Settings); Settings can switch it off.
+		return
+	if not forced:
 		# (screenshot and test runs start their own matches)
 		var args := OS.get_cmdline_user_args()
 		for a in args:
@@ -767,6 +778,8 @@ func _tutorial_step() -> void:
 ## top (UI/Tutorial).
 func start_tutorial() -> void:
 	if g._loading or g.state != "menu":
+		return
+	if bool(ctx.setting("tutorial_off", false)) and not ("--tutorial" in OS.get_cmdline_user_args()):
 		return
 	ctx.set_setting("tutorial", "started")
 	coach.muted = true

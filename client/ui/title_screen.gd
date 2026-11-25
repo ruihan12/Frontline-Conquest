@@ -333,7 +333,8 @@ func apply_layout() -> void:
 		w_cap = minf(w_cap, 2.0 * (vp.x * 0.5 - _cluster_w() - 24.0))
 	var w_now := _word.get_combined_minimum_size().x
 	if w_now > w_cap:
-		word_px = maxf(44.0, word_px * w_cap / w_now)
+		# (a narrow phone in portrait shrinks the wordmark below 44 to fit instead of running off both edges)
+		word_px = maxf(22.0 if compact else 44.0, word_px * w_cap / w_now)
 		_size_word(word_px)
 	var col_x := vp.x * 0.5
 	var dx := col_x - vp.x * 0.5
@@ -346,6 +347,9 @@ func apply_layout() -> void:
 	var head_top := (56.0 if compact else maxf(vp.y * 0.07, 40.0)) + ctx.insets.y
 	if compact and (vp.x - w_now) * 0.5 < ctx.reserved_top_left.end.x + 8.0:
 		head_top = maxf(head_top, ctx.reserved_top_left.end.y + 2.0)
+	if compact and vp.x < vp.y:
+		# upright phone: the wordmark sits under the PARTY pill and the Arsenal / Crates corner, not behind them
+		head_top = maxf(head_top, ctx.reserved_top_left.end.y + 52.0 + ctx.insets.y)
 	var head := _head
 	head.anchor_left = 0.5
 	head.anchor_right = 0.5

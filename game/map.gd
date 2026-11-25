@@ -1,7 +1,48 @@
 extends "res://game/state.gd"
 # Map generation, rendering data, tiles and ownership
 
+## Phones and tablets: the window fills the whole screen (stretch aspect "expand") at a touch-friendly scale
+## instead of a letterboxed 16:9 strip. The UI lays itself out from the real viewport size (client_hud.gd layout()).
+const PHONE_SHORT_SIDE_MIN := 400.0
+const PHONE_SHORT_SIDE_MAX := 600.0
+# held upright the phone strip (numbers, attack bar, Build) needs about 540 logical px of width
+const PHONE_PORTRAIT_MIN := 540.0
+
+
+func _fit_viewport() -> void:
+	var w := get_window()
+	if w == null:
+		return
+	w.size_changed.connect(_fit_scale)
+	_fit_scale()
+
+
+## CSS px of the browser window's short side on a touch device, or 0 on anything else.
+func _touch_short_css() -> float:
+	if OS.has_feature("web"):
+		var v = JavaScriptBridge.eval("((navigator.maxTouchPoints||0)>0 && matchMedia('(pointer:coarse)').matches) ? Math.min(window.innerWidth, window.innerHeight) : 0", true)
+		return float(v) if v != null else 0.0
+	if OS.has_feature("mobile"):
+		return minf(DisplayServer.screen_get_size().x, DisplayServer.screen_get_size().y) / maxf(1.0, DisplayServer.screen_get_scale())
+	return 0.0
+
+
+func _fit_scale() -> void:
+	var w := get_window()
+	var px := Vector2(w.size)
+	if w == null or px.x < 10.0 or px.y < 10.0:
+		return
+	var css := _touch_short_css()
+	if css <= 0.0:
+		w.content_scale_factor = 1.0
+		return
+	var lo := PHONE_PORTRAIT_MIN if px.y > px.x else PHONE_SHORT_SIDE_MIN
+	var target := clampf(css, lo, PHONE_SHORT_SIDE_MAX)  # logical px on the short side
+	var base := minf(px.x / float(w.content_scale_size.x), px.y / float(w.content_scale_size.y))
+	w.content_scale_factor = (minf(px.x, px.y) / target) / base
+
 func _ready() -> void:
+	_fit_viewport()
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	autoshot = "--autoshot" in OS.get_cmdline_user_args()
 	_sfx_log = "--sfxlog" in OS.get_cmdline_user_args()
@@ -957,6 +998,10 @@ func _paint_budget_us() -> int:
 	var base := 2500 if OS.has_feature("web") else 3000
 	# the faster the game runs the more tiles change a second: paint more a frame (to 4x)
 	base = int(base * clampf(float(sim_speed), 1.0, 4.0))
+	# a slow device (phone) gets few frames a second: paint proportionally more a frame so the front's stale
+	# old-owner pixels do not pile up ("the dots are back", 2026-11-25); frames over 33 ms count as 33 ms
+	var fdt := clampf(float(get_process_delta_time()), 0.0167, 0.1)
+	base = int(base * clampf(fdt / 0.0167, 1.0, 3.0))
 	var n := _paint_pending_count()
 	if n > 60000: return base * 4
 	if n > 20000: return base * 3

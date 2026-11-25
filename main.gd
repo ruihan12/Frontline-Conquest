@@ -1573,7 +1573,9 @@ func _attract_begin() -> void:
 	_attract_wait = 0.0
 	attract_on = true
 	_attract_t = 0.0
+	attract_building = true
 	_start_game()  # (sets state "pick" and the pick UI: put the menu state back)
+	attract_building = false
 	state = "menu"
 	if pick_panel: pick_panel.visible = false
 	if menu_panel:

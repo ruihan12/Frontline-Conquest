@@ -565,6 +565,7 @@ var surface: MapSurface
 ## the player's nation fell and they chose to keep watching (UIRoot's spectate pill)
 var spectating := false
 var attract_on := false
+var attract_building := false  # true only while _attract_begin builds the demo world (the player's picked colour is not used then)
 
 # ---------------- UI ----------------
 const ORANGE_Y := Color(1.0, 0.72, 0.25)

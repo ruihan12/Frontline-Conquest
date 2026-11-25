@@ -119,7 +119,7 @@ func _run() -> void:
 	_check(panel._count.text == "7 / 8", "count")
 	_check(not panel._pill.visible and panel._panel.visible, "desktop: no pill, panel always shown")
 	_check(panel._panel.position.x == 16.0, "desktop: left edge (%s)" % panel._panel.position)
-	_check(absf(panel._panel.position.y + panel._panel.size.y * 0.5 - 450.0) < 2.0, "desktop: vertically centred")
+	_check(absf(panel._panel.position.y + panel._panel.size.y * 0.5 - host.size.y * 0.5) < 2.0, "desktop: vertically centred")
 	var kicks := 0
 	for col in panel._members.get_children():
 		for row in col.get_children():

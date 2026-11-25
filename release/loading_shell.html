@@ -74,6 +74,17 @@ body {
 	text-transform: uppercase;
 }
 
+#fc-pct {
+	font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	font-weight: 700;
+	font-size: clamp(14px, 2vw, 20px);
+	letter-spacing: 0.15em;
+	color: #f0b44a;
+	margin-top: 0.5rem;
+	font-variant-numeric: tabular-nums;
+	min-height: 1.4em;
+}
+
 #status-progress {
 	appearance: none;
 	-webkit-appearance: none;
@@ -126,6 +137,7 @@ body {
 			<img id="status-splash" src="$GODOT_SPLASH" alt="">
 			<div id="fc-title">Frontline Conquest</div>
 			<div id="fc-sub">Loading</div>
+			<div id="fc-pct">0%</div>
 			<progress id="status-progress"></progress>
 			<div id="status-notice"></div>
 		</div>
@@ -140,6 +152,7 @@ const engine = new Engine(GODOT_CONFIG);
 	const statusOverlay = document.getElementById('status');
 	const statusProgress = document.getElementById('status-progress');
 	const statusNotice = document.getElementById('status-notice');
+	const statusPct = document.getElementById('fc-pct');
 
 	let initializing = true;
 	let statusMode = '';
@@ -218,12 +231,15 @@ const engine = new Engine(GODOT_CONFIG);
 				if (current > 0 && total > 0) {
 					statusProgress.value = current;
 					statusProgress.max = total;
+					statusPct.textContent = Math.min(100, Math.floor(current / total * 100)) + '%';
 				} else {
 					statusProgress.removeAttribute('value');
 					statusProgress.removeAttribute('max');
+					statusPct.textContent = '';
 				}
 			},
 		}).then(() => {
+			statusPct.textContent = '100%';
 			// keep the cover up for a minimum time (about the average load) so it never flashes by
 			const MIN_COVER_MS = 3000;
 			const wait = Math.max(0, MIN_COVER_MS - performance.now());

@@ -234,6 +234,7 @@ var _labels: Switch
 var _music: VolumeRow
 var _pops: Switch
 var _confirm_sw: Switch
+var _tut_sw: Switch
 var _tips: Button
 var _new_player: Button
 var _next_preview: Button
@@ -339,6 +340,8 @@ func _init(c: UICtx) -> void:
 	_pops.pressed.connect(func() -> void: pops_toggled.emit(_pops.on))
 	_confirm_sw = Switch.new("Select before attacking", "target")
 	_confirm_sw.pressed.connect(func() -> void: ctx.set_setting(_confirm_key(), _confirm_sw.on))
+	_tut_sw = Switch.new("Tutorial", "help")  # (owner request 2026-11-25) off: the tutorial never starts or offers itself
+	_tut_sw.pressed.connect(func() -> void: ctx.set_setting("tutorial_off", not _tut_sw.on))
 	_tips = T.button("Show tips again", "GhostButton", "info", 44.0)
 	_tips.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	_tips.add_theme_font_size_override("font_size", 13)
@@ -450,6 +453,7 @@ func open(labels_on: bool, page: String = "menu") -> void:
 	_pops.snap(ctx.pops_enabled())
 	var cs = ctx.setting(_confirm_key(), ctx.touch_device or ctx.touch) if ctx.touch else ctx.setting(_confirm_key(), false)
 	_confirm_sw.snap(cs == true)
+	_tut_sw.snap(not bool(ctx.setting("tutorial_off", false)))
 	var mp := ctx.mode() == UICtx.MODE_MULTI
 	var on_title := not ctx.in_match()
 	_on_title = on_title
@@ -549,12 +553,12 @@ func _reflow(compact: bool) -> void:
 	if want == _layout_compact:
 		return
 	_layout_compact = want
-	for cc in [_resume, _help_btn, _settings_btn, _labels, _music, _pops, _confirm_sw, _tips, _new_player, _next_preview, _divider, _restart, _leave, _done]:
+	for cc in [_resume, _help_btn, _settings_btn, _labels, _music, _pops, _confirm_sw, _tut_sw, _tips, _new_player, _next_preview, _divider, _restart, _leave, _done]:
 		if cc.get_parent() != null:
 			cc.get_parent().remove_child(cc)
 	var h := 44.0 if compact else 46.0
 	_leave.custom_minimum_size = Vector2(0, 46.0 if compact else 56.0)
-	for b in [_help_btn, _settings_btn, _restart, _labels, _music, _pops, _confirm_sw]:
+	for b in [_help_btn, _settings_btn, _restart, _labels, _music, _pops, _confirm_sw, _tut_sw]:
 		b.custom_minimum_size = Vector2(0, h)
 	_resume.custom_minimum_size = Vector2(0, 46.0 if compact else 50.0)
 	# one column on desktop, two side by side on phones (short screens)
@@ -570,18 +574,18 @@ func _reflow(compact: bool) -> void:
 	_done.custom_minimum_size = Vector2(120, 38) if slim else Vector2(0, 46.0 if compact else 50.0)
 	_tips.custom_minimum_size = Vector2(0, 38.0 if slim else 44.0)
 	if slim:
-		for sw in [_labels, _music, _pops, _confirm_sw]:
+		for sw in [_labels, _music, _pops, _confirm_sw, _tut_sw]:
 			sw.custom_minimum_size = Vector2(0, 42.0)
 		_head_actions.add_child(_tips)
 		_head_actions.add_child(_done)
 		if _on_title:
 			a = [_music, _new_player]
-			b2 = [_pops, _next_preview]
+			b2 = [_pops, _tut_sw, _next_preview]
 		else:
 			a = [_music, _pops, _new_player]
-			b2 = [_labels, _confirm_sw]
+			b2 = [_labels, _confirm_sw, _tut_sw]
 	elif _page == "settings":
-		a = [_music, _pops, _labels, _confirm_sw, _tips, _new_player, _next_preview, _done]
+		a = [_music, _pops, _labels, _confirm_sw, _tut_sw, _tips, _new_player, _next_preview, _done]
 	elif compact:
 		a = [_resume, _help_btn, _new_player]
 		b2 = [_settings_btn, _restart, _leave]
@@ -610,6 +614,6 @@ func _center() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_PREDELETE:
-		for cc in [_resume, _help_btn, _settings_btn, _labels, _music, _pops, _confirm_sw, _tips, _new_player, _next_preview, _divider, _restart, _leave, _done]:
+		for cc in [_resume, _help_btn, _settings_btn, _labels, _music, _pops, _confirm_sw, _tut_sw, _tips, _new_player, _next_preview, _divider, _restart, _leave, _done]:
 			if is_instance_valid(cc) and cc.get_parent() == null:
 				cc.free()

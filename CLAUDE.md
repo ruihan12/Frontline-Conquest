@@ -1,7 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
 Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
-Last updated: 2026-11-25 (party menu).
+Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -19,6 +19,8 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Title-screen Multiplayer lobby preview with casual and ranked lobby screens, queue, account leaderboard, and ranked results.
 - No automatic NEXT MATCH panel over the results (owner request 2026-11-24; client_hud.gd _maybe_next_match returns early; the menu preview still opens it).
 - Player colour: 12 swatches in the pre-game (PLAY SOLO) menu, saved as save.settings.player_color, applied to your nation in game/nations.gd _start_game (owner request 2026-11-24; not used by the title attract sim).
+- Phones (owner request 2026-11-25): stretch aspect "expand" and Window.content_scale_factor keep the logical short side at 400-600 px (540 min upright) so the canvas fills the screen in portrait and landscape (game/map.gd _fit_scale); the title wordmark shrinks to fit a narrow portrait screen and sits under the PARTY pill; the web loading screen shows a percentage (release/loading_shell.html).
+- Tutorial (owner request 2026-11-25): never starts by itself on first load; a Tutorial switch in Settings (save.settings.tutorial_off) turns it off; "Replay as new player" resets it and starts it from the title.
 - Party menu (owner request 2026-11-25, upstream PartyPanel.luau; hybrid of hub and share code): PARTY pill + panel on phones, always-visible panel on desktop, invite list, JOIN/NO, kick, LEAVE (client/ui/party_panel.gd; rules ported from server/Party.luau in net/party.gd, max 8). Players connect from the title screen to the game server's party hub (own WebSocket, net/party_net_model.gd + party_net.gd; server net/party_service.gd, packets C_PARTY/S_PARTY/S_GO/S_NOTICE), invite each other from the list of connected players or join by a 6-character share code (the code is the consent). The leader picks the match (followers can't); the server sends S_GO and every member joins it with the party key, which keeps them on one team in team games (MPHost.team_groups). save.settings.party_on=false hides it; offline it shows "Can't reach the server". Local stand-in model: net/party_model.gd (tests).
 - Supply drops (game/economy.gd _supply_tick; only in matches started from the title, supply_on): a crate lands on neutral land every 2 min after 90 s (max 3, gone after 5 min); whoever's territory covers it first gets gold, troops or (player) a free crate item. Own rng stream; tests and parity never run it.
 
