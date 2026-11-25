@@ -56,3 +56,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - 2026-11-25: Bounded S_EVENT packets play viewer missile launch, blast and intercept effects and notify recipients of attacks and alliance requests.
 
 - 2026-11-25: WebSocket viewers can resume for 30 seconds after a mid-match disconnect using a private per-seat token. A successful resume rotates the token and sends a fresh snapshot.
+
+- 2026-11-25: The long-range input regression test rechecks its pointer after the deployment-camera hover frames and verifies the exact land intent. Simulation behavior is unchanged.

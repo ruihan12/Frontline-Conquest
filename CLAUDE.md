@@ -68,7 +68,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Host-authoritative replication over WebSocket (server) and ENet (player host): net/mp_host.gd, mp_client.gd, mp_node.gd, transport.gd, intents.gd, rep.gd, net_lobby_model.gd. Docs and status: docs/MULTIPLAYER.md. Deploy: server/deploy/.
 - Customs added: online matches have no Tab console and no speed changes (main.gd set_speed_x, shop.gd toggle_console); the Multiplayer lobby connects for real, with Host on this PC and Join address; `--server`, `--hostlocal`, `--connect=` command-line modes.
 - Tests: tests/test_net_match.gd, tests/test_net_rep.gd, tests/test_lobby_ui.gd; tests/fake_accounts.py is a stand-in for the account service's internal endpoints (manual real-socket checks).
-- tests/test_input_world.gd fails one check ("click on contiguous, 120 tiles out ... sends a land attack") on vanilla-merge and multiplayer alike (checked 2026-11-25), so it is not caused by the multiplayer work.
+- On multiplayer, tests/test_input_world.gd rechecks its target after the deployment camera moves during hover and verifies the exact 120-tile land attack order.
 - Team games (online only, 2026-11-25): upstream Teams rules, random team size, no bot players; see docs/MULTIPLAYER.md.
 - Known gaps: see the last Status entry in docs/MULTIPLAYER.md (attack list replication, interpolation, host events, VM deploy).
 

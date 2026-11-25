@@ -59,26 +59,28 @@ func _key(code: int) -> void:
 
 ## Centres the camera on `tile`, moves the pointer over it and returns its screen position.
 func _aim(tile: int) -> Vector2:
-	var pos := Vector2(-1, -1)
-	var vp: Vector2 = m.client.ctx.vp
-	# (match-start camera moves may still be running: re-centre until the tile sits on screen)
+	# The deployment tween drives Camera2D independently of MapCamera.halt().
+	# Wait through the hover frames before checking the point we will click.
 	for _try in 40:
 		m.mcam.halt()
 		m.mcam.set_scale_immediate(maxf(m.mcam.scale, 6.0))
 		m.mcam.look_at(tile % m.W + 0.5, tile / m.W + 0.5)
 		await _frames(1)
-		pos = m.client.ctx.tile_screen_pos(tile)
-		if pos.x >= 0.0 and m.client.ctx.tile_at(pos) == tile:
-			break
-	if pos.x < 0.0:
-		print("    (tile %d never came on screen)" % tile)
-	_mouse_to(pos)
-	await _frames(2)
-	return pos
+		var pos: Vector2 = m.client.ctx.tile_screen_pos(tile)
+		if pos.x < 0.0 or m.client.ctx.tile_at(pos) != tile:
+			continue
+		_mouse_to(pos)
+		await _frames(2)
+		if m.client.ctx.tile_at(pos) == tile:
+			return pos
+	_check(false, "pointer stayed on tile %d through the hover frames" % tile)
+	return Vector2(-1, -1)
 
 
 func _click(tile: int, idx := MOUSE_BUTTON_LEFT) -> Vector2:
 	var pos: Vector2 = await _aim(tile)
+	if pos.x < 0.0:
+		return pos
 	m.client.interact._last_click_tile = -1
 	m.client.ctx.rules.invalidate()
 	_button(pos, idx)
@@ -228,7 +230,11 @@ func _initialize() -> void:
 		c.ctx.rules.invalidate()
 		var pa: Dictionary = c.ctx.rules.primary(tile)
 		print("    (%s: primary %s ok=%s %s, troops %.0f)" % [pair[1], pa.type, pa.ok, pa.reason, m.nations[m.PLAYER].troops])
+		var sent: int = c.ctx.sent_log.size()
 		await _click(tile)
+		var orders: Array = c.ctx.sent_log.slice(sent)
+		_check(orders.size() == 1 and orders[0].intent.type == "attack" and orders[0].intent.tile == tile,
+			"clicked tile %d sends exactly one land intent" % tile)
 		_check(_player_attacks() > a0 or _committed() > c0 + 0.5, "click on %s unclaimed land sends a land attack (attacks %d -> %d, committed %.0f -> %.0f)" % [pair[1], a0, _player_attacks(), c0, _committed()])
 		_check(_player_boats() == b0 and _boat_toasts() == t0, "  ... and sends no boat (boats %d -> %d, boat toasts %d -> %d)" % [b0, _player_boats(), t0, _boat_toasts()])
 		m.nations[m.PLAYER].troops = maxf(m.nations[m.PLAYER].troops, 20000.0)
