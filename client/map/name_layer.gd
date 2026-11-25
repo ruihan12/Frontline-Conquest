@@ -74,6 +74,7 @@ var _redraw_t := 0.0
 var _easing := false
 var _last_cam := Vector3.ZERO
 var _last_hover := -2
+var _deploy_placement := false
 
 
 func _init(main, state: RWGameState) -> void:
@@ -87,6 +88,7 @@ func _init(main, state: RWGameState) -> void:
 
 
 func unbind() -> void:
+	_deploy_placement = false
 	_plates.clear()
 	_targets.clear()
 	_queue.clear()
@@ -356,15 +358,15 @@ func _refresh_queue() -> void:
 func _placement_step() -> void:
 	var tick := int(st.tick)
 	var spawn: bool = st.phase == Defs.PHASE_SPAWN
-	# (port) also when the phase changes (spawn names give way to placed ones at once) and every 3 s
-	# of real time, for a game that is paused or stepped by hand
 	var now_s := Time.get_ticks_msec() / 1000.0
 	var ph := int(st.phase)
+	if _queue.is_empty() and _job == null:
+		_deploy_placement = false
 	if ph != _last_phase:
-		# the spawn phase ended (or began): every name is placed again at once, so no 8-tile spawn
-		# name is left waiting for its turn in the queue (cheap then: every owner holds its spawn disc)
+		# Rebuild placement when entering or leaving the spawn phase.
 		var was_spawn := _last_phase == Defs.PHASE_SPAWN
 		_last_phase = ph
+		_deploy_placement = false
 		if not spawn and not was_spawn:
 			_queue.clear()
 			_job = null
@@ -374,26 +376,33 @@ func _placement_step() -> void:
 		_last_place_s = now_s
 		_job = null
 		_queue.clear()
-		for id0 in range(1, g.nations.size()):
-			if _live(id0):
-				var t0p = _place_spawn(id0) if spawn else _place(id0)
-				if t0p != null:
-					_targets[id0] = t0p
-		return
-	# (port) a new pass only once the last one is through (a pass of a few hundred flood fills goes
-	# over many frames here; upstream starts one every REPLACE_PLAY_S), and every 3 s of real time for a
-	# game that is paused or stepped by hand
+		if not spawn:
+			_deploy_placement = true
+			# Keep the spawn targets visible while the normal placement jobs replace them.
+			# pop_back preserves ascending owner order for this first pass.
+			for id in range(g.nations.size() - 1, 0, -1):
+				if _live(id):
+					_queue.append(id)
+		else:
+			for id in range(1, g.nations.size()):
+				if _live(id):
+					var target = _place_spawn(id)
+					if target != null:
+						_targets[id] = target
+			return
+	# Start another pass after the current one finishes and the refresh interval elapses.
 	if (_queue.is_empty() and _job == null) and (tick < _last_place_tick or now_s - _last_place_s >= (REPLACE_SPAWN_S if spawn else REPLACE_PLAY_S)):
 		_last_place_tick = tick
 		_last_place_s = now_s
 		_refresh_queue()
 	var t0 := Time.get_ticks_usec()
-	# new owners at once
-	for id in range(1, g.nations.size()):
-		if _live(id) and not _targets.has(id):
-			var t = _place_spawn(id) if spawn else _place(id)
-			if t != null:
-				_targets[id] = t
+	# The deployment pass already includes the new owners.
+	if not _deploy_placement:
+		for id in range(1, g.nations.size()):
+			if _live(id) and not _targets.has(id):
+				var t = _place_spawn(id) if spawn else _place(id)
+				if t != null:
+					_targets[id] = t
 	# the rest a little every frame, a flood fill going over several frames when it must (upstream: a
 	# cooperative job with a time budget, Coop.check every FILL_CHECK tiles)
 	var budget := int(BUDGET_S * 1e6)
@@ -478,7 +487,9 @@ func _draw_body() -> void:
 	var now := FrameClock.now()
 	var vp := get_viewport_rect().size
 	var cull_px := maxf(CULL_MIN_PX, CULL_VW * vp.x)
-	var scale_px: float = g.cam.zoom.x * g.TS  # screen px per tile
+	var tile_size: float = g.TS
+	var world_to_screen: Transform2D = g.get_canvas_transform()
+	var scale_px: float = g.cam.zoom.x * tile_size  # screen px per tile
 	var seen := {}
 	_easing = false
 	for id: int in _targets:
@@ -514,7 +525,7 @@ func _draw_body() -> void:
 		if id == int(g.PLAYER):
 			line_px = minf(line_px, maxf(OWN_MAX_MIN_PX, vp.y * OWN_MAX_VH))
 		var hovered := id == hover_owner
-		var sp: Vector2 = g._screen_of(Vector2(wx, wy) * g.TS)
+		var sp: Vector2 = world_to_screen * (Vector2(wx, wy) * tile_size)
 		var m := line_px * 4.0
 		# A name shows when upstream would show it, or when it fits inside its own territory on screen
 		# (so a territory big enough to hold its name always has it, without every tiny tribe cluttering the map).
