@@ -61,6 +61,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Account API service and schema for sessions, Minecraft linking, recovery, progress and ranked Elo.
 - Minecraft link and recovery commands with the local account API and per-player cooldowns.
 - Casual and ranked lobby preview, queue and results driven by a replaceable model with a local mock.
+- Deterministic ranked queue matching and an isolated headless simulation host benchmark.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
