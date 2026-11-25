@@ -191,6 +191,7 @@ func kind_of(id: int) -> int:
 	if id < _kind_cache.size(): return _kind_cache[id]
 	if id == PLAYER: return SimRules.KIND_HUMAN
 	if id > 0 and id < nations.size() and nations[id].get("bot", false): return SimRules.KIND_HUMAN
+	if id > 0 and id < nations.size() and nations[id].get("human", false): return SimRules.KIND_HUMAN  # a remote person (multiplayer host)
 	if id > 0 and id < nations.size() and nations[id].get("prot", false): return SimRules.KIND_NATION
 	return SimRules.KIND_TRIBE
 

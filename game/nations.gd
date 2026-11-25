@@ -155,10 +155,21 @@ func _start_game() -> void:
 	var pc := Color(0.15, 0.55, 1.0)
 	var phex := str(save.get("settings", {}).get("player_color", ""))
 	if phex != "" and not attract_on: pc = Color.html(phex)  # owner request 2026-11-24: colour picked in the solo menu
-	_new_nation("You", pc, false)
-	_rw_spawn_all()
-	shield_until.clear()
-	if bot_players > 0: add_bot_players(bot_players)
+	var hn: Array = net_hello.get("nations", [])
+	if net_remote and not hn.is_empty():
+		# remote viewer: the host's nations in this client's id order (we are nation 1); no local spawning
+		for e in hn:
+			var nid := _new_nation(str(e[0]), Color.html(str(e[1])), bool(e[2]))
+			if bool(e[3]): nations[nid]["bot"] = true
+			if bool(e[4]): nations[nid]["human"] = true
+			if bool(e[5]): nations[nid]["prot"] = true
+			nations[nid].alive = bool(e[6])
+		shield_until.clear()
+	else:
+		_new_nation("You", pc, false)
+		_rw_spawn_all()
+		shield_until.clear()
+		if bot_players > 0: add_bot_players(bot_players)
 	peace = sim_rules.human_grace_ticks(diff_i) / 10.0  # RoWorld human grace (300/180/120 s)
 	elapsed = 0.0
 	sim_atk = SimAttacks.new(self, sim_rules)
@@ -336,14 +347,15 @@ func _nudge_nation_colors() -> void:
 		else:
 			nations[id].color = SimColors.pick(SimColors.human_palette(), refs, rng)
 
-func _place_start(t: int) -> void:
-	if t < 0 or (owner_map[t] != NEUTRAL and owner_map[t] != PLAYER):
+func _place_start(t: int, o := PLAYER) -> void:
+	if t < 0 or (owner_map[t] != NEUTRAL and owner_map[t] != o):
 		return
-	_clear_nation(PLAYER)
-	_claim_disc(PLAYER, t, sim_rules.spawn_radius)
+	_clear_nation(o)
+	_claim_disc(o, t, sim_rules.spawn_radius)
 	# (upstream Sim._apply_intent spawn: _start_troops_of = START_TROOPS_HUMAN; the cap bounds it)
-	nations[PLAYER].troops = minf(start_troops_of(PLAYER), _spawn_cap(PLAYER, SimRules.KIND_HUMAN))
-	start_tile = t
+	nations[o].troops = minf(start_troops_of(o), _spawn_cap(o, SimRules.KIND_HUMAN))
+	if o == PLAYER: start_tile = t
+	nations[o]["start_tile"] = t
 	# Do NOT reset deploy_t when placing or switching starting location!
 
 

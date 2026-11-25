@@ -118,7 +118,7 @@ func _process_inner(dt: float) -> void:
 	if not _pace.is_empty() or OS.get_cmdline_user_args().has("--pacetest") : _pace_step(); return
 	boat_launched_frame = false
 	if state == "pick":
-		var picked: bool = start_tile >= 0 and nations[PLAYER].land > 0
+		var picked: bool = (start_tile >= 0 and nations[PLAYER].land > 0) or (net_host != null and net_host.any_placed())
 		if picked: deploy_t -= dt
 		if picked:
 			pick_title.text = "DEPLOYING IN %d" % ceili(maxf(deploy_t, 0.0))
@@ -149,7 +149,7 @@ func _process_inner(dt: float) -> void:
 	dt *= sim_speed
 	if sim_paused: dt = 0.0
 	var _at := _attract_active()
-	if state == "play" or _at:
+	if (state == "play" and not net_remote) or _at:
 		# RoWorld runs 10 ticks per second at 1x (SPEED_BASE only slows the visual unit motion)
 		var tdt := (0.0 if sim_paused else rdt) * sim_speed / SPEED_BASE
 		if _at: tdt *= _attract_boost()
@@ -203,6 +203,7 @@ func _process_inner(dt: float) -> void:
 			_trains_tick()
 			prof.eco += Time.get_ticks_usec() - a0
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
+			if net_host != null: net_host.on_tick()
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
 		_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
@@ -225,6 +226,8 @@ func _process_inner(dt: float) -> void:
 		var pl = nations[PLAYER]
 		if _at:
 			_attract_check()
+		elif net_host != null:
+			net_host.check_end()
 		elif dominates(PLAYER):
 			_game_over(true)
 		elif pl.land <= 0 and not spectating:

@@ -1085,6 +1085,7 @@ func _pt_ticks(n: int) -> void:
 		_requests_tick()
 		_tick_missiles(SimArsenal.DT_TICK)
 		_tick_boats(0.1)
+		if net_host != null: net_host.on_tick()
 
 func _pt_free_land_near(o: int, c: int, r: int) -> int:
 	var cx := c % W; var cy := c / W
