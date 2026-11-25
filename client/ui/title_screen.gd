@@ -17,6 +17,7 @@ signal show_help
 signal open_arsenal
 signal open_crates
 signal open_account
+signal open_multiplayer
 
 const NAME := "FRONTLINE CONQUEST"
 const TAG := "CONQUER THE WORLD"
@@ -274,6 +275,9 @@ func _build_dock() -> void:
 	_account_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_account_btn.pressed.connect(func() -> void: open_account.emit())
 	row.add_child(_account_btn)
+	var multiplayer := UITheme.button("Multiplayer", "GlassButton", "", 42)
+	multiplayer.pressed.connect(func() -> void: open_multiplayer.emit())
+	v.add_child(multiplayer)
 
 	# (these three live in the PLAY SOLO panel)
 	var mb := UITheme.button("", "GlassButton", "globe", 42.0)

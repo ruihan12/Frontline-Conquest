@@ -16,6 +16,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Name tags: a new placement pass every 1 s of real time in a match and every 1 ms (as soon as the last pass is through) before the match, i.e. in the spawn phase (upstream: every 30 ticks); ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz, 0.5 px visibility hysteresis (client/map/name_layer.gd; owner request 2026-11-24).
 - Cosmetic crates (3D chest client/ui/chest_view.gd, title button client/ui/crate_button.gd, top-right corner with Arsenal to its left like upstream; window client/ui/crates.gd, game/cosmetics.gd, game/cosmetics_data.gd generated from upstream Cosmetics.luau): 3000 Stars a crate, no duplicates, skins tile over the player's territory (client/map/map_surface.gd), flags are collected only (not drawn on name plates).
 - Title-screen accounts with guest identities, optional local progress upload, and Minecraft linking and password recovery (client/ui/account.gd, net/api.gd).
+- Title-screen Multiplayer lobby preview with casual and ranked lobby screens, queue, account leaderboard, and ranked results.
 - No automatic NEXT MATCH panel over the results (owner request 2026-11-24; client_hud.gd _maybe_next_match returns early; the menu preview still opens it).
 - Player colour: 12 swatches in the pre-game (PLAY SOLO) menu, saved as save.settings.player_color, applied to your nation in game/nations.gd _start_game (owner request 2026-11-24; not used by the title attract sim).
 - Supply drops (game/economy.gd _supply_tick; only in matches started from the title, supply_on): a crate lands on neutral land every 2 min after 90 s (max 3, gone after 5 min); whoever's territory covers it first gets gold, troops or (player) a free crate item. Own rng stream; tests and parity never run it.
@@ -55,6 +56,9 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - UI package B matches compact Locker sizing, keeps title actions in one row, and uses the upstream fallout colour-noise formula.
 - UI package C updates the Tab console layout and keyboard scrolling, matches the Arsenal unlock motion, and fixes large HUD suffixes and name-plate flicker near the visibility cutoff.
 - Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
+
+## Multiplayer support (2026-11-24)
+- Casual and ranked lobby preview, queue and results driven by a replaceable model with a local mock.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
