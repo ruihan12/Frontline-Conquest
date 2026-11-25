@@ -13,6 +13,7 @@ var my_name := "Player"
 var started := false
 var winner := -1
 var ranks := []
+var rejected := ""
 var last_event := {}
 
 
@@ -21,9 +22,9 @@ func _init(main, send_cb: Callable) -> void:
 	send = send_cb
 
 
-func join(pname: String) -> void:
+func join(pname: String, token := "") -> void:
 	my_name = pname
-	send.call(HostC._pack(HostC.C_JOIN, {"name": pname}))
+	send.call(HostC._pack(HostC.C_JOIN, {"name": pname, "token": token}))
 
 
 func send_intent(intent: Dictionary) -> void:
@@ -81,6 +82,8 @@ func on_message(pkt: PackedByteArray) -> void:
 		HostC.S_EVENT:
 			last_event = bytes_to_var(body)
 			g.notify(str(last_event.get("text", "")), str(last_event.get("kind", "info")))
+		HostC.S_REJECT:
+			rejected = str(bytes_to_var(body).get("reason", "refused"))
 		HostC.S_END:
 			var e: Dictionary = bytes_to_var(body)
 			winner = int(e.winner)

@@ -60,6 +60,7 @@ var net_dirty := PackedInt32Array()
 var net_host = null  # MPHost while this process runs a multiplayer match (server or player host)
 var net_client = null  # MPClient while this process is a remote viewer of someone else's match
 var net_remote := false  # remote viewer: the sim never ticks here, replicated state is written into the sim arrays
+var net_speed_cap := 1.0  # a hosted online match runs at most this fast (FRONTLINE_SPEED_CAP; ranked 1x-2x)
 var net_hello := {}  # the host's HELLO (map, nations) a remote viewer starts its round from
 var base_col := PackedColorArray()
 var boats := []

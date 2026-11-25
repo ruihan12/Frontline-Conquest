@@ -26,6 +26,7 @@ func _net_boot() -> void:
 	add_child(node)
 	node.netlog = opt.has("netlog")
 	node.autospawn = opt.has("autospawn")
+	node.token = str(opt.get("token", ""))
 	if opt.has("server"):
 		Engine.max_fps = 60  # a dedicated server needs no more than the tick rate
 		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
@@ -345,6 +346,8 @@ func set_speed(k: int) -> void:
 
 func set_speed_x(x: float) -> void:
 	x = clampf(snappedf(x, 0.5), 0.5, 10.0)
+	if net_host != null: x = minf(x, net_speed_cap)
+	elif net_remote: x = 1.0  # a viewer's clock is the host's
 	for sp in [1.0, 2.0, 5.0, 10.0]:  # snap points
 		if absf(x - sp) <= 0.26: x = sp
 	sim_speed = x * SPEED_BASE

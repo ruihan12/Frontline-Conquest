@@ -24,6 +24,7 @@ const S_LISTS := 5
 const S_STATE := 6
 const S_EVENT := 7
 const S_END := 8
+const S_REJECT := 10  # var {reason}: the join was refused (full, ranked match needs an account, bad session)
 const S_NATION_INFO := 9  # var [[id, name, #color, alive, human], ...] in the receiver's id space
 const C_JOIN := 1
 const C_INTENT := 2
@@ -42,6 +43,12 @@ var slots: Array = []  # nation ids reserved for people (1 = PLAYER), in join or
 var _sv_sent := -1
 var _ntick := 0
 var log_fn: Callable = Callable()
+var join_gate: Callable = Callable()  # (peer, dict) -> void; when set, it decides (maybe later) and calls join()/reject()
+var on_end: Callable = Callable()     # (result dict) once, when the match ends
+var ranked := false
+var started_ms := 0
+var died_tick := {}  # human nid -> tick it was eliminated
+var left_early := {}  # human nid -> true when the person left a running match
 
 
 func _init(main, send_cb: Callable) -> void:
@@ -84,7 +91,7 @@ func any_placed() -> bool:
 
 
 ## A person arrives. Returns their nation id or -1 (full / match over).
-func join(peer: int, pname: String) -> int:
+func join(peer: int, pname: String, account = 0) -> int:
 	if ended or peers.size() >= max_humans or peers.has(peer):
 		return -1
 	var nm := _clean_name(pname)
@@ -105,7 +112,7 @@ func join(peer: int, pname: String) -> int:
 	g.nations[nid]["human"] = true
 	g.nations[nid].ai = false
 	g._rebuild_kind_cache()
-	peers[peer] = {"nid": nid, "name": nm, "tokens": BURST, "t": Time.get_ticks_msec()}
+	peers[peer] = {"nid": nid, "name": nm, "account": account, "tokens": BURST, "t": Time.get_ticks_msec()}
 	_send_hello(peer)
 	_send_full(peer)
 	_broadcast_nation_info(peer)
@@ -123,8 +130,18 @@ func _broadcast_nation_info(new_peer: int) -> void:
 		send.call(peer, _pack(S_NATION_INFO, [[NetRepC.swap_id(nid, my), str(n.name), "#" + Color(n.color).to_html(false), bool(n.alive), true]]))
 
 
+func reject(peer: int, reason: String) -> void:
+	send.call(peer, _pack(S_REJECT, {"reason": reason}))
+
+
 func leave(peer: int) -> void:
-	peers.erase(peer)
+	if peers.has(peer):
+		if not ended:
+			if g.state == "play":
+				left_early[int(peers[peer].nid)] = true
+			if ranked:
+				departed.append(peers[peer])
+		peers.erase(peer)
 
 
 func _clean_name(n: String) -> String:
@@ -185,6 +202,10 @@ func on_tick() -> void:
 	g.net_dirty = PackedInt32Array()
 	if peers.is_empty():
 		return
+	for p in peers.values():
+		var pn: int = p.nid
+		if not died_tick.has(pn) and (not g.nations[pn].alive or (g.state == "play" and int(g.nations[pn].land) <= 0)):
+			died_tick[pn] = g.ticks_done
 	var sv_changed: bool = g._sv != _sv_sent
 	_sv_sent = g._sv
 	for peer in peers:
@@ -218,6 +239,8 @@ func check_end() -> void:
 		return
 	ended = true
 	g.state = "over"
+	if on_end.is_valid():
+		on_end.call(placements(winner))
 	for peer in peers:
 		var my: int = peers[peer].nid
 		var ranks := []
@@ -234,7 +257,10 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 	var d = bytes_to_var(pkt.slice(1))  # no objects (allow_objects defaults to false in bytes_to_var)
 	if t == C_JOIN:
 		if d is Dictionary and not peers.has(peer):
-			join(peer, str(d.get("name", "")))
+			if join_gate.is_valid():
+				join_gate.call(peer, d)
+			else:
+				join(peer, str(d.get("name", "")))
 		return
 	if t != C_INTENT or not peers.has(peer) or not (d is Dictionary):
 		return
@@ -298,3 +324,33 @@ func apply_intent(nid: int, d: Dictionary) -> bool:
 			return false
 	NetIntentsC.apply(g, nid, it)
 	return true
+
+
+## Final order of the people in this match: survivors by land (the winner first), then the eliminated, latest out first.
+## [{nid, name, account, placement, tile_share, survival_secs, left_early}]
+func placements(winner: int) -> Array:
+	var list := []
+	var total := maxf(1.0, float(g.land_total))
+	for peer in peers:
+		var p: Dictionary = peers[peer]
+		_add_placement(list, int(p.nid), str(p.name), p.get("account", 0), total)
+	for e in departed:
+		_add_placement(list, int(e.nid), str(e.name), e.get("account", 0), total)
+	list.sort_custom(func(a, b) -> bool:
+		if (a.nid == winner) != (b.nid == winner): return a.nid == winner
+		if a.alive != b.alive: return a.alive
+		if a.alive: return a.land > b.land
+		return a.died > b.died)
+	for i in list.size():
+		list[i].placement = i + 1
+	return list
+
+
+var departed: Array = []  # people who left (kept for the result)
+
+
+func _add_placement(list: Array, nid: int, pname: String, account, total: float) -> void:
+	var n: Dictionary = g.nations[nid]
+	list.append({"nid": nid, "name": pname, "account": account, "alive": bool(n.alive) and int(n.land) > 0, "land": int(n.land),
+		"died": int(died_tick.get(nid, g.ticks_done)), "tile_share": float(n.land) / total,
+		"survival_secs": int(float(died_tick.get(nid, g.ticks_done)) / 10.0), "left_early": left_early.has(nid), "placement": 0})
