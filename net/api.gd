@@ -24,6 +24,7 @@ func signed_in() -> bool:
 
 
 func clear_session() -> void:
+	settings().erase("admin_token")
 	settings().erase("session_token")
 	settings().erase("guest_session")
 	_persist.call()
@@ -36,6 +37,7 @@ func guest() -> Dictionary:
 			settings().guest_name = result.data.name
 		_store_token(result.data, true)
 		_persist.call()
+		refresh_admin()
 	return result
 
 
@@ -76,7 +78,21 @@ func logout() -> Dictionary:
 
 
 func me() -> Dictionary:
-	return await _request(HTTPClient.METHOD_GET, "/me", true)
+	var r := await _request(HTTPClient.METHOD_GET, "/me", true)
+	if r.get("ok", false):
+		refresh_admin()
+	return r
+
+
+## Asks the server for the owner-console token (403 for every other account); keeps or clears the saved one.
+func refresh_admin() -> void:
+	var r := await _request(HTTPClient.METHOD_GET, "/admin/token", true)
+	if r.get("ok", false):
+		settings()["admin_token"] = {"payload": str(r.data.get("payload", "")), "sig": str(r.data.get("sig", ""))}
+	elif int(r.get("status", 0)) in [401, 403]:
+		settings().erase("admin_token")
+	if _persist.is_valid():
+		_persist.call()
 
 
 func get_progress() -> Dictionary:

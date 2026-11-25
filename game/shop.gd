@@ -1,4 +1,5 @@
 extends "res://game/end_screen.gd"
+const AdminConsoleC = preload("res://net/admin_console.gd")
 # Shop and arsenal (stars menu)
 
 # The Arsenal window is client/ui/arsenal.gd (the port of UI/Arsenal.luau); `arsenal_dlg` is that
@@ -61,7 +62,10 @@ func _build_settings() -> void:
 func _input(e: InputEvent) -> void:
 	_try_unlock_web_audio(e)
 	if e is InputEventKey and e.pressed and not e.echo:
-		if e.keycode == KEY_TAB and (state == "play" or state == "pick"):
+		if e.keycode == KEY_ESCAPE:
+			_esc_msec = Time.get_ticks_msec()
+		if e.keycode == KEY_TAB and (state == "play" or state == "pick") and (Input.is_key_pressed(KEY_ESCAPE) or Time.get_ticks_msec() - _esc_msec < 1500):
+			# the console opens with Esc then Tab (owner request 2026-11-25)
 			toggle_console()
 			get_viewport().set_input_as_handled()
 		elif console_panel != null and console_panel.visible:
@@ -255,14 +259,18 @@ func _update_console_fps(dt: float) -> void:
 	var r_v: Vector2i = RES_LIST[res_i]
 	console_fps_lbl.text = "FPS %d / %s   ·   %.1f ms   ·   hitch %.0f ms   ·   %dp" % [fps_now, cap_s, avg_ms, _fps_hitch_ms, r_v.y]
 
+var _esc_msec := -100000
+
 func toggle_console() -> void:
 	if console_panel == null: return
-	# the dev console is off (owner request 2026-11-25); a local build can turn it back on with the --console user arg
-	if not ("--console" in OS.get_cmdline_user_args()): return
-	if net_host != null or net_remote: return  # no console in an online match (it would be a cheat menu)
+	# the dev console is for the owner only: a signed token from the account server (net/admin_console.gd), or the --console user arg locally
+	var admin := not AdminConsoleC.saved(save.get("settings", {})).is_empty()
+	var local_arg := "--console" in OS.get_cmdline_user_args()
+	if not admin and not (local_arg and net_host == null and not net_remote): return
 	if not console_panel.visible and state != "play" and state != "pick": return  # no console on the title / end screens
 	console_panel.visible = not console_panel.visible
 	if console_panel.visible:
+		if admin: console_unlocked = true  # no password: the signed account token is the key
 		_update_console_fps(0.0055)
 		console_lock_box.visible = not console_unlocked
 		console_body.visible = console_unlocked
@@ -366,6 +374,13 @@ func run_console_cmd(raw: String) -> void:
 	console_hist.append(cmd)
 	console_hist_i = console_hist.size()
 	_clog("[color=#59ccff]> %s[/color]" % cmd)
+	if net_remote and net_client != null:
+		# online: the server checks the signed token and runs a short list of commands on your nation
+		var tk := AdminConsoleC.saved(save.get("settings", {}))
+		if tk.is_empty():
+			_clog("Not allowed."); return
+		net_client.send_intent({"type": "console", "cmd": cmd.substr(0, 120), "payload": str(tk.payload), "sig": str(tk.sig), "tile": _mouse_tile()})
+		_clog("Sent to the server (gold, troops, god, claim, nation <name|id> gold|troops <n>)."); return
 	var low := cmd.to_lower()
 	var parts := cmd.split(" ", false)
 	var head := parts[0].to_lower() if parts.size() > 0 else ""

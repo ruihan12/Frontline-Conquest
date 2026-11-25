@@ -177,8 +177,14 @@ def team_elo_changes(players, ratings):
 
 
 class Service:
-    def __init__(self, store, internal_key, guest_secret, clock=time.time):
+    def __init__(self, store, internal_key, guest_secret, clock=time.time, admin_users=(), admin_key_pem=None):
         self.store = store
+        # Owner console: only these usernames get a signed, short-lived console token (see admin_token)
+        self.admin_users = {u.strip().lower() for u in admin_users if u.strip()}
+        self.admin_key = None
+        if admin_key_pem and self.admin_users:
+            from cryptography.hazmat.primitives import serialization
+            self.admin_key = serialization.load_pem_private_key(admin_key_pem, password=None)
         self.internal_key = internal_key.encode("utf-8")
         self.guest_secret = guest_secret.encode("utf-8")
         self.clock = clock
@@ -191,6 +197,7 @@ class Service:
             ("POST", "/login"): self.login,
             ("POST", "/logout"): self.logout,
             ("GET", "/me"): self.me,
+            ("GET", "/admin/token"): self.admin_token,
             ("GET", "/progress"): self.get_progress,
             ("PUT", "/progress"): self.put_progress,
             ("POST", "/mc/link-code"): self.link_code,
@@ -346,6 +353,20 @@ class Service:
             rating = db.one("SELECT elo,matches FROM ratings WHERE account_id=%s", aid)
             linked = db.one("SELECT account_id FROM mc_links WHERE account_id=%s", aid)
         return {**account, **rating, "mc_linked": linked is not None}
+
+    def admin_token(self, body, query, token, ip):
+        # RSA-SHA256 signature over "console|<username>|<expiry unix seconds>" for the owner's account only.
+        with self.store.transaction() as db:
+            account = self._account(db, token)
+        name = account["username"].lower()
+        if self.admin_key is None or name not in self.admin_users:
+            raise ApiError(403, "forbidden", "Not available.")
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+        import base64
+        payload = "console|%s|%d" % (name, int(self.clock()) + 7 * 86400)
+        sig = self.admin_key.sign(payload.encode("utf-8"), padding.PKCS1v15(), hashes.SHA256())
+        return {"payload": payload, "sig": base64.b64encode(sig).decode("ascii")}
 
     def get_progress(self, body, query, token, ip):
         with self.store.transaction() as db:

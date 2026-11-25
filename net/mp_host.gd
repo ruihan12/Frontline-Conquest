@@ -15,6 +15,7 @@ extends RefCounted
 
 const NetRepC = preload("res://net/rep.gd")
 const NetIntentsC = preload("res://net/intents.gd")
+const AdminConsoleC = preload("res://net/admin_console.gd")
 
 const S_HELLO := 1
 const S_SNAPSHOT := 2
@@ -475,7 +476,7 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 		return
 	if t != C_INTENT or not peers.has(peer) or peers[peer].has("disconnected_until") or not (d is Dictionary):
 		return
-	if pkt.size() > MAX_INTENT_BYTES:
+	if pkt.size() > (1024 if str(d.get("type", "")) == "console" else MAX_INTENT_BYTES):
 		return
 	var p: Dictionary = peers[peer]
 	var now := Time.get_ticks_msec()
@@ -484,7 +485,48 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 	if float(p.tokens) < 1.0:
 		return  # rate limited: dropped
 	p.tokens = float(p.tokens) - 1.0
+	if str(d.get("type", "")) == "console":
+		_admin_console(p, d)
+		return
 	apply_intent(int(p.nid), d)
+
+
+## The owner's console online: a signed token (net/admin_console.gd) for this very account, then a short list of
+## commands on the sender's own nation or a named nation. Nothing here evaluates expressions.
+func _admin_console(p: Dictionary, d: Dictionary) -> void:
+	var nid := int(p.nid)
+	if ended or int(p.get("account", 0)) <= 0 or nid <= 0 or nid >= g.nations.size() or g.state != "play":
+		return
+	var who := AdminConsoleC.check(str(d.get("payload", "")), str(d.get("sig", "")))
+	if who == "" or who != str(p.name).to_lower():
+		return
+	var words := str(d.get("cmd", "")).strip_edges().split(" ", false)
+	if words.is_empty():
+		return
+	var head := words[0].to_lower()
+	var n = g.nations[nid]
+	if head in ["gold", "troops"] and words.size() >= 2 and words[1].lstrip("+-").is_valid_float():
+		var v := clampf(float(words[1]), -1e15, 1e15)
+		n[head] = maxf(0.0, (float(n[head]) + v) if words[1].begins_with("+") else v)
+	elif head == "god":
+		n.gold = maxf(float(n.gold), 999e6)
+		n.troops = g.troop_cap(nid)
+	elif head == "claim":
+		var rad := int(words[1]) if words.size() >= 2 and words[1].is_valid_int() else 15
+		var t := int(d.get("tile", -1)) if d.get("tile") is int else -1
+		if t < 0 or t >= g.W * g.H:
+			return
+		g._claim_blob(nid, t, clampi(rad, 1, 120))
+	elif head == "nation" and words.size() >= 4 and words[2].to_lower() in ["gold", "troops"] and words[3].lstrip("+-").is_valid_float():
+		var q := words[1].to_lower()
+		var tid := int(q) if q.is_valid_int() else -1
+		if tid < 0:
+			for id in range(1, g.nations.size()):
+				if str(g.nations[id].name).to_lower().find(q) >= 0:
+					tid = id
+					break
+		if tid > 0 and tid < g.nations.size():
+			g.nations[tid][words[2].to_lower()] = clampf(float(words[3]), 0.0, 1e15)
 
 
 ## Validates and applies one intent from the person who owns nation `nid`. Returns true when it was applied.

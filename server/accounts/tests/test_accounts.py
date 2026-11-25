@@ -279,3 +279,19 @@ def test_match_history_contains_team(service):
     ]
     assert history[1]["ended_at"] == "2026-11-24T12:30:00Z"
     error(401, "invalid_session", call, service, "GET", "/history")
+
+
+def test_admin_token(service, clock):
+    from cryptography.hazmat.primitives import hashes, serialization
+    from cryptography.hazmat.primitives.asymmetric import padding, rsa
+    import base64
+    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = private.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
+    service.admin_users = {"owner_1"}
+    service.admin_key = serialization.load_pem_private_key(pem, password=None)
+    owner = signup(service, "Owner_1")["token"]
+    other = signup(service, "Player_2")["token"]
+    got = call(service, "GET", "/admin/token", token=owner)
+    private.public_key().verify(base64.b64decode(got["sig"]), got["payload"].encode(), padding.PKCS1v15(), hashes.SHA256())
+    assert got["payload"].startswith("console|owner_1|")
+    error(403, "forbidden", call, service, "GET", "/admin/token", token=other)

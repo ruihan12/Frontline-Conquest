@@ -115,7 +115,10 @@ def main():
     except Exception:
         raise SystemExit("Cannot open account database at schema version 5.") from None
     with Server(("127.0.0.1", 8071), Handler) as server:
-        server.service = Service(store, os.environ["INTERNAL_KEY"], os.environ["GUEST_SECRET"])
+        key_file = os.environ.get("ADMIN_KEY_FILE", "")
+        key_pem = open(key_file, "rb").read() if key_file else None
+        server.service = Service(store, os.environ["INTERNAL_KEY"], os.environ["GUEST_SECRET"],
+                                 admin_users=os.environ.get("ADMIN_USERS", "").split(","), admin_key_pem=key_pem)
         server.serve_forever()
 
 
