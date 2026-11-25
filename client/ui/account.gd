@@ -3,6 +3,8 @@ extends Control
 const API := preload("res://net/api.gd")
 const POLL_MS := 3000
 
+signal display_name_changed(display_name: String)
+
 var ctx: UICtx
 var g
 var api: API
@@ -129,6 +131,9 @@ func _home() -> void:
 		result = await api.guest()
 	_end_request()
 	_render("profile" if api.signed_in() else "guest")
+	var display_name := str(_profile.get("username", "")) if api.signed_in() else str(api.settings().get("guest_name", ""))
+	if not display_name.is_empty():
+		display_name_changed.emit(display_name)
 	if not result.is_empty() and not result.ok:
 		_notice.text = result.message
 

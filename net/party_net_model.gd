@@ -78,6 +78,14 @@ func poll(dt: float) -> void:
 		_send({"op": "hello", "name": my_name})
 
 
+func set_display_name(display_name: String) -> void:
+	if display_name.is_empty() or my_name == display_name:
+		return
+	my_name = display_name
+	if _hello_sent:
+		_send({"op": "rename", "name": my_name})
+
+
 func _send(d: Dictionary) -> void:
 	if _t != null and _t.is_up():
 		_t.send(1, HostC._pack(HostC.C_PARTY, d))

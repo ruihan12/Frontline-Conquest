@@ -48,3 +48,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - 2026-11-25: Schema version 5 stores a nullable team per match player; account match history shows that player’s team, placement and ranked Elo changes.
 
 - 2026-11-25: Team matches enforce upstream’s atom and hydrogen outer-radius protection for teammate buildings at both launch and host intent validation.
+
+- 2026-11-25: Party names refresh in the hub; parties with an active match peer are hidden from invites. The first join reserves all party seats for 15 seconds or refuses the party before taking a seat.

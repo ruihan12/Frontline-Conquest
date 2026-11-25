@@ -60,6 +60,11 @@ var teams_ready := false
 var team_config := ""        # Duos / Trios / Quads, picked at random when the teams are made
 var pending_party := {}     # peer -> party key named in its join (checked by party_valid)
 var party_valid := Callable()
+var party_size := Callable()
+var party_joined := Callable()
+var party_left := Callable()
+var _reservations := {}
+const PARTY_SEAT_SECONDS := 15_000
 var team_groups := {}        # peer -> party key (players who queued together stay on one team)
 var _team_wait := 0.0
 const TEAM_WAIT_SECS := 60.0
@@ -92,7 +97,12 @@ func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 	g.net_dirty = PackedInt32Array()
 	ended = false
 	_sv_sent = -1
+	if party_left.is_valid():
+		for peer: int in peers:
+			party_left.call(peer)
 	peers.clear()
+	_reservations.clear()
+	team_groups.clear()
 	died_tick.clear(); left_early.clear(); departed.clear()
 	started_ms = Time.get_ticks_msec()
 	# reserve a nation slot for every person that may join, so every viewer's nation list is complete from the start
@@ -115,10 +125,41 @@ func any_placed() -> bool:
 	return false
 
 
+func _reserved_seats(except_key := "") -> int:
+	var total := 0
+	var now := Time.get_ticks_msec()
+	for key in _reservations.keys():
+		var r: Dictionary = _reservations[key]
+		if now >= int(r.until) or int(r.remaining) <= 0:
+			_reservations.erase(key)
+		elif key != except_key:
+			total += int(r.remaining)
+	return total
+
+
+func _admit_party(key: String) -> bool:
+	var limit := mini(max_humans, team_expected) if team_game and team_expected > 0 else max_humans
+	if host_is_player:
+		limit -= 1
+	var available := limit - peers.size() - _reserved_seats(key)
+	if _reservations.has(key):
+		return available > 0
+	var size := int(party_size.call(key)) if not key.is_empty() and party_size.is_valid() else 1
+	if maxi(size, 1) > available:
+		return false
+	if size > 1:
+		_reservations[key] = {"remaining": size, "until": Time.get_ticks_msec() + PARTY_SEAT_SECONDS}
+	return true
+
+
 ## A person arrives. Returns their nation id or -1 (full / match over).
 func join(peer: int, pname: String, account = 0) -> int:
 	if ended or peers.size() >= max_humans or peers.has(peer) or (team_game and teams_ready):
 		return -1
+	var key := str(pending_party.get(peer, ""))
+	if not _admit_party(key):
+		reject(peer, "party_too_big" if not key.is_empty() else "match_full")
+		return -2
 	var nm := _clean_name(pname)
 	var taken := {}
 	for p in peers.values():
@@ -139,13 +180,17 @@ func join(peer: int, pname: String, account = 0) -> int:
 	g.nations[nid]["human"] = true
 	g.nations[nid].ai = false
 	g._rebuild_kind_cache()
-	if pending_party.has(peer):
-		team_groups[peer] = pending_party[peer]
+	if not key.is_empty():
+		team_groups[peer] = key
+		if _reservations.has(key):
+			_reservations[key].remaining -= 1
+		if party_joined.is_valid():
+			party_joined.call(peer, key)
 	peers[peer] = {"nid": nid, "name": nm, "account": account, "tokens": BURST, "t": Time.get_ticks_msec()}
 	_send_hello(peer)
 	_send_full(peer)
 	_broadcast_nation_info(peer)
-	if team_game and peers.size() + (1 if host_is_player else 0) >= team_expected:
+	if team_game and peers.size() + (1 if host_is_player else 0) >= team_expected and _reserved_seats() == 0:
 		make_teams()
 	return nid
 
@@ -168,6 +213,8 @@ func reject(peer: int, reason: String) -> void:
 func leave(peer: int) -> void:
 	pending_party.erase(peer)
 	team_groups.erase(peer)
+	if party_left.is_valid():
+		party_left.call(peer)
 	if peers.has(peer):
 		if not ended:
 			if g.state == "play" or (team_game and teams_ready):

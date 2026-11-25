@@ -80,6 +80,9 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		host.join_gate = func(peer: int, d: Dictionary) -> void: _join_match(peer, d, str(d.get("name", "")))
 	party_service = PartyServiceC.new(func(peer: int, t: int, payload) -> void: transport.send(peer, HostC._pack(t, payload)))
 	host.party_valid = party_service.key_alive
+	host.party_size = party_service.size_for_key
+	host.party_joined = party_service.match_joined
+	host.party_left = party_service.match_left
 	transport.peer_connected.connect(func(id: int) -> void: server_peers[id] = true)
 	transport.peer_disconnected.connect(func(id: int) -> void:
 		server_peers.erase(id)
@@ -253,9 +256,10 @@ func _join_match(peer: int, data: Dictionary, display_name: String, account := 0
 				return
 			host.team_game = mode == "teams"
 			host.start_match(_last_args[0], _last_args[1], _last_args[2])
-	if host.join(peer, display_name, account) != -1:
+	var nation: int = host.join(peer, display_name, account)
+	if nation >= 0:
 		_mode_locked = true
-	else:
+	elif nation == -1:
 		host.reject(peer, "match_full")
 
 

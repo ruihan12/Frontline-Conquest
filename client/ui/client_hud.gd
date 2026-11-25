@@ -98,7 +98,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	# The party hub: its own connection to the game server, opened from the title screen (save.settings.party_on).
 	var party_model = null
 	if bool(main.save.get("settings", {}).get("party_on", true)):
-		party_model = PartyNetModel.new(main, str(main.save.get("settings", {}).get("server_url", NetLobbyModel.DEFAULT_URL)), ctx.username())
+		party_model = PartyNetModel.new(main, str(main.save.get("settings", {}).get("server_url", NetLobbyModel.DEFAULT_URL)), str(main.save.settings.get("guest_name", ctx.username())))
 		title.party.bind(party_model)
 		title.party.notice.connect(func(t: String) -> void: main.notify(t, "bad"))
 		party_model.notice.connect(func(t: String) -> void: main.notify(t, "bad"))
@@ -268,6 +268,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(crates)
 	account = AccountWindow.new(ctx, main)
 	root.add_child(account)
+	if party_model != null:
+		account.display_name_changed.connect(party_model.set_display_name)
 	var net_lobby := NetLobbyModel.new(main)
 	if party_model != null:
 		net_lobby.bind_party(party_model)

@@ -66,12 +66,26 @@ func _run() -> void:
 	for p in a.online_players():
 		if p.name == "Bob":
 			bob_uid = p.uid
+	b.set_display_name("Bobby")
+	await _until(func() -> bool: return a.online_players().any(func(p): return p.name == "Bobby"), "renamed player appears")
 	a.act("invite", bob_uid)
 	await _until(func() -> bool: return b.state().invites.size() == 1, "Bob sees the invite")
 	b.act("accept", int(b.state().invites[0].uid))
 	await _until(func() -> bool: return a.in_party() and b.in_party(), "party of two")
 	_check(a.is_leader() and not b.is_leader(), "Ann leads")
 	_check(a.online_players().size() == 1, "Ann's list drops Bob")
+	var key: String = svc.party.key_of(int(a.local_id()))
+	var host := Host.new(null, Callable())
+	host.max_humans = 2
+	host.party_size = svc.size_for_key
+	host.peers[1] = {}
+	_check(not host._admit_party(key), "entire party is refused with one seat remaining")
+	host.peers.clear()
+	_check(host._admit_party(key) and not host._admit_party(""), "reserved party seats cannot be taken by solo joins")
+	svc.match_joined(12345, key)
+	await _until(func() -> bool: return c.online_players().is_empty(), "busy party hidden from invite list")
+	svc.match_left(12345)
+	await _until(func() -> bool: return c.online_players().size() == 2, "party can be invited again")
 	c.join_code(a.code())
 	await _until(func() -> bool: return a.state().members.size() == 3, "Cy joins by code")
 	c.join_code("ZZZZZZ")

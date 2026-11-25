@@ -19,6 +19,7 @@ var party: PartyCore
 var send: Callable           # (peer: int, type: int, payload) -> void
 var rng := RandomNumberGenerator.new()
 var peers := {}              # peer -> {name, code, tokens, t}
+var _match_parties := {}
 var _codes := {}             # code -> peer
 
 
@@ -46,6 +47,31 @@ func key_alive(key: String) -> bool:
 	return false
 
 
+func size_for_key(key: String) -> int:
+	if key.is_empty():
+		return 0
+	for peer: int in peers:
+		if party.key_of(peer) == key:
+			return party.members(peer).size()
+	return 0
+
+
+func match_joined(peer: int, key: String) -> void:
+	if not key.is_empty():
+		_match_parties[peer] = key
+		_push_all()
+
+
+func match_left(peer: int) -> void:
+	if _match_parties.erase(peer):
+		_push_all()
+
+
+func _busy(peer: int) -> bool:
+	var key := party.key_of(peer)
+	return not key.is_empty() and _match_parties.values().has(key)
+
+
 func on_message(peer: int, d: Variant) -> void:
 	if not (d is Dictionary):
 		return
@@ -63,12 +89,27 @@ func on_message(peer: int, d: Variant) -> void:
 		return
 	p.tokens = float(p.tokens) - 1.0
 	var uid := int(d.get("uid", 0)) if d.get("uid", 0) is int else 0
+	if op in ["invite", "accept", "join_code", "go"] and _busy(peer):
+		_notice(peer, "You are already in a match.")
+		return
 	match op:
+		"rename":
+			var display_name := _clean_name(str(d.get("name", "")))
+			if display_name != p.name:
+				p.name = display_name
+				party.names[peer] = display_name
+				_push_all()
 		"invite":
+			if _busy(uid):
+				_notice(peer, "That player is already in a match.")
+				return
 			var r := party.invite(peer, uid)
 			if not r.ok and r.reason != "":
 				_notice(peer, r.reason)
 		"accept":
+			if _busy(uid):
+				_notice(peer, "That player is already in a match.")
+				return
 			var r := party.accept(peer, uid)
 			if not r.ok:
 				_notice(peer, r.reason)
@@ -88,16 +129,19 @@ func peer_left(peer: int) -> void:
 	_push_all()
 
 
-func _hello(peer: int, pname: String) -> void:
-	if peers.has(peer) or peers.size() >= MAX_HUB:
-		return
+func _clean_name(pname: String) -> String:
 	var nm := ""
 	for c in pname.strip_edges():
 		if c.unicode_at(0) >= 32 and c.unicode_at(0) != 127:
 			nm += c
 	nm = nm.substr(0, 16)
-	if nm == "":
-		nm = "Player"
+	return nm if not nm.is_empty() else "Player"
+
+
+func _hello(peer: int, pname: String) -> void:
+	if peers.has(peer) or peers.size() >= MAX_HUB:
+		return
+	var nm := _clean_name(pname)
 	var code := ""
 	while code == "" or _codes.has(code):
 		code = ""
@@ -114,6 +158,9 @@ func _join_code(peer: int, code: String) -> void:
 	var owner: int = _codes.get(code.strip_edges().to_upper(), 0)
 	if owner == 0 or owner == peer:
 		_notice(peer, "No party found for that code.")
+		return
+	if _busy(owner):
+		_notice(peer, "That party is already in a match.")
 		return
 	if party.key_of(peer) != "" and party.key_of(peer) == party.key_of(owner):
 		_notice(peer, "You are already in that party.")
@@ -149,7 +196,7 @@ func _push(peer: int) -> void:
 	var mine := party.key_of(peer)
 	var players: Array = []
 	for o: int in peers:
-		if o != peer and (mine == "" or party.key_of(o) != mine):
+		if o != peer and not _busy(o) and (mine == "" or party.key_of(o) != mine):
 			players.append({"uid": o, "name": peers[o].name})
 			if players.size() >= LISTED:
 				break

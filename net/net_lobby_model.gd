@@ -33,6 +33,12 @@ func bind_party(p) -> void:
 
 
 ## True when the party took over the join (a follower may not pick; a leader asks the server to send all in).
+func configure_identity(username: String, rating: int, authenticated: bool) -> void:
+	super.configure_identity(username, rating, authenticated)
+	if party != null:
+		party.set_display_name(username)
+
+
 func _party_gate(ranked: bool, mode: String) -> bool:
 	if party == null or not party.in_party():
 		return false
@@ -85,6 +91,8 @@ func _reason_text(reason: String) -> String:
 	match reason:
 		"account_required": return "This match needs an account. Log in from the Account screen."
 		"invalid_session": return "Your session expired. Log in again."
+		"party_too_big": return "There are not enough seats for your whole party. Try again next round."
+		"match_full": return "The match is full."
 		"mode_unavailable": return "The current match uses a different mode. Try again next round."
 		"already_joined": return "This account is already in the match."
 	return "The server refused the connection."
