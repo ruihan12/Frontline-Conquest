@@ -610,12 +610,12 @@ const TIP_PAD := Vector2(12, 10)
 const _FMT_U := ["", "K", "M", "B", "T", "Qd"]
 # ================= v6: stars, arsenal, air strike, railgun, end screen =================
 const ARSENAL := [
-	{"id": "mega", "k": 11, "name": "Mega Nuke", "desc": "An atom bomb with double the blast.", "b": ["Twice the atom blast radius", "2.5M gold per launch"], "cost": 0},
-	{"id": "scatter", "k": 12, "name": "Scattershot", "desc": "A core bomb plus 4-6 scattered warheads.", "b": ["Warheads land 28-46 tiles out", "Overwhelms a single SAM"], "cost": 4000},
-	{"id": "reinf", "k": 13, "name": "Reinforcements", "desc": "Buy fresh troops the moment you need them.", "b": ["+1/5 of your troop cap", "30 s cooldown"], "cost": 0},
-	{"id": "art", "k": 10, "name": "Artillery", "desc": "A gun post that shells nearby enemies.", "b": ["A shell every 4-7 s", "Targets structures first"], "cost": 2500},
-	{"id": "air", "k": 14, "name": "Air Strike", "desc": "Airfields fly aimed bombing runs.", "b": ["Free strike, 30 s rearm", "Kills up to 6% of troops"], "cost": 8000},
-	{"id": "rail", "k": 15, "name": "Railgun", "desc": "A railgun fires a slug at any range.", "b": ["Free shot, 25 s reload", "Kills up to 4% of troops"], "cost": 12000},
+	{"id": "mega", "k": 11, "name": "Mega Nuke", "desc": "An atom bomb with double the blast.", "b": ["Twice the atom blast radius", "2.5M gold per launch"], "cost": 20000},
+	{"id": "scatter", "k": 12, "name": "Scattershot", "desc": "A core bomb plus 4-6 scattered warheads.", "b": ["Warheads land 28-46 tiles out", "Overwhelms a single SAM"], "cost": 40000},
+	{"id": "reinf", "k": 13, "name": "Reinforcements", "desc": "Buy fresh troops the moment you need them.", "b": ["+1/5 of your troop cap", "30 s cooldown"], "cost": 40000},
+	{"id": "art", "k": 10, "name": "Artillery", "desc": "A gun post that shells nearby enemies.", "b": ["A shell every 4-7 s", "Targets structures first"], "cost": 50000},
+	{"id": "air", "k": 14, "name": "Air Strike", "desc": "Airfields fly aimed bombing runs.", "b": ["Free strike, 30 s rearm", "Kills up to 6% of troops"], "cost": 200000},
+	{"id": "rail", "k": 15, "name": "Railgun", "desc": "A railgun fires a slug at any range.", "b": ["Free shot, 25 s reload", "Kills up to 4% of troops"], "cost": 500000},
 	{"id": "x2", "k": -1, "name": "2x Stars", "desc": "Every match pays out twice.", "b": ["Double star payout", "Applies to every match"], "cost": 15000},
 	{"id": "reload", "k": -1, "name": "Rapid Reload", "desc": "Your structures recharge twice as fast.", "b": ["2x reload speed", "SAM, silo, airfield, railgun"], "cost": 10000}]
 const SAVE_PATH := "user://save.json"

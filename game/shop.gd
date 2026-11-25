@@ -13,6 +13,7 @@ func unlock_arsenal_item(id: String) -> bool:
 	for it in ARSENAL:
 		if it.id == id and not unlocked(id) and save.stars >= it.cost:
 			save.stars -= it.cost
+			if id == "art" or id == "air": save.stars += 5000  # upstream: Artillery and Air Strike pay +5,000 free Stars with the unlock
 			save.unlocked.append(id)
 			write_save()
 			notify("%s unlocked in Shop!" % it.name, "good")
