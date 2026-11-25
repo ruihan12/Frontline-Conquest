@@ -172,6 +172,11 @@ func _pace_step() -> void:
 		if sim_atk.tick % 3000 == 0:
 			print("  t=%dmin lead=%.2f" % [sim_atk.tick / 600, float(best) / maxf(1.0, land_total)])
 
+func _drain_sim_intents() -> void:
+	if sim_intents != null and state == "play" and net_host == null and not net_remote:
+		for command in sim_intents.take():
+			NetIntents.apply(self, PLAYER, command)
+
 func _process_inner(dt: float) -> void:
 	var _qp := Time.get_ticks_usec()
 	_pump_previews()
@@ -230,6 +235,7 @@ func _process_inner(dt: float) -> void:
 			if _tick_stage == 0:
 				tick_acc -= 0.1
 				nt += 1
+				_drain_sim_intents()
 				_rebuild_def_posts()
 				sim_atk.begin_tick()
 				_tick_stage = 1

@@ -158,7 +158,7 @@ func poll(now: float) -> void:
 	# fronts by owner: our border tiles with a 4-neighbour owned by a wanted owner (first hit counts)
 	var W: int = g.W
 	var H: int = g.H
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var by_owner := {}
 	for t: int in g.border[me]:
 		var x: int = t % W

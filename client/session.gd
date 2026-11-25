@@ -39,6 +39,9 @@ func send_intent(intent: Dictionary) -> void:
 	if g.net_client != null:
 		g.net_client.send_intent(intent)
 		return
+	if g.sim_intents != null and g.state == "play" and g.net_host == null:
+		g.sim_intents.submit(intent)
+		return
 	NetIntentsC.apply(g, int(g.PLAYER), intent)
 
 

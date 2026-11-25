@@ -31,3 +31,11 @@ func owner(tile: int) -> int:
 
 func has_fallout(tile: int) -> bool:
 	return tile >= 0 and tile < _fallout.size() and _fallout[tile] != 0
+
+# Internal draw loops borrow these arrays for the duration of a synchronous pass.
+# The mirror is their sole writer.
+func owners() -> PackedInt32Array:
+	return _owners
+
+func fallout() -> PackedByteArray:
+	return _fallout

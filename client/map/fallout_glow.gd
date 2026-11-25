@@ -210,7 +210,8 @@ func reset() -> void:
 
 
 func _heat(tile: int) -> float:
-	if g.fallout.size() <= tile or g.fallout[tile] != 1:
+	var fall: PackedByteArray = g._render_fallout()
+	if fall.size() <= tile or fall[tile] != 1:
 		return 0.0
 	var left: float = float(g.fallout_t[tile]) - float(g.fallout_tick_t)
 	return clampf((left - HEAT_FLOOR) / HEAT_SECONDS, 0.0, 1.0)
@@ -331,7 +332,7 @@ func _recompute() -> void:
 		if i < ki0 or i > ki1 or j < kj0 or j > kj1:
 			continue
 		var tile := (j * SCALE + half) * W + i * SCALE + half
-		var owned: bool = g.owner_map[tile] > 0
+		var owned: bool = g._render_owners()[tile] > 0
 		var hh: Array = _h.get(b, [])
 		if hh.is_empty():
 			hh = hashes(float(i * SCALE + half) + 0.5, float(j * SCALE + half) + 0.5)

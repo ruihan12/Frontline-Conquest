@@ -247,7 +247,8 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 		if tgt.x < -rad or tgt.y < -rad or tgt.x > vp.x + rad or tgt.y > vp.y + rad:
 			continue
 		var tile: int = int(ms.to.y) * int(g.W) + int(ms.to.x)
-		var mine: bool = g.PLAYER > 0 and tile >= 0 and tile < g.owner_map.size() and g.owner_map[tile] == g.PLAYER
+		var own: PackedInt32Array = g._render_owners()
+		var mine: bool = g.PLAYER > 0 and tile >= 0 and tile < own.size() and own[tile] == g.PLAYER
 		var rc := Color(1, 0.16, 0.12) if mine else c
 		var pulse := 0.2 + 0.3 * (0.5 + 0.5 * sin(now * 6.0))
 		ci.draw_circle(tgt, rad, Color(rc.r, rc.g, rc.b, 0.15))

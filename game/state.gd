@@ -57,6 +57,8 @@ const ORANGE := Color(0.95, 0.52, 0.12)
 var owner_map := PackedInt32Array()
 const TileSnapshot = preload("res://sim/tile_snapshot.gd")
 var tile_snapshot: TileSnapshot
+const SimIntentQueue = preload("res://sim/intent_queue.gd")
+var sim_intents: SimIntentQueue
 var _tile_snapshot_valid := false
 var _tile_snapshot_dirty := PackedInt32Array()
 
@@ -78,6 +80,18 @@ func _publish_tile_snapshot() -> void:
 		var delta := TileSnapshot.capture(_tile_snapshot_dirty, owner_map, fallout)
 		_tile_snapshot_dirty = PackedInt32Array()
 		tile_snapshot.apply(delta)
+
+func _render_owners() -> PackedInt32Array:
+	if tile_snapshot != null:
+		_publish_tile_snapshot()
+		if _tile_snapshot_valid: return tile_snapshot.owners()
+	return owner_map
+
+func _render_fallout() -> PackedByteArray:
+	if tile_snapshot != null:
+		_publish_tile_snapshot()
+		if _tile_snapshot_valid: return tile_snapshot.fallout()
+	return fallout
 
 var net_rec := false  # multiplayer host: record owner changes in net_dirty (net/rep.gd)
 var net_dirty := PackedInt32Array()

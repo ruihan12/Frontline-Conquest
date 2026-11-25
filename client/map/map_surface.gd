@@ -143,10 +143,11 @@ func _palette(o: int) -> Dictionary:
 func tile_color(i: int) -> Color:
 	var W: int = g.W
 	var H: int = g.H
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var o: int = own[i]
+	var fall: PackedByteArray = g._render_fallout()
 	var x := i % W
-	if g.fallout.size() > i and g.fallout[i] == 1 and o != g.WATER:
+	if fall.size() > i and fall[i] == 1 and o != g.WATER:
 		# stale-nuke ground: (0.05, 0.55, 0.07) + hash noise * 0.05, opaque (the glow of fresh fallout
 		# is FalloutGlow's overlay, not the ground's)
 		var y := i / W
@@ -229,7 +230,7 @@ func step() -> void:
 		return
 	var W: int = g.W
 	var H: int = g.H
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var scan := SWEEP_SCAN_PER_STEP
 	while not _sweeps.is_empty() and scan > 0 and g._pend_paint.size() < PENDING_ROOM:
 		var job: Dictionary = _sweeps[0]

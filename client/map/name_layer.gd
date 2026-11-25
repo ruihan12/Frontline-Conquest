@@ -139,7 +139,7 @@ func label_tile(id: int) -> int:
 		return -1
 	var W: int = g.W
 	var H: int = g.H
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var gx := clampi(int(floor(float(n.sx) / land + 0.5)), 0, W - 1)
 	var gy := clampi(int(floor(float(n.sy) / land + 0.5)), 0, H - 1)
 	var guess := gy * W + gx
@@ -181,7 +181,7 @@ func _job_for(id: int):
 	if seed < 0:
 		return null
 	var W: int = g.W
-	var N: int = g.owner_map.size()
+	var N: int = g._render_owners().size()
 	if _visit.size() != N:
 		_visit = PackedInt32Array()
 		_visit.resize(N)
@@ -199,7 +199,7 @@ func _job_for(id: int):
 ## (One job at a time: the stack and the visit marks are shared.)
 func _fill_step(job: Dictionary, max_tiles: int) -> bool:
 	var W: int = g.W
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var visit := _visit
 	var stack := _stack
 	var id: int = job.id
@@ -269,10 +269,10 @@ func _place_from_box(id: int, x0: int, y0: int, x1: int, y1: int):
 	var gh := y1 / sf - gy0 + 1
 	var heights := PackedInt32Array()
 	heights.resize(gw)
-	var own: PackedInt32Array = g.owner_map
+	var own: PackedInt32Array = g._render_owners()
 	var tb: PackedByteArray = g.tile_bytes
 	var has_tb := tb.size() == own.size()
-	var fall: PackedByteArray = g.fallout
+	var fall: PackedByteArray = g._render_fallout()
 	var has_fall := fall.size() == own.size()
 	var best := 0
 	var bx := 0

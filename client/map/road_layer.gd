@@ -224,7 +224,7 @@ func _road(a: int, b: int, now: float) -> Dictionary:
 
 func _colour(item: Dictionary, now: float, me_col: Color, recolor: bool) -> Color:
 	if recolor or not item.has("col"):
-		var own: int = g.owner_map[int(item.mid)]
+		var own: int = g._render_owners()[int(item.mid)]
 		var c: Color
 		if own <= 0:
 			c = UNOWNED

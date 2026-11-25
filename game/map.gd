@@ -42,6 +42,8 @@ func _fit_scale() -> void:
 	w.content_scale_factor = (minf(px.x, px.y) / target) / base
 
 func _ready() -> void:
+	if "--sim-queued-intents" in OS.get_cmdline_user_args():
+		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
 		tile_snapshot = TileSnapshot.new()
 	_fit_viewport()
