@@ -261,7 +261,21 @@ void fragment() {
 	ivec2 sz = textureSize(TEXTURE, 0);
 	vec2 p = UV * vec2(sz);
 	vec4 nearest = tx(ivec2(floor(p)), sz);
-	if (quality == 0 || quality >= 2) { COLOR = vec4(nearest.rgb, 1.0); }
+	if (quality == 0 || quality >= 2) {
+		// Each screen pixel takes the area average of the texels it covers (a box filter on the nearest
+		// look): pixel-crisp at whole-number zoom, but no skipped/doubled texels (the stray dots that broke
+		// the skin patterns) at a fractional zoom. Zoomed far out it falls back to the plain nearest texel.
+		vec2 fw = max(fwidth(p), vec2(1e-4));
+		if (fw.x <= 1.0 && fw.y <= 1.0) {
+			vec2 lo = p - 0.5 * fw, hi = p + 0.5 * fw;
+			ivec2 c0 = ivec2(floor(lo)), c1 = ivec2(floor(hi));
+			float wx = (c1.x == c0.x) ? 1.0 : clamp((float(c0.x + 1) - lo.x) / fw.x, 0.0, 1.0);
+			float wy = (c1.y == c0.y) ? 1.0 : clamp((float(c0.y + 1) - lo.y) / fw.y, 0.0, 1.0);
+			vec3 r0 = mix(tx(ivec2(c1.x, c0.y), sz).rgb, tx(c0, sz).rgb, wx);
+			vec3 r1 = mix(tx(c1, sz).rgb, tx(ivec2(c0.x, c1.y), sz).rgb, wx);
+			COLOR = vec4(mix(r1, r0, wy), 1.0);
+		} else { COLOR = vec4(nearest.rgb, 1.0); }
+	}
 	else {
 		vec2 q = p - 0.5; ivec2 i0 = ivec2(floor(q)); vec2 f = fract(q);
 		vec4 a = tx(i0, sz), b = tx(i0 + ivec2(1, 0), sz), c = tx(i0 + ivec2(0, 1), sz), d = tx(i0 + ivec2(1, 1), sz);
