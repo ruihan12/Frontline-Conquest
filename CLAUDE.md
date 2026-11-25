@@ -1,7 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
 Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
-Last updated: 2026-11-23.
+Last updated: 2026-11-25.
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -62,6 +62,13 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Minecraft link and recovery commands with the local account API and per-player cooldowns.
 - Casual and ranked lobby preview, queue and results driven by a replaceable model with a local mock.
 - Deterministic ranked queue matching and an isolated headless simulation host benchmark.
+
+## Multiplayer build (2026-11-25, branch multiplayer, pushed)
+- Host-authoritative replication over WebSocket (server) and ENet (player host): net/mp_host.gd, mp_client.gd, mp_node.gd, transport.gd, intents.gd, rep.gd, net_lobby_model.gd. Docs and status: docs/MULTIPLAYER.md. Deploy: server/deploy/.
+- Customs added: online matches have no Tab console and no speed changes (main.gd set_speed_x, shop.gd toggle_console); the Multiplayer lobby connects for real, with Host on this PC and Join address; `--server`, `--hostlocal`, `--connect=` command-line modes.
+- Tests: tests/test_net_match.gd, tests/test_net_rep.gd, tests/test_lobby_ui.gd; tests/fake_accounts.py is a stand-in for the account service's internal endpoints (manual real-socket checks).
+- tests/test_input_world.gd fails one check ("click on contiguous, 120 tiles out ... sends a land attack") on vanilla-merge and multiplayer alike (checked 2026-11-25), so it is not caused by the multiplayer work.
+- Known gaps: see the last Status entry in docs/MULTIPLAYER.md (attack list replication, interpolation, host events, VM deploy).
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

@@ -138,7 +138,7 @@ func _process(dt: float) -> void:
 		_log_t += dt
 		if _log_t >= 2.0:
 			_log_t = 0.0
-			print("NETLOG ", role, " status=", status, " state=", g.get("state"), " tick=", g.get("tick"), " peers=", server_peers.size(), " remote=", g.get("net_remote"), " land=", (g.nations[1].land if g.nations.size() > 1 else -1), " nations=", g.nations.size())
+			print("NETLOG ", role, " status=", status, " state=", g.get("state"), " ticks=", g.get("ticks_done"), " peers=", server_peers.size(), " remote=", g.get("net_remote"), " land=", (g.nations[1].land if g.nations.size() > 1 else -1), " nations=", g.nations.size())
 	if role == "client" and client != null and client.rejected != "" and status != "rejected":
 		status = "rejected"
 		rejected.emit(client.rejected)
