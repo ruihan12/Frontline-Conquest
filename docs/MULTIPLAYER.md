@@ -42,3 +42,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - Tests: tests/test_party.gd (rules + panel), tests/test_party_net.gd (real WebSockets), tests/test_net_teams.gd (party stays on a team).
 
 - 2026-11-25: Casual and Ranked lobby picks send FFA or Teams through C_JOIN, including party joins. In mixed mode the first accepted join selects and locks the single round. Fixed-mode servers keep their configured mode.
+
+- 2026-11-25: The team leaderboard and status bar use named teams and combined surviving land from the local or replicated match state.

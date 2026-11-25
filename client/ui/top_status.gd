@@ -383,7 +383,7 @@ func refresh() -> void:
 			T.fix_width(_m_clock, T.text_width("8:88:88", 14, 700) + 2.0, HORIZONTAL_ALIGNMENT_LEFT)
 			_m_grace.custom_minimum_size.x = _m_clock.custom_minimum_size.x
 		T.set_font_color(_m_clock, _clock_col)
-		T.set_swatch_color(_m_sw, mcol)
+		T.set_swatch_color(_m_sw, _bar.fill_color)
 		_m_sw.visible = mine != 0
 		var yt := _you.text.replace("You lead · ", "#1 · ")
 		yt = yt.replace("You ", "")

@@ -7,6 +7,8 @@
 class_name RWGameState
 extends RefCounted
 
+const TeamsC := preload("res://net/teams.gd")
+
 ## Build ids of the game (main.gd build_data) by upstream kind name.
 const BUILD_ID := {
 	"city": 0, "port": 1, "factory": 2, "defense": 3, "sam": 4, "silo": 5, "warship": 6,
@@ -192,7 +194,7 @@ func _fill(o: Dictionary, id: int) -> void:
 	o["alive"] = bool(n.get("alive", false))
 	o["max_troops"] = float(g.troop_cap(id)) if o["alive"] else 0.0
 	o["kind"] = _kind(g.kind_of(id))
-	o["team"] = 0
+	o["team"] = int(n.get("team", 0)) if g.team_mode else 0
 	o["spawned"] = (g.state != "pick" or g.start_tile >= 0) if id == local_owner else true
 	o["flag"] = n.get("flag", "")
 	o["traitor_until"] = int(g.traitor.get(id, 0))
@@ -238,12 +240,44 @@ func is_traitor(id: int) -> bool:
 	return g.sim_atk != null and g.is_traitor(id)
 
 
-func same_team(_a: int, _b: int) -> bool:
-	return false
+func is_team_game() -> bool:
+	return g.team_mode
 
 
-func team_name(_t: int) -> String:
-	return ""
+func team_of(id: int) -> int:
+	if not is_team_game() or id <= 0 or id >= g.nations.size():
+		return 0
+	return int(g.nations[id].get("team", 0))
+
+
+func same_team(a: int, b: int) -> bool:
+	var team := team_of(a)
+	return team != 0 and team == team_of(b)
+
+
+func team_name(team: int) -> String:
+	return str(g.team_names[team - 1]) if is_team_game() and team > 0 and team <= g.team_names.size() else ""
+
+
+func team_color(team: int) -> Color:
+	return TeamsC.color(team_name(team), team, 0) if team > 0 else Color.GRAY
+
+
+func team_ranking() -> Array:
+	if not is_team_game():
+		return []
+	var rows := []
+	for i in g.team_names.size():
+		rows.append({"team": i + 1, "tiles": 0, "members": 0})
+	for id in range(1, g.nations.size()):
+		var team := team_of(id)
+		var nation: Dictionary = g.nations[id]
+		if team > 0 and team <= rows.size() and nation.alive:
+			rows[team - 1].tiles += int(nation.land)
+			rows[team - 1].members += 1
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return a.tiles > b.tiles if a.tiles != b.tiles else a.team < b.team)
+	return rows
 
 
 func has_fallout(tile: int) -> bool:

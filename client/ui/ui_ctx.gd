@@ -573,14 +573,16 @@ func win_share(id: int) -> float:
 
 
 ## A team game: team `t`'s progress toward victory.
-func team_share(t: int) -> float:
+func team_share(t: int, tiles := -1) -> float:
 	var s = state
 	if s == null or s.map == null or t == 0:
 		return 0.0
-	var tiles := 0
-	for o in s.owners():
-		if o.team == t and o.alive:
-			tiles += int(o.tiles)
+	if tiles < 0:
+		tiles = 0
+		for row in s.team_ranking():
+			if row.team == t:
+				tiles = int(row.tiles)
+				break
 	return float(tiles) / maxf(int(s.map.contestable_count) - int(s.fallout_count), 1)
 
 

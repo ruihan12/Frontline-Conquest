@@ -526,7 +526,7 @@ func _refresh_teams() -> void:
 		var n := T.label(str(r.members), 11, 600, T.TEXT_3)
 		n.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(n)
-		var sh := T.label(T.fmt_pct(ctx.team_share(r.team)), 12, 700, T.TEXT)
+		var sh := T.label(T.fmt_pct(ctx.team_share(r.team, int(r.tiles))), 12, 700, T.TEXT)
 		sh.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(sh)
 		box.add_child(row)
