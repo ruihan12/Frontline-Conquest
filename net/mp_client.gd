@@ -14,6 +14,7 @@ var started := false
 var winner := -1
 var ranks := []
 var rejected := ""
+var result := {}
 var last_event := {}
 
 
@@ -82,10 +83,12 @@ func on_message(pkt: PackedByteArray) -> void:
 		HostC.S_EVENT:
 			last_event = bytes_to_var(body)
 			g.notify(str(last_event.get("text", "")), str(last_event.get("kind", "info")))
+		HostC.S_RESULT:
+			result = bytes_to_var(body)
 		HostC.S_REJECT:
 			rejected = str(bytes_to_var(body).get("reason", "refused"))
 		HostC.S_END:
 			var e: Dictionary = bytes_to_var(body)
 			winner = int(e.winner)
 			ranks = e.ranks
-			g.state = "over"
+			g._game_over(winner == 1)

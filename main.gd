@@ -38,6 +38,19 @@ func _net_boot() -> void:
 		var err2: int = node.start_client(self, str(opt.connect), str(opt.get("name", "Player")), opt.has("enet"))
 		print("MPCLIENT ", node.status, " err=", err2)
 
+## Joins an online match (a dedicated server or a player's host). Returns the connection node, or null when it can't start.
+func net_join(url: String, pname: String, token := "", use_enet := false) -> Node:
+	var old := get_node_or_null("MPNode")
+	if old != null: old.free()
+	var node = preload("res://net/mp_node.gd").new()
+	node.name = "MPNode"
+	add_child(node)
+	node.token = token
+	if node.start_client(self, url, pname, use_enet) != OK:
+		node.queue_free()
+		return null
+	return node
+
 func _process(dt: float) -> void:
 	_rail_bfs_left = 40
 	_rail_calc_left = 40

@@ -84,6 +84,14 @@ func _init() -> void:
 		var tick0: int = hs.m.ticks_done
 		host.on_message(1, pkt)
 	_ok(float(host.peers[1].tokens) < 1.0, "intent flood drains the rate-limit bucket")
+	# placements: Bob eliminated first, Alice survives -> Alice 1st
+	hs.m.nations[nb].alive = false
+	hs.m.nations[nb].land = 0
+	host.died_tick[nb] = 100
+	var pl: Array = host.placements(0)
+	_ok(pl.size() == 2 and pl[0].nid == 1 and pl[0].placement == 1 and pl[1].nid == nb and pl[1].placement == 2, "placements: survivor first, eliminated last")
+	host.left_early[nb] = true
+	_ok(host.placements(0)[1].left_early, "early leave is flagged")
 	print("NET_MATCH_TEST ", "PASS" if fails == 0 else "FAIL", " fails=", fails)
 	for h in [hs, ha, hb]:
 		h.m.queue_free()

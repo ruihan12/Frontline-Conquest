@@ -24,6 +24,7 @@ const S_LISTS := 5
 const S_STATE := 6
 const S_EVENT := 7
 const S_END := 8
+const S_RESULT := 11  # var {placement, elo_before, elo_after, ranked}: this person's result, after the account service rated the match
 const S_REJECT := 10  # var {reason}: the join was refused (full, ranked match needs an account, bad session)
 const S_NATION_INFO := 9  # var [[id, name, #color, alive, human], ...] in the receiver's id space
 const C_JOIN := 1
@@ -70,6 +71,8 @@ func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 	ended = false
 	_sv_sent = -1
 	peers.clear()
+	died_tick.clear(); left_early.clear(); departed.clear()
+	started_ms = Time.get_ticks_msec()
 	# reserve a nation slot for every person that may join, so every viewer's nation list is complete from the start
 	slots = [int(g.PLAYER)]
 	for _i in range(1, max_humans):

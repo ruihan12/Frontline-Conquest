@@ -150,7 +150,7 @@ func _button(value: String, action: Callable, primary := false) -> Button:
 
 func _show_entry() -> void:
 	_reset("MULTIPLAYER")
-	_label("Lobby preview", UITheme.TEXT_3)
+	_label("Online · connects to the game server", UITheme.TEXT_3)
 	_button("Casual", model.join_casual, true)
 	_label("Unranked · Guests welcome · No Elo change", UITheme.TEXT_2)
 	var ranked := _button("Ranked", model.join_ranked)
@@ -198,8 +198,8 @@ func _show_queue(active: bool, elapsed: float) -> void:
 		if _countdown != null:
 			_show_entry()
 		return
-	_reset("RANKED QUEUE")
-	_label("Finding ranked players…")
+	_reset(model.queue_title)
+	_label(model.queue_text)
 	_queued_at = Time.get_ticks_msec() - roundi(elapsed * 1000.0)
 	_countdown = _label("")
 	_process(0.0)
@@ -214,6 +214,13 @@ func _process(_delta: float) -> void:
 
 func _show_start(snapshot: Dictionary) -> void:
 	if not is_open:
+		return
+	if snapshot.get("online", false):
+		# a real match: the game takes over the screen, the lobby window just goes away (the connection stays)
+		is_open = false
+		_open_generation += 1
+		set_process(false)
+		hide()
 		return
 	_reset("MATCH STARTING")
 	_label("%s · Host: %s" % [snapshot.map, snapshot.host])

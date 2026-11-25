@@ -117,6 +117,10 @@ func _reset_menu_world() -> void:
 	_clear_round_state()
 
 func _to_menu() -> void:
+	if net_remote or net_client != null:  # leaving an online match: drop the connection and the viewer state
+		var mpn := get_node_or_null("MPNode")
+		if mpn != null: mpn.queue_free()
+		net_remote = false; net_client = null; net_hello = {}
 	if audio_dir != null: audio_dir.end_match()
 	if state != "menu" and nations.size() > 1: _reset_menu_world()
 	attract_on = false

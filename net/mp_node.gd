@@ -21,6 +21,10 @@ var connected_ok := false
 var status := "idle"
 signal rejected(reason: String)
 signal connected
+signal entered  # the host accepted us and the round has started on this side
+signal result(data: Dictionary)
+var _entered := false
+var _result_sent := false
 var token := ""  # client: the session token sent when joining
 var api_base := "http://127.0.0.1:8071/api/v1"
 var internal_key := ""
@@ -28,6 +32,9 @@ var ranked := false
 var autospawn := false
 var _spawned := false
 var _pending := []
+var _end_wait := 0.0
+var _last_args := []
+const NEXT_MATCH_AFTER := 25.0  # seconds the end screen stays up before the server starts the next match
 var netlog := false
 var _log_t := 0.0
 
@@ -57,6 +64,7 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		host.leave(id))
 	transport.packet.connect(func(id: int, data: PackedByteArray) -> void: host.on_message(id, data))
 	_pending = [map_tab, map_i, bots]
+	_last_args = [map_tab, map_i, bots]
 	status = "listening on %d" % port
 	return OK
 
@@ -101,6 +109,14 @@ func _process(dt: float) -> void:
 		g.set_speed_x(g.net_speed_cap)
 		print("MPSERVER match started state=", g.state, " speed=", g.sim_speed / g.SPEED_BASE)
 	transport.poll()
+	if role == "server" and host != null and host.ended:
+		_end_wait += dt
+		if _end_wait >= NEXT_MATCH_AFTER:
+			_end_wait = 0.0
+			for peer in server_peers.keys():
+				transport.disconnect_peer(peer)
+			server_peers.clear()
+			_pending = _last_args.duplicate()  # the next match starts next frame
 	if netlog and _log_t == 0.0 and not has_meta("first"):
 		set_meta("first", true)
 		print("NETLOG first frame dt=", dt)
@@ -112,6 +128,13 @@ func _process(dt: float) -> void:
 	if role == "client" and client != null and client.rejected != "" and status != "rejected":
 		status = "rejected"
 		rejected.emit(client.rejected)
+	if role == "client" and client != null:
+		if not _entered and client.started:
+			_entered = true
+			entered.emit()
+		if not client.result.is_empty() and not _result_sent:
+			_result_sent = true
+			result.emit(client.result)
 	if role == "client" and not joined and transport.is_up():
 		joined = true
 		connected_ok = true
@@ -177,4 +200,18 @@ func _report_result(placements: Array) -> void:
 	var now := Time.get_datetime_string_from_system(true) + "Z"
 	var started := Time.get_datetime_string_from_unix_time(int(Time.get_unix_time_from_system()) - int(g.elapsed)) + "Z"
 	_api("/internal/match-result", {"ranked": ranked, "map": "World", "started_at": started, "ended_at": now, "players": players},
-		func(ok: bool, _r: Dictionary) -> void: print("MPSERVER result reported ok=", ok))
+		func(ok: bool, r: Dictionary) -> void:
+			print("MPSERVER result reported ok=", ok)
+			if not ok: return
+			var by_account := {}
+			for c in r.get("changes", []):
+				by_account[int(c.get("account_id", 0))] = c
+			for peer in host.peers:
+				var pl: Dictionary = host.peers[peer]
+				var ch: Dictionary = by_account.get(int(pl.get("account", 0)), {})
+				if ch.is_empty():
+					continue
+				var place := 0
+				for q in placements:
+					if int(q.account) == int(pl.account): place = int(q.placement)
+				host.send.call(peer, host._pack(host.S_RESULT, {"placement": place, "elo_before": int(ch.elo_before), "elo_after": int(ch.elo_after), "ranked": ranked})))

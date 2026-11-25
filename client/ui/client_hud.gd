@@ -6,6 +6,7 @@ class_name ClientHud
 extends Node
 
 const LobbyWindow := preload("res://client/ui/lobby.gd")
+const NetLobbyModel := preload("res://net/net_lobby_model.gd")
 const AccountWindow := preload("res://client/ui/account.gd")
 
 var g  # main.gd
@@ -259,7 +260,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(crates)
 	account = AccountWindow.new(ctx, main)
 	root.add_child(account)
-	lobby = LobbyWindow.new(ctx, main)
+	lobby = LobbyWindow.new(ctx, main, NetLobbyModel.new(main))
 	root.add_child(lobby)
 	map_picker = MapPicker.new(ctx, main)
 	root.add_child(map_picker)
