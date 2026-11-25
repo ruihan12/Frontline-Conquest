@@ -306,6 +306,7 @@ func refresh() -> void:
 		return
 	var now := ctx.render_tick()
 	var tr := float(Defs.TICK_RATE)
+	_set_clock_color(T.TEXT)
 	if s.phase == Defs.PHASE_SPAWN:
 		_phase.text = "SPAWN PHASE"
 		# (this port's spawn countdown runs on the game's clock, not on sim ticks)
@@ -344,8 +345,6 @@ func refresh() -> void:
 		_clock.text = T.fmt_time(ceil(grace))
 		_set_clock_color(T.GREEN)
 		_limit.text = ""
-	elif s.phase == Defs.PHASE_PLAYING and s.time_limit_ticks <= 0:
-		_set_clock_color(T.TEXT)
 	_refresh_grace()
 	# (the leader alone, from one pass: not the whole ranking sorted)
 	var leader = ctx.leader()

@@ -83,16 +83,12 @@ func _init(c: UICtx) -> void:
 	_ring = Ring.new()
 	_ring.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_ring)
-	# (fixed text box: the two lines change without moving the banner)
-	UITheme.fix_width(_sub, UITheme.text_width("Click elsewhere to relocate until the countdown ends.", 12, 500) + 4.0, HORIZONTAL_ALIGNMENT_LEFT, false)
 
 
 func apply_layout() -> void:
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP if ctx.touch else Control.MOUSE_FILTER_IGNORE
-	var top := 12.0 + ctx.insets.y
 	if ctx.compact:
 		# Phones: slimmer still, leaving the globe to the player.
-		top = 8.0 + ctx.insets.y
 		_title.add_theme_font_size_override("font_size", 13)
 		panel.set_padding(12.0, 4.0, 8.0, 4.0)
 		_ring.custom_minimum_size = Vector2(36, 36)
@@ -102,6 +98,11 @@ func apply_layout() -> void:
 		panel.set_padding(16.0, 8.0, 12.0, 8.0)
 		_ring.custom_minimum_size = Vector2(RING_PX, RING_PX)
 		_row.add_theme_constant_override("separation", 14)
+	_place_panel()
+
+
+func _place_panel() -> void:
+	var top := (8.0 if ctx.compact else 12.0) + ctx.insets.y
 	panel.anchor_left = 0.5
 	panel.anchor_right = 0.5
 	panel.anchor_top = 0.0
@@ -122,6 +123,8 @@ func bottom_edge() -> float:
 
 func on_show() -> void:
 	_last_sec = -1
+	_end_tick = -1.0
+	_accum = 0.0
 	refresh()
 	UIFx.pop_in(panel, 0.05, 0.94, 0.45)
 
@@ -181,7 +184,7 @@ func refresh() -> void:
 		_title.text = "CHOOSE YOUR STARTING LOCATION"
 		_sub.text = "Click any unclaimed land to place your capital." if not ctx.touch else "Tap any unclaimed land to place your capital."
 	_refresh_players()
-	panel.reset_size()
+	_place_panel()
 
 
 func _refresh_players() -> void:

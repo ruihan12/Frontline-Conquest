@@ -43,6 +43,7 @@ class Row:
 	var human: TextureRect
 	var land: Label
 	var troops: Label
+	var _troops_text := ""
 
 	func _init(c: UICtx) -> void:
 		var T := UITheme
@@ -116,7 +117,10 @@ class Row:
 		T.set_swatch_color(sw, o.color)
 		name_l.text = o.name
 		land.text = T.fmt_pct(s.land_share(o.id))
-		T.fit_label(troops, T.fmt_troops(o.troops), troops.custom_minimum_size.x, 12, 8)
+		var formatted := T.fmt_troops(o.troops)
+		if formatted != _troops_text:
+			_troops_text = formatted
+			T.fit_label(troops, formatted, troops.custom_minimum_size.x, 12, 8)
 		# Threat context: a neighbour with over 3x our army reads red.
 		var mine = ctx.my()
 		var threat: bool = mine != null and not is_me and mine.troops > 0 and o.troops > 3 * mine.troops and not s.are_allies(ctx.me(), o.id) and s.borders_owner(ctx.me(), o.id)
@@ -248,7 +252,7 @@ func _init(c: UICtx) -> void:
 	cm.add_theme_constant_override("margin_right", 10)
 	cm.add_child(_cols)
 	var c1 := T.caption("#", 10)
-	c1.custom_minimum_size = Vector2(22, 0)
+	c1.custom_minimum_size = Vector2(26.0, 0)
 	c1.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_cols.add_child(c1)
 	var c2 := T.caption("Nation", 10)
@@ -256,11 +260,11 @@ func _init(c: UICtx) -> void:
 	c2.custom_minimum_size = Vector2(18, 0)
 	_cols.add_child(c2)
 	var c3 := T.caption("Land", 10)
-	c3.custom_minimum_size = Vector2(50, 0)
+	c3.custom_minimum_size.x = T.text_width("88.88%", 13, 700) + 2.0
 	c3.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_cols.add_child(c3)
 	var c4 := T.caption("Troops", 10)
-	c4.custom_minimum_size = Vector2(46, 0)
+	c4.custom_minimum_size.x = T.text_width("888.8K", 12, 500) + 2.0
 	c4.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_cols.add_child(c4)
 	v.add_child(cm)
