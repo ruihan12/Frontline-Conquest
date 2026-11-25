@@ -1162,7 +1162,7 @@ func _draw_overlay_inner() -> void:
 						overlay.draw_arc(sp1, FACTORY_RANGE * TS * z, 0, TAU, 96, Color(0.95, 0.85, 0.4, 0.8), 2.0, true)
 				var spm := FACTORY_RANGE * TS * z
 				if ranges == null: overlay.draw_arc(mp, spm, 0, TAU, 96, Color(0.95, 0.85, 0.4, 0.55), 1.5, true)
-			if build_sel in NUKES or strike_aim:
+			if build_sel in NUKES or strike_aim or (strike_only and (build_sel == 14 or build_sel == 15)):
 				overlay.draw_line(mp + Vector2(-10, 0), mp + Vector2(10, 0), Color(1, 0.3, 0.25), 2)
 				overlay.draw_line(mp + Vector2(0, -10), mp + Vector2(0, 10), Color(1, 0.3, 0.25), 2)
 			else:
