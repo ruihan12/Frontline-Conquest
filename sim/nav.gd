@@ -812,18 +812,33 @@ func los_strict(a: int, bt: int, b: int) -> bool:
 	var dx := bt % W - x; var dy := bt / W - y
 	var nx := absi(dx); var ny := absi(dy)
 	var sx := 1 if dx > 0 else -1
-	var sy := 1 if dy > 0 else -1
-	var ix := 0; var iy := 0
+	var row_step := W if dy > 0 else -W
+	var water := body
+	var tile := a
+	var ix := 0
+	var iy := 0
+	# Update the same integer crossing test incrementally.
+	var dec := ny - nx
+	var dx_cross := 2 * ny
+	var dy_cross := 2 * nx
 	while ix < nx or iy < ny:
-		var dec := (1 + 2 * ix) * ny - (1 + 2 * iy) * nx
 		if dec == 0:
-			if body[y * W + x + sx] != b or body[(y + sy) * W + x] != b: return false
-			x += sx; y += sy; ix += 1; iy += 1
+			if water[tile + sx] != b or water[tile + row_step] != b:
+				return false
+			tile += sx + row_step
+			ix += 1
+			iy += 1
+			dec += dx_cross - dy_cross
 		elif dec < 0:
-			x += sx; ix += 1
+			tile += sx
+			ix += 1
+			dec += dx_cross
 		else:
-			y += sy; iy += 1
-		if body[y * W + x] != b: return false
+			tile += row_step
+			iy += 1
+			dec -= dy_cross
+		if water[tile] != b:
+			return false
 	return true
 
 # Tiles of the line a -> bt (excluding a), appended to out (source line_tiles).

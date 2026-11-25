@@ -686,15 +686,21 @@ func _nuke_queue_tick() -> void:
 		else:
 			i += 1
 
+var _city_levels := PackedInt64Array()
+
 func _economy(dt: float) -> void:
 	if not nuke_queue.is_empty(): _nuke_queue_tick()
 	if supply_on: _supply_tick()
 	fallout_count = fallout_list.size()
-	var city_lv := {}
-	for st in structs:
-		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + mini(int(st.get("level", 1)), 1000)
+	_city_levels.resize(nations.size())
+	_city_levels.fill(0)
+	var city_levels := _city_levels
+	for st: Dictionary in structs:
+		var owner: int = st.o
+		if st.k == 0 and owner >= 0 and owner < city_levels.size():
+			city_levels[owner] += mini(int(st.get("level", 1)), 1000)
 	for id in range(1, nations.size()):
-		var n = nations[id]
+		var n: Dictionary = nations[id]
 		if not n.alive:
 			continue
 		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0  # (a console value that overflowed)
@@ -706,15 +712,15 @@ func _economy(dt: float) -> void:
 				if kind_of(id) != SimRules.KIND_TRIBE: stats["conq"] = int(stats.get("conq", 0)) + 1  # Stars: tribes don't count
 			if id != PLAYER and (is_prot(id) or rng.randf() < 0.15): notify("%s has been eliminated" % n.name, "info")
 			continue
-		# floats run to 1e308: keep a runaway number finite (NaN reads 0, infinity stops at the largest value)
-		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0 if is_nan(n.troops) else 1.0e300
-		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0 if is_nan(n.gold) else 1.0e300
 		var kd := kind_of(id)
-		var tk := troop_kind(id); var tdf := troop_diff(id)  # novice bot players: Easy nation numbers
-		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf) if tile_pop.is_empty() \
-			else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_lv.get(id, 0), tdf)
-		n.regen = sim_rules.troop_growth(tk, n.troops, cap, tdf) * 10.0
-		n.troops += sim_rules.troop_growth_applied(tk, n.troops, cap, tdf)
+		var novice := is_novice_bot(id)
+		var tk := SimRules.KIND_NATION if novice else kd
+		var tdf := NOVICE_SKILL if novice else diff_i
+		var cap := sim_rules.max_troops(tk, n.land, city_levels[id], tdf) if tile_pop.is_empty() \
+			else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_levels[id], tdf)
+		var growth := sim_rules.troop_growth(tk, n.troops, cap, tdf)
+		n.regen = growth * 10.0
+		n.troops += floor(growth) if growth >= 0.0 else -floor(-growth)
 		n.gold += sim_rules.gold_per_tick(kd)
 		n.reinf_cd = maxf(0.0, n.reinf_cd - dt)
 		if id == PLAYER:
