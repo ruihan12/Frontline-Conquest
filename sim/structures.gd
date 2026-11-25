@@ -24,7 +24,7 @@ func place_site(id: int, k: int, tile: int) -> Dictionary:
 	var reach := R.place_search_r() + md + 1.0
 	var near := []
 	var tx := tile % W; var ty := tile / W
-	for st in g.structs:
+	for st: Dictionary in g.structs:
 		var dx: int = st.tile % W - tx; var dy: int = st.tile / W - ty
 		if dx * dx + dy * dy <= reach * reach: near.append(st)
 	if k in SimRules.UPGRADABLE_K:

@@ -158,10 +158,10 @@ func begin_tick() -> void:
 	# AI nations at war with each owner: live non-counter attacks plus transports under way to a human
 	attackers_on.clear()
 	var pairs := {}
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if not a.get("counter", false) and a.t > 0 and _ai_nation(a.a):
 			pairs[a.a * 4096 + a.t] = true
-	for bt in g.boats:
+	for bt: Dictionary in g.boats:
 		var tg: int = g.owner_map[bt.dest]
 		if tg > 0 and g.kind_of(tg) == SimRules.KIND_HUMAN and _ai_nation(bt.a):
 			pairs[bt.a * 4096 + tg] = true
@@ -184,7 +184,7 @@ func run_slice(deadline_us: int) -> bool:
 		n_done += 1
 		var cur := id
 		id += 1
-		var n = g.nations[cur]
+		var n: Dictionary = g.nations[cur]
 		if not n.alive or n.land <= 0 or not st.has(cur): continue
 		var s: Dictionary = st[cur]
 		if g.kind_of(cur) == SimRules.KIND_TRIBE:
@@ -208,7 +208,7 @@ func _update_leader() -> void:
 	var best := 0; var bt := 0; var second := 0
 	var ids := []
 	for id in range(1, g.nations.size()):
-		var n = g.nations[id]
+		var n: Dictionary = g.nations[id]
 		if not n.alive: continue
 		var land: int = n.land
 		if land > bt:
@@ -387,7 +387,7 @@ func _consider_capitulation(id: int, age: int) -> bool:
 	if t - last_capitulation < SimRules.CAPITULATE_GAP: return false
 	if t - int(g.nations[id].get("attacked_tick", -1000)) > 40: return false
 	var mine := _troops(id) + 1.0
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.t != id or g.kind_of(a.a) == SimRules.KIND_TRIBE: continue
 		if _troops(a.a) + a.troops >= SimRules.CAPITULATE_RATIO * mine:
 			capitulate(id, a.a)
@@ -398,7 +398,7 @@ func _consider_capitulation(id: int, age: int) -> bool:
 func capitulate(loser: int, winner: int) -> void:
 	if loser <= 0 or winner <= 0 or not g.nations[loser].alive or not g.nations[winner].alive: return
 	if g.kind_of(loser) == SimRules.KIND_HUMAN: return
-	var nv = g.nations[loser]
+	var nv: Dictionary = g.nations[loser]
 	var bb: Rect2i = nv.bb.intersection(Rect2i(0, 0, g.W, g.H))
 	var W: int = g.W
 	for y in range(bb.position.y, bb.end.y):
@@ -411,10 +411,10 @@ func capitulate(loser: int, winner: int) -> void:
 	g.notify("%s surrendered to %s" % [g._nname(loser), g._nname(winner)], "info")
 
 func _defend(id: int) -> bool:
-	var n = g.nations[id]
+	var n: Dictionary = g.nations[id]
 	if g.sim_atk.tick - int(n.get("attacked_tick", -1000)) > 40: return false
 	var worst = null
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.t == id and (worst == null or a.troops > worst.troops): worst = a
 	if worst == null: return false
 	var x: int = worst.a
@@ -580,7 +580,7 @@ func _consider_mopup(id: int, age: int) -> void:
 	var best_s := 0.0
 	var W: int = g.W
 	for p in range(1, g.nations.size()):
-		var np = g.nations[p]
+		var np: Dictionary = g.nations[p]
 		if p == id or not np.alive or np.land <= 0 or np.land > small or g.allied(id, p): continue
 		if np.troops > 0.2 * mine or own_coast(p) < 0: continue
 		if g.kind_of(p) == SimRules.KIND_HUMAN and g.sim_atk.attack_between(id, p) == null and not _may_attack_human(id, p, age): continue
@@ -645,7 +645,7 @@ func _nuke_target(id: int, p: int, kind: int) -> int:
 	var cands := []
 	for k in [K_CITY, K_SILO, K_FACTORY, K_PORT]:
 		if g.owned_count(p, k) > 0:
-			for s in g.structs:
+			for s: Dictionary in g.structs:
 				if s.o == p and s.k == k: cands.append(s.tile)
 			if cands.size() >= 6: break
 	if sc_count.get(p, 0) > 0: cands.append(sc_tile[p])
@@ -721,7 +721,7 @@ func _consider_diplomacy(id: int, age: int) -> void:
 # ---------------- economy (SimAIEconomy._consider_build 244-573) ----------------
 func _structs_of(id: int, k: int) -> Array:
 	var out := []
-	for s in g.structs:
+	for s: Dictionary in g.structs:
 		if s.o == id and s.k == k: out.append(s)
 	return out
 
@@ -773,7 +773,7 @@ func _spawn_structure(id: int, kind: int, cities: int, threat: int) -> bool:
 	return site >= 0 and _build_at(id, kind, site)
 
 func _build_at(id: int, kind: int, site: int) -> bool:
-	var n = g.nations[id]
+	var n: Dictionary = g.nations[id]
 	var cost: float = g.build_cost(id, kind)
 	if n.gold < cost or not valid_site(id, kind, site): return false
 	n.gold -= cost
@@ -782,7 +782,7 @@ func _build_at(id: int, kind: int, site: int) -> bool:
 	return true
 
 func _upgrade_at(id: int, s) -> bool:
-	var n = g.nations[id]
+	var n: Dictionary = g.nations[id]
 	var cost: float = g.build_cost(id, s.k)
 	if n.gold < cost: return false
 	n.gold -= cost
@@ -950,7 +950,7 @@ func valid_site(id: int, kind: int, t: int) -> bool:
 	var md: float = R.struct_min_dist
 	var md2 := md * md
 	var tx := t % W; var ty := t / W
-	for s in g.structs:
+	for s: Dictionary in g.structs:
 		var dx: int = s.tile % W - tx; var dy: int = s.tile / W - ty
 		if dx * dx + dy * dy < md2: return false
 	return true
@@ -959,7 +959,7 @@ func own_struct_dist2(id: int, kind: int, t: int, r: float) -> float:
 	var best := -1.0
 	var rr := r * r
 	var W: int = g.W
-	for s in g.structs:
+	for s: Dictionary in g.structs:
 		if s.o != id or s.k != kind: continue
 		var dx: int = s.tile % W - t % W; var dy: int = s.tile / W - t / W
 		var d := float(dx * dx + dy * dy)
@@ -981,7 +981,7 @@ func _nearest_coast(id: int, t: int, r: int) -> int:
 
 # SimState.centre_tile: the owned tile nearest the centre of mass (square rings, bounded)
 func centre_tile(id: int) -> int:
-	var n = g.nations[id]
+	var n: Dictionary = g.nations[id]
 	if n.land <= 0: return -1
 	var W: int = g.W; var H: int = g.H
 	var cx := clampi(int(floor(n.sx / float(n.land) + 0.5)), 0, W - 1)
@@ -1055,7 +1055,7 @@ func _counter_infestation(id: int) -> void:
 	for p in range(1, g.nations.size()):
 		if p == id or not g.nations[p].alive or g.allied(id, p) or g._count_ws(p) <= WARSHIP_FLEET_CAP: continue
 		var theirs := []
-		for w in g.warships:
+		for w: Dictionary in g.warships:
 			if w.o == p: theirs.append(w)
 		if theirs.is_empty(): continue
 		var tw = theirs[g.rng.randi() % theirs.size()]
@@ -1126,7 +1126,7 @@ func _tribe_traitor(id: int) -> int:
 func _tribe_incoming(id: int) -> int:
 	var best := 0
 	var most := 0.0
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.t != id or a.troops <= most or not g.nations[a.a].alive or g.allied(id, a.a): continue
 		most = a.troops; best = a.a
 	return best
@@ -1247,7 +1247,7 @@ func _tribe_delete_next(id: int) -> void:
 	var t: int = g.sim_atk.tick
 	if t - int(s.last_delete) < TRIBE_DELETE_COOLDOWN or not _holds_structures(id): return
 	var first = null
-	for x in g.structs:
+	for x: Dictionary in g.structs:
 		if x.o == id and int(x.get("delete_at", 0)) == 0:
 			first = x; break
 	if first == null: return

@@ -97,7 +97,7 @@ func take_token(id: int) -> bool:
 
 func boats_of(id: int) -> int:
 	var c := 0
-	for bt in g.boats:
+	for bt: Dictionary in g.boats:
 		if bt.a == id: c += 1
 	return c
 
@@ -133,7 +133,7 @@ func hostile(a: int, b: int) -> bool:
 		_hp_tick = t
 		_hp.clear()
 		var W: int = 1 << 16
-		for at in g.attacks:
+		for at: Dictionary in g.attacks:
 			if at.get("dead", false): continue
 			_hp[int(at.a) * W + int(at.t)] = true
 			_hp[int(at.t) * W + int(at.a)] = true
@@ -144,7 +144,7 @@ func _ports_tick(t: int) -> void:
 	var slot := t % 10
 	var rng: RandomNumberGenerator = g.rng
 	var n_trade: int = g.traders.size()
-	for p in g.structs:
+	for p: Dictionary in g.structs:
 		if p.k != 1 or float(p.get("bt", 0.0)) > 0.0: continue
 		if not p.has("slot"):
 			p.slot = rng.randi() % 10; p.rej = 0; p.partners = []; p.ptick = -100000
@@ -189,7 +189,7 @@ func _refresh_partners(p: Dictionary, t: int) -> void:
 		if q != null and q.k == 1 and q.o != p.o and g.nations[q.o].alive: keep.append(int(qt))
 	var dists := []
 	var W: int = g.W
-	for q in g.structs:
+	for q: Dictionary in g.structs:
 		if q.k != 1 or float(q.get("bt", 0.0)) > 0.0 or q.o == p.o or not g.nations[q.o].alive: continue
 		if not q.has("slot"): continue
 		if q.body != p.body or q.water < 0 or hostile(p.o, q.o): continue

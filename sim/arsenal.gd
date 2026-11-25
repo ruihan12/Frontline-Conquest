@@ -106,7 +106,7 @@ func damage_struct(st, dmg: int, by: int) -> void:
 # ---------------------------------------------------------------- per-tick driver
 func tick() -> void:
 	var t := now()
-	for st in g.structs:
+	for st: Dictionary in g.structs:
 		if float(st.get("bt", 0.0)) > 0.0:
 			st.bt = maxf(0.0, float(st.bt) - 0.1)
 			if st.bt <= 0.0: _activate(st)
@@ -133,7 +133,7 @@ func battery_target(st) -> int:
 	var r2 := rng_ * rng_
 	var best := -1
 	var bd := 0.0
-	for s2 in g.structs:
+	for s2: Dictionary in g.structs:
 		if not _strike_enemy(st.o, s2.o): continue
 		var d := _d2(st.tile, s2.tile, W)
 		if d <= r2 and (best < 0 or d < bd or (d == bd and s2.tile < best)):
@@ -150,7 +150,7 @@ func battery_target(st) -> int:
 	return -1
 
 func _battery_tick(t: int) -> void:
-	for st in g.structs:
+	for st: Dictionary in g.structs:
 		if st.k != 10 or float(st.get("bt", 0.0)) > 0.0: continue
 		if not st.has("next_fire"): st["next_fire"] = t + _battery_gap(st)
 		if t < int(st.next_fire): continue
@@ -196,7 +196,7 @@ func launch_strike(o: int, nk: int, tile: int) -> bool:
 	var bd := 0.0
 	var out_of_reach := false
 	var free: bool = o == g.PLAYER and (g.god_mode or g.no_cd)
-	for st in g.structs:
+	for st: Dictionary in g.structs:
 		if st.o != o or st.k != lk or float(st.get("bt", 0.0)) > 0.0: continue
 		if not free and ready_missiles(st) <= 0: continue
 		if reach > 0.0 and _d2(st.tile, tile, W) > reach * reach:
@@ -241,7 +241,7 @@ func strike(m: Dictionary) -> void:
 			var o1: int = g.owner_map[tt]
 			if _strike_enemy(shooter, o1): hit[o1] = hit.get(o1, 0) + 1
 	for o in hit:
-		var n = g.nations[o]
+		var n: Dictionary = g.nations[o]
 		var troops: float = n.troops
 		var kill := SimRules.strike_kill(nk, troops, float(hit[o]) * R.k_area, R.ts)
 		if kill <= 0.0: continue
@@ -249,15 +249,15 @@ func strike(m: Dictionary) -> void:
 		n.troops = troops - kill
 		stats.killed += int(kill)
 		if nk != SimRules.N_SHELL:
-			for a in g.attacks:
+			for a: Dictionary in g.attacks:
 				if a.a == o: a.troops *= keep
-			for bt in g.boats:
+			for bt: Dictionary in g.boats:
 				if bt.a == o: bt.troops *= keep
 			n["grudge_" + str(shooter)] = now() + SimRules.HOSTILE_TICKS
 			n["attacked_tick"] = now()
 	var dmg: int = SimRules.STRIKE_DAMAGE[nk]
 	if dmg > 0:
-		for st in g.structs.duplicate():
+		for st: Dictionary in g.structs.duplicate():
 			if _strike_enemy(shooter, st.o) and _d2(to, st.tile, W) <= r2:
 				damage_struct(st, dmg, shooter)
 	var c := tpos(to, W)
@@ -324,23 +324,23 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 		g._repaint(tt)
 	for ow in lost:
 		nuke_troops(ow, nk, int(lost[ow]), int(before[ow]))
-		var n = g.nations[ow]
+		var n: Dictionary = g.nations[ow]
 		if int(n.land) <= 0: n["last_by"] = o
 		if ow != o: n["grudge_" + str(o)] = now() + SimRules.NUKE_GRUDGE_TICKS
 	# structures and units inside the outer radius
-	for st in g.structs.duplicate():
+	for st: Dictionary in g.structs.duplicate():
 		var sdx: int = st.tile % W - cx; var sdy: int = st.tile / W - cy
 		if float(sdx * sdx + sdy * sdy) <= r2:
 			var so: int = st.o
 			g._struct_remove(st)
 			if so == g.PLAYER and o != g.PLAYER: g.notify("%s destroyed your %s" % [g._nname(o), g.build_data[st.k][1]], "bad")
 	var cc := Vector2(cx, cy)
-	for ws in g.warships.duplicate():
+	for ws: Dictionary in g.warships.duplicate():
 		if ws.pos.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.warships, ws)
-	for bt in g.boats.duplicate():
+	for bt: Dictionary in g.boats.duplicate():
 		var bp: Vector2 = g._boat_pos(bt)[0] / g.TS
 		if bp.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.boats, bt)
-	for tr in g.traders.duplicate():
+	for tr: Dictionary in g.traders.duplicate():
 		var tp: Vector2 = g._path_pos(tr)[0] / g.TS
 		if tp.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.traders, tr)
 	return {"lost": lost, "fallout": fallout_n}
@@ -348,14 +348,14 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 # SimNukes._nuke_troops: bombs shrink troops by ((T - n) / T)^5; warheads 500 x (1 - e^(-2 excess/max))
 # per full-size tile, never below 3 % of the cap.
 func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
-	var n = g.nations[o]
+	var n: Dictionary = g.nations[o]
 	var cap := maxf(g.troop_cap(o), 1.0)
 	if nk != SimRules.N_WARHEAD:
 		var f := pow(maxf(0.0, tiles_before - n_lost) / maxf(tiles_before, 1), 5.0)
 		n.troops = float(n.troops) * f
-		for a in g.attacks:
+		for a: Dictionary in g.attacks:
 			if a.a == o: a.troops *= f
-		for bt in g.boats:
+		for bt: Dictionary in g.boats:
 			if bt.a == o: bt.troops *= f
 		return
 	var k := R.k_area
@@ -365,7 +365,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 		if d <= 0.0: break
 		tr -= d
 	n.troops = tr
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.a != o: continue
 		var at: float = a.troops
 		for _i in n_lost:
@@ -373,7 +373,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 			if d2 <= 0.0: break
 			at -= d2
 		a.troops = at
-	for bt in g.boats:
+	for bt: Dictionary in g.boats:
 		if bt.a != o: continue
 		var bt_t: float = bt.troops
 		for _i in n_lost:
@@ -510,12 +510,12 @@ func _sam_tick(t: int) -> void:
 	if g.missiles.is_empty(): return
 	var sams = null
 	var fires := []
-	for ms in g.missiles:
+	for ms: Dictionary in g.missiles:
 		if ms.get("sam_st") != null or not interceptable(ms): continue
 		if t >= int(ms.get("cand_tick", -100000)):
 			if sams == null:
 				sams = []
-				for st in g.structs:
+				for st: Dictionary in g.structs:
 					if st.k == 4 and float(st.get("bt", 0.0)) <= 0.0: sams.append(st)
 			_sam_candidates(ms, sams)
 		var cands: Array = ms.get("cands", [])
@@ -547,7 +547,7 @@ func _sam_tick(t: int) -> void:
 			stats.sam_fired += 1
 			sam_shots.append({"from": sp, "ms": ms, "k": k, "t0": t, "t1": ms.sam_hit, "o": st.o})
 			if st.o == g.PLAYER or ms.o == g.PLAYER: g.sfx("sam_shoot", 0.0, 0.04, g.PLAYER)
-	for ms in g.missiles.duplicate():
+	for ms: Dictionary in g.missiles.duplicate():
 		if ms.get("sam_st") != null and t >= int(ms.sam_hit): sam_resolve(ms)
 
 # SimNukes._sam_intercept: the bomb is destroyed unless the SAM was lost meanwhile

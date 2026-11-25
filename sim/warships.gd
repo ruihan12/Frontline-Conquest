@@ -49,7 +49,7 @@ func init_ship(ws: Dictionary) -> void:
 
 func _ports_of(o: int) -> Array:
 	var out := []
-	for st in g.structs:
+	for st: Dictionary in g.structs:
 		if st.o == o and st.k == 1 and float(st.get("bt", 0.0)) <= 0.0: out.append(st)
 	return out
 
@@ -63,7 +63,7 @@ func _body_at(p: Vector2) -> int:
 
 func tick() -> void:
 	var t := now()
-	for ws in g.warships.duplicate():
+	for ws: Dictionary in g.warships.duplicate():
 		if not ws.has("uid"): init_ship(ws)
 		if not g.nations[ws.o].alive:
 			erase_ref(g.warships, ws); continue
@@ -79,7 +79,7 @@ func _posts_tick(t: int) -> void:
 	var r: float = SimRules.DEFENSE_POST_TARGET_FULL / R.k_lin
 	var r2 := r * r
 	var W: int = g.W
-	for s in g.structs:
+	for s: Dictionary in g.structs:
 		if s.k != 3 or float(s.get("bt", 0.0)) > 0.0: continue
 		var pt: int = s.tile
 		if t - int(_post_last.get(pt, -100000)) <= SimRules.DEFENSE_POST_SHELL_TICKS: continue
@@ -87,13 +87,13 @@ func _posts_tick(t: int) -> void:
 		var best = null
 		var bp := 9
 		var bd := 0.0
-		for bt in g.boats:
+		for bt: Dictionary in g.boats:
 			if bt.a == s.o or g.allied(bt.a, s.o) or _post_shelled.has(pt * 1048576 + int(bt.get("uid", -1))): continue
 			var d: float = (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(sp)
 			if d <= r2 and (best == null or d < bd):
 				best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
 		if bp != 0:
-			for w in g.warships:
+			for w: Dictionary in g.warships:
 				if w.o == s.o or g.allied(w.o, s.o): continue
 				var d2: float = (w.pos as Vector2).distance_squared_to(sp)
 				if d2 <= r2 and (best == null or d2 < bd):
@@ -169,7 +169,7 @@ func _heal(ws: Dictionary, t: int) -> void:
 	if ws.near_port: ws.hp = minf(float(ws.max_hp), ws.hp + SimRules.WARSHIP_PASSIVE_HEAL)
 	if ws.state == 2 and ws.port != null:
 		var docked := 0
-		for o2 in g.warships:
+		for o2: Dictionary in g.warships:
 			if o2.get("state", 0) == 2 and o2.get("port") == ws.port: docked += 1
 		if docked > 0:
 			ws.heal_rem += float(int(ws.port.get("level", 1)) * SimRules.WARSHIP_PORT_HEAL_PER_LEVEL) / docked
@@ -198,7 +198,7 @@ func _retreat_step(ws: Dictionary) -> void:
 	var dock := SimRules.WARSHIP_DOCK_FULL / R.k_lin
 	if absf(dest.x - ws.pos.x) + absf(dest.y - ws.pos.y) <= dock:
 		var docked := 0
-		for o2 in g.warships:
+		for o2: Dictionary in g.warships:
 			if o2.get("state", 0) == 2 and o2.get("port") == p: docked += 1
 		if docked < int(p.get("level", 1)):
 			ws.state = 2; ws.pos = dest
@@ -214,13 +214,13 @@ func _find_target(ws: Dictionary):
 	var bp := 9
 	var bd := 0.0
 	var shelled: Dictionary = ws.shelled
-	for bt in g.boats:
+	for bt: Dictionary in g.boats:
 		if bt.a == ws.o or g.allied(bt.a, ws.o) or shelled.has(int(bt.get("uid", -1))): continue
 		var d := (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(ws.pos)
 		if d <= r2 and (best == null or 0 < bp or d < bd):
 			best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
 	if bp == 0: return best
-	for o2 in g.warships:
+	for o2: Dictionary in g.warships:
 		if o2 == ws or o2.o == ws.o or g.allied(o2.o, ws.o) or int(o2.get("state", 0)) == 2: continue
 		var d2: float = o2.pos.distance_squared_to(ws.pos)
 		if d2 <= r2 and (best == null or d2 < bd):
@@ -232,7 +232,7 @@ func _find_target(ws: Dictionary):
 	for p in _ports_of(ws.o):
 		if g.sim_naval.coast_body(p.tile) == body: reachable = true; break
 	if not reachable: return null
-	for tr in g.traders:
+	for tr: Dictionary in g.traders:
 		if tr.o == ws.o or g.allied(tr.o, ws.o): continue
 		var dst_o: int = int(tr.dst.get("o", 0)) if tr.dst is Dictionary else 0
 		if dst_o == ws.o or (dst_o > 0 and g.allied(dst_o, ws.o)): continue

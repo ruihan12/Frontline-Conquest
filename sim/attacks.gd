@@ -146,25 +146,25 @@ func _seed_from_border(a: Dictionary) -> int:
 	return c
 
 func attack_between(at: int, tg: int):
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.a == at and a.t == tg and not a.get("dead", false): return a
 	return null
 
 func troops_in_attacks(id: int) -> float:
 	var s := 0.0
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.a == id: s += a.troops + float(a.get("pend", 0.0))
 	return s
 
 func count_attacks_by(id: int, players_only: bool) -> int:
 	var c := 0
-	for a in g.attacks:
+	for a: Dictionary in g.attacks:
 		if a.a == id and (not players_only or a.t > 0): c += 1
 	return c
 
 # start_attack: troops already removed from the attacker by the caller.
 func start(at: int, tg: int, troops: float, beachhead := -1):
-	var n = g.nations[at]
+	var n: Dictionary = g.nations[at]
 	if troops < 1.0:
 		n.troops += troops
 		return null
@@ -438,7 +438,7 @@ func _done(a: Dictionary, taken: int, sx: float, sy: float, neutral: bool, at: i
 # A defender under ANNEX_BELOW_FULL_TILES is conquered outright: its land goes to the attacker
 # (source: tiles touching the attacker go to it, others to a bordering non-allied player, in passes).
 func annex(victim: int, by: int) -> void:
-	var nv = g.nations[victim]
+	var nv: Dictionary = g.nations[victim]
 	var taken: float = R.conquer_gold(g.kind_of(victim), nv.gold)
 	g.nations[by].gold += taken
 	nv.gold = 0.0
@@ -468,7 +468,7 @@ func annex(victim: int, by: int) -> void:
 				rest.append(t)
 		tiles = rest
 		if not progressed or tiles.is_empty(): break
-	for a in g.attacks.duplicate():
+	for a: Dictionary in g.attacks.duplicate():
 		if a.a == victim: end_attack(a, false)
 
 func _annex_neighbour(t: int, victim: int) -> int:
