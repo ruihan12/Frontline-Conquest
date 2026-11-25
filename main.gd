@@ -223,6 +223,7 @@ func _process_inner(dt: float) -> void:
 		# frame budget: the sim gets a slice of the frame; a long attacks pass is time-sliced over frames
 		# (upstream runs a local step as a Coop job spread over frames), so the window never stalls and the
 		# sim simply runs slower than the chosen speed when it can't keep up
+		_begin_presentation_batch()
 		while (tick_acc >= 0.1 or _tick_stage > 0) and nt < MAX_TICKS_PER_FRAME:
 			if Time.get_ticks_usec() - loop_t0 > sim_budget: break
 			var a0 := Time.get_ticks_usec()
@@ -265,6 +266,7 @@ func _process_inner(dt: float) -> void:
 			prof.eco += Time.get_ticks_usec() - a0
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 			if net_host != null: net_host.on_tick()
+		_flush_presentation_batch()
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
 		_fp["missiles"] = 0; u0 = Time.get_ticks_usec()

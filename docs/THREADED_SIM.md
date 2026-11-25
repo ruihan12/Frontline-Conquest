@@ -22,6 +22,10 @@ This inventory covers the Godot 4.3 code at `a47712b`, the starting point for `t
 3. Move only detached simulation data and computation to the worker. Keep Godot scene-tree, audio, rendering and UI access on the main thread. Do not put locks around live game state as a substitute for separating ownership.
 4. Test both modes at the same seed. Run solo upstream parity and multiplayer match, replication and team tests. Profile the worker, publication, render-side apply, frame times and tick rate. Keep the feature off if end-to-end performance does not improve.
 
+## Main-thread event migration
+
+The regular frame loop now collects notices and floating text during each fixed-tick slice and drains them in order before the frame advances presentation. Direct calls outside that loop still present immediately, including the existing headless simulation helpers. This establishes a boundary for two value-only events. Audio, direct effects, snapshot reads and worker ownership remain separate follow-up work. The regression test is `tests/test_sim_presentation.gd`.
+
 ## Source index
 
 The index lists direct references and common helper calls by file, function and line. One line may contain multiple calls. Aliases, indirect calls and dynamic lookups still need review as each consumer is migrated.

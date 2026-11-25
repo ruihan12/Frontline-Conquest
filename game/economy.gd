@@ -778,12 +778,43 @@ func _struct_remove(st) -> void:
 	if fx_layer != null: fx_layer.on_structure_removed(RWGameState.S_OF.get(int(st.k), -1), int(st.tile))
 	structs.erase(st); struct_at.erase(st.tile); _sv += 1; _own_sv[st.o] = _own_sv.get(st.o, 0) + 1
 
+# Collect value-only presentation messages while a simulation slice runs. Input,
+# headless helpers, and frame-time updates still use the immediate path.
+var _collect_presentation := false
+var _presentation_events: Array[Array] = []
+
+func _begin_presentation_batch() -> void:
+	assert(not _collect_presentation and _presentation_events.is_empty())
+	_collect_presentation = true
+
+func _flush_presentation_batch() -> void:
+	_collect_presentation = false
+	var events := _presentation_events
+	_presentation_events = []
+	for event: Array in events:
+		if event[0] == "notice":
+			_present_notice(event[1], event[2])
+		else:
+			_present_float(event[1], event[2], event[3])
+
 func add_float(world_pos: Vector2, text: String, col: Color = GOLD_C) -> void:
+	if _collect_presentation:
+		_presentation_events.append(["float", world_pos, text, col])
+	else:
+		_present_float(world_pos, text, col)
+
+func _present_float(world_pos: Vector2, text: String, col: Color) -> void:
 	floats.append({"pos": world_pos, "text": text, "col": col, "t": 0.0})
 	if floats.size() > 24: floats.pop_front()
 
 func notify(text: String, kind := "info") -> void:
 	if attract_on and state == "menu": return  # the title's demo world is silent
+	if _collect_presentation:
+		_presentation_events.append(["notice", text, kind])
+	else:
+		_present_notice(text, kind)
+
+func _present_notice(text: String, kind: String) -> void:
 	var col := {"good": GREEN, "bad": RED, "info": CYAN}[kind] as Color
 	notes.push_front({"text": text, "col": col, "kind": kind, "t": 0.0})
 	if notes.size() > 5: notes.resize(5)
