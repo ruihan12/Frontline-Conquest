@@ -56,6 +56,9 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - UI package C updates the Tab console layout and keyboard scrolling, matches the Arsenal unlock motion, and fixes large HUD suffixes and name-plate flicker near the visibility cutoff.
 - Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
 
+## Multiplayer support (2026-11-24)
+- Deterministic ranked queue matching and an isolated headless simulation host benchmark.
+
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
    Known hotspots: per-tick attack pass ~80–90ms in web build (sliced 8ms/frame -> only ~1–1.5 ticks/s in software-rendered Chrome);
