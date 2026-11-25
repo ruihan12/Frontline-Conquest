@@ -1,0 +1,123 @@
+options:
+    account-key-file: /etc/rofront/minecraft-internal.key
+
+import:
+    java.nio.file.Paths
+    java.nio.file.Files
+    java.net.URI
+    java.net.http.HttpClient
+    java.net.http.HttpRequest
+    java.net.http.HttpRequest$BodyPublishers
+    java.net.http.HttpResponse$BodyHandlers
+    java.time.Duration
+    com.google.gson.JsonObject
+    com.google.gson.JsonParser
+
+# Run this function only in the asynchronous section. It takes plain data and
+# returns a status name. All player messaging stays on the server thread.
+function rofront_confirm(code: text, id: text) :: text:
+    set {_path} to Paths.get("{@account-key-file}")
+    set {_rawKey} to try Files.readString({_path})
+    if {_rawKey} is not set:
+        return "unavailable"
+    set {_key} to {_rawKey}.strip()
+    if {_key} is "":
+        return "unavailable"
+
+    set {_payload} to new JsonObject()
+    {_payload}.addProperty("code", {_code})
+    {_payload}.addProperty("mc_uuid", {_id})
+    set {_uri} to URI.create("http://127.0.0.1:8071/api/v1/internal/mc-confirm")
+    set {_builder} to HttpRequest.newBuilder({_uri})
+    try {_builder}.header("X-Internal-Key", {_key})
+    {_builder}.header("Content-Type", "application/json")
+    set {_seconds} to Duration.ofSeconds(5)
+    {_builder}.timeout({_seconds})
+    set {_body} to BodyPublishers.ofString({_payload}.toString())
+    {_builder}.POST({_body})
+    set {_request} to try {_builder}.build()
+    set {_responseBuilder} to HttpClient.newBuilder()
+    {_responseBuilder}.connectTimeout({_seconds})
+    set {_client} to {_responseBuilder}.build()
+    set {_handler} to BodyHandlers.ofString()
+    set {_response} to try {_client}.[HttpClient]send({_request}, {_handler})
+    if {_response} is not set:
+        return "unavailable"
+    set {_status} to {_response}.statusCode()
+    if {_status} is 404:
+        return "unknown_code"
+    if {_status} is 409:
+        return "already_linked"
+    if {_status} is 410:
+        return "code_expired"
+    if {_status} is not 200:
+        if {_status} is not 403:
+            return "unavailable"
+
+    set {_parsed} to try JsonParser.parseString({_response}.body())
+    set {_json} to try {_parsed}.getAsJsonObject()
+    if {_json} is not set:
+        return "unavailable"
+    if {_status} is 403:
+        set {_error} to try {_json}.get("error").getAsString()
+        if {_error} is "wrong_player":
+            return "wrong_player"
+        return "unavailable"
+    set {_kind} to try {_json}.get("kind").getAsString()
+    if {_kind} is "link" or "recover":
+        return {_kind}
+    return "unavailable"
+
+# A shared sliding limit for both commands, keyed by the real player UUID.
+function rofront_can_confirm(id: text) :: boolean:
+    loop {rofront_code_attempts::%{_id}%::*}:
+        if difference between now and loop-value >= 1 minute:
+            delete {rofront_code_attempts::%{_id}%::%loop-index%}
+    if size of {rofront_code_attempts::%{_id}%::*} >= 5:
+        return false
+    add now to {rofront_code_attempts::%{_id}%::*}
+    return true
+
+every 5 minutes:
+    loop {rofront_code_attempts::*}:
+        if difference between now and loop-value >= 1 minute:
+            delete {rofront_code_attempts::%loop-index%}
+
+function rofront_request(player: player, raw: text):
+    set {_id} to "%uuid of {_player}%"
+    if rofront_can_confirm({_id}) is false:
+        send "Too many attempts. Wait a minute and try again." to {_player}
+        stop
+    set {_code} to uppercase {_raw}
+    if {_code}.matches("[A-HJ-NP-Z]{4}-[2-9]{4}") is false:
+        send "That code was not found. Check the code and try again." to {_player}
+        stop
+    create new section stored in {_call}:
+        return rofront_confirm({_code}, {_id})
+    run section {_call} async and store the result in {_result} and wait
+    if {_player} is not online:
+        stop
+    if {_result} is "link":
+        send "Minecraft linked. Return to the game to continue." to {_player}
+    else if {_result} is "recover":
+        send "Recovery confirmed. Return to the game to set a new password." to {_player}
+    else if {_result} is "unknown_code":
+        send "That code was not found. Check the code and try again." to {_player}
+    else if {_result} is "code_expired":
+        send "This code has expired. Request a new code in the game." to {_player}
+    else if {_result} is "already_linked":
+        send "This Minecraft account or game account is already linked." to {_player}
+    else if {_result} is "wrong_player":
+        send "Use the Minecraft account linked to this game account." to {_player}
+    else:
+        send "The account service is unavailable. Try again later." to {_player}
+
+command /link <text>:
+    executable by: players
+    trigger:
+        rofront_request(player, arg-1)
+
+command /recover <text>:
+    executable by: players
+    trigger:
+        rofront_request(player, arg-1)
