@@ -50,6 +50,11 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		return err
 	host = HostC.new(g, func(peer: int, pkt: PackedByteArray) -> void: transport.send(peer, pkt))
 	host.max_humans = max_humans
+	if not use_enet or DisplayServer.get_name() == "headless":
+		g.net_dedicated = DisplayServer.get_name() == "headless"
+	if g.net_dedicated and g.names != null:
+		g.names.set_process(false)
+		g.names.hide()
 	api_base = OS.get_environment("FRONTLINE_API") if OS.has_environment("FRONTLINE_API") else api_base
 	internal_key = OS.get_environment("INTERNAL_KEY")
 	ranked = OS.get_environment("FRONTLINE_RANKED") == "1"

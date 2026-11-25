@@ -710,6 +710,7 @@ func _paint_pending_count() -> int:
 	return _rp_list.size() - _rp_head + _pend_paint.size()
 
 func _repaint(i: int) -> void:
+	if net_dedicated: return  # a headless server paints nothing
 	var N := W * H
 	if _rp_mark.size() != N:
 		_rp_mark.resize(N); _rp_mark.fill(0); _rp_list = PackedInt32Array(); _rp_head = 0

@@ -33,7 +33,7 @@ func _net_boot() -> void:
 		if hn != null: hn.netlog = opt.has("netlog")
 		print("MPHOSTLOCAL ", "ok" if hn != null else "failed")
 	elif opt.has("server"):
-		Engine.max_fps = 60  # a dedicated server needs no more than the tick rate
+		Engine.max_fps = 30  # a dedicated server needs little more than the tick rate (10/s)
 		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
 		var bots := int(OS.get_environment("FRONTLINE_DEFAULT_BOTS")) if OS.has_environment("FRONTLINE_DEFAULT_BOTS") else int(opt.get("bots", 40))
 		var mp := str(opt.get("map", "0:0")).split(":")
@@ -322,6 +322,9 @@ func _process_inner(dt: float) -> void:
 		for n in ncd:
 			var k := (_up_cursor + n) % ncd
 			if chunk_dirty[k] == 1:
+				if net_dedicated:
+					chunk_dirty[k] = 0  # (a server has no screen: skip the texture upload)
+					continue
 				if up >= cap_up: more = true; _up_cursor = k; break
 				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1; _pf_add("uploads", 1)
 		dirty = more
