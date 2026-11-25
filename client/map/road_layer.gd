@@ -231,7 +231,7 @@ func _colour(item: Dictionary, now: float, me_col: Color, recolor: bool) -> Colo
 		elif own == g.PLAYER:
 			c = me_col
 		else:
-			c = StructureLayer.border_color(g.nations[own].color)
+			c = StructureLayer.border_color(g._render_nations()[own].color)
 		item["col"] = c
 	return item.col
 
@@ -255,8 +255,8 @@ func draw(ci: CanvasItem, edges: Array) -> void:
 		line_a = a * thick * DEVICE_RATIO
 		thick = 1.0 / DEVICE_RATIO
 	var me_col := LIGHT
-	if g.PLAYER > 0 and g.PLAYER < g.nations.size():
-		me_col = DARK if luminance(g.nations[g.PLAYER].color) > LIGHT_ABOVE else LIGHT
+	if g.PLAYER > 0 and g.PLAYER < g._render_nations().size():
+		me_col = DARK if luminance(g._render_nations()[g.PLAYER].color) > LIGHT_ABOVE else LIGHT
 	var vp: Vector2 = g.get_viewport_rect().size
 	var w: int = g.W
 	# the visible part of the map in tiles: a road wholly outside it is skipped

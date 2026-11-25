@@ -104,3 +104,9 @@ The index lists direct references and common helper calls by file, function and 
 - `--sim-queued-intents` queues solo `RWSession.send_intent` commands in FIFO order and drains them just before a new fixed tick. Commands carry scalar values. Retreat commands carry an attack ID, and the sim resolves the live attack at apply time. Round start and teardown discard pending commands. Network and spawn commands retain their existing paths.
 - `--sim-snapshot` now supplies territory and fallout data for map drawing, including names, fronts, roads, unit markers, range rings and the fallout overlay. The mirror arrays are borrowed only for synchronous draw passes. Nation and unit records, paint state and frame-time mutations are still coupled to the game node.
 - The software-rendered Chromium diagnostic held the World sim at tick 12 and let paint drain. Median frame interval went from 132.5 to 129.5 ms. That is a ceiling experiment in this environment, with both sim and repaint activity removed. It cannot establish the gain from a worker on a GPU-equipped device. The worker migration remains open.
+
+## Nation and structure draw records
+
+Under `--sim-snapshot`, the frame loop publishes selected nation and structure fields before painting and updating the HUD. The name layer, map palettes, and structure markers use the published records. The copy includes a separate read-only shot history so a launcher can update its reload list without changing a published frame. Round transitions invalidate the published records.
+
+Unit drawing still uses live routes and records. In particular, legacy flight smoothing and warship interpolation write `sdir` and `dp` into the source records. Moving unit reads requires relocating that smoothing state to the renderer and keeping selection and alert tracking keyed by stable IDs.

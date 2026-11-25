@@ -149,7 +149,7 @@ func draw_ghost(ci: CanvasItem, k: int, sp: Vector2, ok: bool) -> bool:
 	var base := ICON_SIZE * icon_scale(scale_px / kl * DEVICE_RATIO)
 	var px := roundf(base * SHAPE_SCALE[col])
 	var c := Vector2(roundf(sp.x), roundf(sp.y))
-	var oc: Color = g.nations[g.PLAYER].color
+	var oc: Color = g._render_nations()[g.PLAYER].color
 	var fill_col := value_scale(oc, FILL_V) if ok else Color(0.85, 0.2, 0.2)
 	var rim_col := value_scale(oc, BORDER_V) if ok else Color(0.35, 0.05, 0.05)
 	fill_col.a = 0.75
@@ -181,7 +181,7 @@ func _draw_inner(ci: CanvasItem) -> void:
 	var W: int = g.W
 	var me: int = g.PLAYER
 	var tick: int = int(g.sim_atk.tick) if g.sim_atk != null else 0
-	for st: Dictionary in g.structs:
+	for st: Dictionary in g._render_structures():
 		var col: int = g.ST_COL.get(int(st.k), -1)
 		if col < 0:
 			continue
@@ -200,7 +200,7 @@ func _draw_inner(ci: CanvasItem) -> void:
 			fill_col = CONSTRUCT_FILL
 			rim_col = CONSTRUCT_BORDER
 		else:
-			var oc: Color = g.nations[int(st.o)].color
+			var oc: Color = g._render_nations()[int(st.o)].color
 			fill_col = value_scale(oc, FILL_V)
 			rim_col = value_scale(oc if int(st.o) == me else border_color(oc), BORDER_V)
 		var dst := Rect2(c - Vector2(px, px) * 0.5, Vector2(px, px))

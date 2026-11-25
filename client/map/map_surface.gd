@@ -103,7 +103,7 @@ static func contrast(v: float, k: float) -> float:
 # ---------------------------------------------------------------------------------------------
 
 func _palette(o: int) -> Dictionary:
-	var c: Color = g.nations[o].color
+	var c: Color = g._render_nations()[o].color
 	var p = _pal.get(o)
 	var sk = g.skin_of(o)
 	var sid: String = "" if sk == null else str(sk.id)
@@ -193,7 +193,7 @@ func set_hover(owner: int) -> void:
 	var old := hover
 	var old_fill := _hover_fill
 	hover = owner
-	_hover_fill = owner > 0 and owner < g.nations.size() and int(g.nations[owner].land) <= HOVER_FILL_MAX
+	_hover_fill = owner > 0 and owner < g._render_nations().size() and int(g._render_nations()[owner].land) <= HOVER_FILL_MAX
 	if old > 0:
 		_sweep(old, old_fill)
 	if owner > 0:
@@ -202,7 +202,7 @@ func set_hover(owner: int) -> void:
 
 ## `owner`'s tiles are to be repainted (all of them with `fill`, else its border and what is next to it).
 func _sweep(owner: int, fill: bool, other := 0) -> void:
-	if owner <= 0 or owner >= g.nations.size() or int(g.nations[owner].land) <= 0:
+	if owner <= 0 or owner >= g._render_nations().size() or int(g._render_nations()[owner].land) <= 0:
 		return
 	for job in _sweeps:
 		if job.owner == owner and job.other == other:
@@ -236,10 +236,10 @@ func step() -> void:
 		var job: Dictionary = _sweeps[0]
 		var owner: int = job.owner
 		var other: int = job.other
-		if owner >= g.nations.size() or (other > 0 and other >= g.nations.size()):
+		if owner >= g._render_nations().size() or (other > 0 and other >= g._render_nations().size()):
 			_sweeps.pop_front()
 			continue
-		var b: Rect2i = g.nations[owner].bb
+		var b: Rect2i = g._render_nations()[owner].bb
 		if b.size == Vector2i.ZERO:
 			_sweeps.pop_front()
 			continue
@@ -248,7 +248,7 @@ func step() -> void:
 		var x0 := maxi(b.position.x - 1, 0)
 		var x1 := mini(b.end.x, W - 1)
 		if other > 0:
-			var ob: Rect2i = g.nations[other].bb
+			var ob: Rect2i = g._render_nations()[other].bb
 			if ob.size == Vector2i.ZERO:
 				_sweeps.pop_front()
 				continue

@@ -354,7 +354,7 @@ static func smoothstep01(a: float, b: float, x: float) -> float:
 
 
 func _process(dt: float) -> void:
-	if not is_visible_in_tree() or g.nations.size() < 2:
+	if not is_visible_in_tree() or g._render_nations().size() < 2:
 		return
 	_now += dt
 	if int(g.build_sel) != _seen_bsel:
@@ -396,7 +396,7 @@ func _draw() -> void:
 
 
 func _draw_body() -> void:
-	if g.nations.size() < 2:
+	if g._render_nations().size() < 2:
 		return
 	var w: int = st.map.W
 	var scale_px: float = g.cam.zoom.x * g.TS

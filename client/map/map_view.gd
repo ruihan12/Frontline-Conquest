@@ -67,9 +67,10 @@ func focus_tile(tile: int, zoom: float = -1.0, dur: float = 0.8) -> void:
 
 ## Fly to an owner's land, framing it (upstream MapView.focus_owner).
 func focus_owner(id: int) -> void:
-	if id <= 0 or id >= g.nations.size():
+	var nations: Array = g._render_nations()
+	if id <= 0 or id >= nations.size():
 		return
-	var n: Dictionary = g.nations[id]
+	var n: Dictionary = nations[id]
 	if int(n.get("land", 0)) <= 0:
 		return
 	var land := maxf(1.0, float(n.land))
@@ -115,7 +116,7 @@ func aim_sams(tile: int) -> int:
 	var w: int = g.W
 	@warning_ignore("integer_division")
 	var p := Vector2(tile % w, tile / w)
-	for st in g.structs:
+	for st in g._render_structures():
 		if int(st.k) == 4 and int(st.o) != g.PLAYER and not g.allied(g.PLAYER, int(st.o)) and float(st.get("bt", 0.0)) <= 0.0:
 			@warning_ignore("integer_division")
 			var sp := Vector2(int(st.tile) % w, int(st.tile) / w)

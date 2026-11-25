@@ -135,7 +135,7 @@ static func _cur(sl: Dictionary, now: float) -> Vector2:
 
 func poll(now: float) -> void:
 	var me: int = g.PLAYER
-	if g.state != "play" or g.nations.size() <= me or g.border.size() <= me or g.nations[me].land <= 0:
+	if g.state != "play" or g._render_nations().size() <= me or g.border.size() <= me or g._render_nations()[me].land <= 0:
 		entries.clear()
 		return
 	var todo := {}  # aid -> [other owner, incoming, troops]

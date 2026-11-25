@@ -127,13 +127,13 @@ static func font_size(width: float, height: float, text: String) -> float:
 
 
 func _label_name(id: int) -> String:
-	return st.owner_name(id)
+	return str(g._render_nations()[id].get("name", ""))
 
 
 ## Upstream GameState.label_tile: the owner's tile nearest its centre of mass (the centre itself, the last
 ## one found, a bounded spiral out to 47 tiles, else its spawn tile), or -1.
 func label_tile(id: int) -> int:
-	var n: Dictionary = g.nations[id]
+	var n: Dictionary = g._render_nations()[id]
 	var land := int(n.get("land", 0))
 	if land <= 0:
 		return -1
@@ -307,7 +307,7 @@ func _place_from_box(id: int, x0: int, y0: int, x1: int, y1: int):
 
 ## The whole placement at once (new owners).
 func _place(id: int):
-	var n: Dictionary = g.nations[id]
+	var n: Dictionary = g._render_nations()[id]
 	if int(n.get("land", 0)) <= 0:
 		return null
 	if _job != null:
@@ -323,7 +323,7 @@ func _place(id: int):
 
 ## Upstream _place_spawn: an 8-tile box on the spawn tile.
 func _place_spawn(id: int):
-	var n: Dictionary = g.nations[id]
+	var n: Dictionary = g._render_nations()[id]
 	if int(n.get("land", 0)) <= 0:
 		return null
 	var W: int = g.W
@@ -338,13 +338,13 @@ func _place_spawn(id: int):
 
 
 func _live(id: int) -> bool:
-	var n: Dictionary = g.nations[id]
+	var n: Dictionary = g._render_nations()[id]
 	return bool(n.get("alive", false)) and int(n.get("land", 0)) > 0
 
 
 func _refresh_queue() -> void:
 	_queue.clear()
-	for id in range(1, g.nations.size()):
+	for id in range(1, g._render_nations().size()):
 		if _live(id):
 			_queue.append(id)
 
@@ -370,7 +370,7 @@ func _placement_step() -> void:
 		_last_place_s = now_s
 		_job = null
 		_queue.clear()
-		for id0 in range(1, g.nations.size()):
+		for id0 in range(1, g._render_nations().size()):
 			if _live(id0):
 				var t0p = _place_spawn(id0) if spawn else _place(id0)
 				if t0p != null:
@@ -385,7 +385,7 @@ func _placement_step() -> void:
 		_refresh_queue()
 	var t0 := Time.get_ticks_usec()
 	# new owners at once
-	for id in range(1, g.nations.size()):
+	for id in range(1, g._render_nations().size()):
 		if _live(id) and not _targets.has(id):
 			var t = _place_spawn(id) if spawn else _place(id)
 			if t != null:
@@ -398,7 +398,7 @@ func _placement_step() -> void:
 			if _queue.is_empty():
 				break
 			var id2: int = _queue.pop_back()
-			if id2 >= g.nations.size() or not _live(id2):
+			if id2 >= g._render_nations().size() or not _live(id2):
 				continue
 			if spawn:
 				var ts = _place_spawn(id2)
@@ -409,7 +409,7 @@ func _placement_step() -> void:
 			if _job == null:
 				continue
 		var jid: int = _job.id
-		if jid >= g.nations.size() or not _live(jid):
+		if jid >= g._render_nations().size() or not _live(jid):
 			_job = null
 			continue
 		if _fill_step(_job, FILL_CHECK):
@@ -431,8 +431,8 @@ static func shade_of(kind: int) -> float:
 func crown_of() -> int:
 	var best := 0
 	var bt := 0
-	for id in range(1, g.nations.size()):
-		var n: Dictionary = g.nations[id]
+	for id in range(1, g._render_nations().size()):
+		var n: Dictionary = g._render_nations()[id]
 		var t := int(n.get("land", 0))
 		if bool(n.get("alive", false)) and t > 0 and t > bt:
 			best = id
@@ -441,7 +441,7 @@ func crown_of() -> int:
 
 
 func _process(dt: float) -> void:
-	if not is_visible_in_tree() or g.nations.size() < 2:
+	if not is_visible_in_tree() or g._render_nations().size() < 2:
 		return
 	_crown_t -= dt
 	if _crown_t <= 0.0:
@@ -468,7 +468,7 @@ func _draw() -> void:
 
 
 func _draw_body() -> void:
-	if g.nations.size() < 2:
+	if g._render_nations().size() < 2:
 		return
 	var k := k_lin()
 	var now := FrameClock.now()
@@ -478,7 +478,7 @@ func _draw_body() -> void:
 	var seen := {}
 	_easing = false
 	for id: int in _targets:
-		if id >= g.nations.size() or not _live(id):
+		if id >= g._render_nations().size() or not _live(id):
 			continue
 		seen[id] = true
 		var t: Array = _targets[id]
@@ -518,7 +518,7 @@ func _draw_body() -> void:
 		var cutoff := cull_px - hysteresis
 		var fits := false
 		if not (line_px >= cutoff or hovered):
-			var bbn: Rect2i = g.nations[id].bb
+			var bbn: Rect2i = g._render_nations()[id].bb
 			var eff := maxf(line_px, MIN_LABEL_PX)
 			fits = bbn.size != Vector2i.ZERO and float(bbn.size.x) * scale_px * 0.8 >= float(_label_name(id).length()) * eff * 0.55 - hysteresis
 			if fits: line_px = eff
@@ -526,12 +526,12 @@ func _draw_body() -> void:
 		p.shown = vis
 		if not vis:
 			continue
-		var n: Dictionary = g.nations[id]
+		var n: Dictionary = g._render_nations()[id]
 		var text := _label_name(id)
 		var o = st.get_owner(id)
 		var shade := shade_of(int(o.kind) if o != null else Defs.KIND_NATION)
 		var fill := Color(shade, shade, shade)
-		var col: Color = st.owner_color(id)
+		var col: Color = n.get("color", Color.GRAY)
 		var px := floorf(line_px * 2.0 + 0.5) / 2.0
 		var fs := maxi(1, int(round(px)))
 		var tfs := maxi(1, int(round(px * TROOP_SIZE_MULT)))

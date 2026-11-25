@@ -323,6 +323,7 @@ func _process_inner(dt: float) -> void:
 	elif cam.offset != Vector2.ZERO:
 		shake_amp = 0.0
 		cam.offset = Vector2.ZERO
+	_publish_render_records()
 	if dirty:
 		var more := false
 		var p0 := Time.get_ticks_usec()

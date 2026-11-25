@@ -57,12 +57,26 @@ const ORANGE := Color(0.95, 0.52, 0.12)
 var owner_map := PackedInt32Array()
 const TileSnapshot = preload("res://sim/tile_snapshot.gd")
 var tile_snapshot: TileSnapshot
+const RenderRecords = preload("res://sim/render_records.gd")
+var _render_records: RenderRecords
+
+func _publish_render_records() -> void:
+	if tile_snapshot != null:
+		_render_records = RenderRecords.new(nations, structs)
+
+func _render_nations() -> Array:
+	return nations if _render_records == null else _render_records.nations
+
+func _render_structures() -> Array:
+	return structs if _render_records == null else _render_records.structures
+
 const SimIntentQueue = preload("res://sim/intent_queue.gd")
 var sim_intents: SimIntentQueue
 var _tile_snapshot_valid := false
 var _tile_snapshot_dirty := PackedInt32Array()
 
 func _reset_tile_snapshot() -> void:
+	_render_records = null
 	_tile_snapshot_valid = false
 	_tile_snapshot_dirty = PackedInt32Array()
 

@@ -80,7 +80,7 @@ func sprite(ci: CanvasItem, col: int, owner_col: Color, p: Vector2, px: float, s
 
 
 func _owner_col(o: int) -> Color:
-	return g.nations[o].color if o > 0 and o < g.nations.size() else g.GOLD_C
+	return g._render_nations()[o].color if o > 0 and o < g._render_nations().size() else g.GOLD_C
 
 
 func _on_screen(p: Vector2, margin: float, vp: Vector2) -> bool:
@@ -166,7 +166,7 @@ func draw(ci: CanvasItem) -> void:
 		var p0: Vector2 = g._screen_of(bp[0])
 		if not _on_screen(p0, maxf(px, 40.0), vp):
 			continue
-		var ocol: Color = _owner_col(int(tr.o)) if tr.o > 0 and tr.o < g.nations.size() else g.GOLD_C
+		var ocol: Color = _owner_col(int(tr.o)) if tr.o > 0 and tr.o < g._render_nations().size() else g.GOLD_C
 		if tr.get("air", false):
 			var rd: Vector2 = bp[1] if bp[1] != Vector2.ZERO else Vector2.RIGHT
 			g._plane_glyph(p0, g._sdir(tr, rd), ocol, 0.85, true)
@@ -223,7 +223,7 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 			SimRules.N_HYDROGEN, SimRules.N_MEGA: col_i = COL_HYDROGEN
 			SimRules.N_MIRV, SimRules.N_SCATTER: col_i = COL_MIRV
 			SimRules.N_WARHEAD: col_i = COL_WARHEAD
-		var c: Color = _owner_col(int(ms.o)) if ms.o > 0 and ms.o < g.nations.size() else Color(1, 0.4, 0.3)
+		var c: Color = _owner_col(int(ms.o)) if ms.o > 0 and ms.o < g._render_nations().size() else Color(1, 0.4, 0.3)
 		var dist: float = (ms.from as Vector2).distance_to(ms.to)
 		var steps := clampi(int(floor((dist * 1.4 + 1.0) * k / TRAIL_STEP)), 2, TRAIL_MAX)
 		var newest := int(floor(float(steps) * f))
@@ -266,7 +266,7 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 		var a: Vector2 = m.from
 		var b: Vector2 = m.to
 		var p: Vector2 = g._screen_of(a.lerp(b, f) * g.TS)
-		var col: Color = _owner_col(int(m.o)) if m.o > 0 and m.o < g.nations.size() else Color(1, 0.6, 0.3)
+		var col: Color = _owner_col(int(m.o)) if m.o > 0 and m.o < g._render_nations().size() else Color(1, 0.6, 0.3)
 		match int(m.nk):
 			SimRules.N_SHELL:
 				if _on_screen(p, px, vp):
@@ -296,5 +296,5 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 			var tgp: Vector2 = g.sim_ws.unit_pos(sh.target)
 			var q2: Vector2 = g._screen_of((sh.from as Vector2).lerp(tgp, f3) * g.TS)
 			if _on_screen(q2, px, vp):
-				var c3: Color = _owner_col(int(sh.o)) if int(sh.o) > 0 and int(sh.o) < g.nations.size() else Color(1, 0.6, 0.3)
+				var c3: Color = _owner_col(int(sh.o)) if int(sh.o) > 0 and int(sh.o) < g._render_nations().size() else Color(1, 0.6, 0.3)
 				sprite(ci, COL_SHELL, c3, q2, px * SHELL_SCALE)
