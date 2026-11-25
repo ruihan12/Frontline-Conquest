@@ -242,7 +242,7 @@ func _aim_spec(tile: int) -> Dictionary:
 		# Hostile SAM cover of the aimed tile (the view counts it for the current aim).
 		var ns = ctx.world_call("aim_sams", [tile])
 		var n_sam := int(ns) if ns != null else 0
-		if n_sam > 0 and k != "mirv":
+		if n_sam > 0 and k != "mirv" and not UIRules.is_strike(k):  # (custom, owner 2026-11-25: strikes and slugs cannot be intercepted)
 			rows.append(["SAM cover", "%d SAM%s cover this target" % [n_sam, "" if n_sam == 1 else "s"], Th.RED])
 	spec["rows"] = rows
 	var verb := "Tap" if ctx.touch else "Click"

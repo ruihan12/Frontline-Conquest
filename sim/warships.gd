@@ -408,7 +408,7 @@ func _capture_trade(ws: Dictionary, tr, tp: Vector2) -> void:
 	if victim == g.PLAYER and t - int(_capture_msg.get(victim, -1000)) > 150:
 		_capture_msg[victim] = t
 		g.notify("%s's warships are capturing your trade ships" % g._nname(ws.o), "bad")
-	if ws.o == g.PLAYER: g.notify("Your warship captured a trade ship from %s" % g._nname(victim), "good"); g.sfx("ka_ching")
+	if ws.o == g.PLAYER: g.notify("Your warship captured a trade ship from %s" % g._nname(victim), "good")
 	g.ai_ship_loss(victim, _tile_of(tp), ws.o)
 	var vt := _tile_of(tp)
 	var water := _body_at(tp)

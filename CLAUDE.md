@@ -7,6 +7,7 @@ Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
 - Owner console (password 5516 no longer used for it, FPS counter): opens with Esc then Tab, only for the owner's account (henry9149): the account server signs a 7-day token (GET /admin/token, RSA-SHA256, private key on the VM via ADMIN_KEY_FILE + ADMIN_USERS env) and the game checks it against net/admin_pub.pem (net/admin_console.gd). Works in online matches too: the console sends {type: console} and the host (net/mp_host.gd _admin_console) runs only gold, troops, god, claim, nation <name|id> gold|troops <n>, never expressions. Offline `--console` user arg still works locally. Private key: /home/claude/admin_keys/console_private.pem (never commit).
 - Game speed slider 0.5x–10x
+- Aim card hides the "SAM cover" row for Air Strike and Railgun shots (they ignore SAMs); a warship capturing a trade ship plays no sound (owner request 2026-11-25).
 - ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
 - Bulk launch ring (x1, x2, x5, most affordable) for every bomb (atom, hydrogen, MIRV, Mega, Scattershot; upstream: atom only), client/ui/ui_rules.gd (owner request 2026-11-24).
 - Nukes fly at 0.9x upstream speed (NUKE_SPEED_X in game/nukes.gd).

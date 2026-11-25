@@ -78,8 +78,6 @@ func _tick_warships_legacy(dt: float) -> void:
 		elif trade != null and ws.cd <= 0:
 			var from_o: int = trade.o
 			trade.o = ws.o; ws.cd = 2.0; _ws_kill(ws)
-			if ws.o == PLAYER: sfx("ka_ching")
-			elif from_o == PLAYER: sfx("warship_shot")
 			if ws.o == PLAYER: notify("Your warship captured a trade ship from %s" % _nname(from_o), "good")
 			elif from_o == PLAYER: notify("%s captured your trade ship" % _nname(ws.o), "bad")
 		# enemy warships duel (1,000 HP, 250 dmg/shell + veterancy boost)
