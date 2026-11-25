@@ -18,7 +18,7 @@ These are required port behaviour and must not be treated as bugs. Tests in this
 
 | Deviation | Port value | Upstream (for reference) |
 | --- | --- | --- |
-| ICBM toggle (key I, slot after MIRV) | +10% of the player's bomb price, 35% chance to evade SAMs (seeded) | not present |
+| ICBM toggle (key I, slot after MIRV) | +10% of the player's bomb price, 20% chance to evade SAMs (seeded) | not present |
 | Tab dev console | password 5516, FPS, match-only | not present |
 | Game speed slider | 0.5–10× | not present |
 | Graphics settings window | non-gameplay (resolution, shake, audio) | none or different |
@@ -439,28 +439,28 @@ _None this run._
 | `arsenal.luau` | railgun slug fired at any range | pass | tgt=869170 owner=29 ready=0 bt=0 notes=[{ "text": "Railgun slug on its way to Ethiopia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "The Pebblerowers captured your Artillery!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "The Pebblerowers captured your Missile Silo!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "The Pebblerowers captured your Artillery!", "col": (1, 0.36, 0.38, 1), "kind": "bad", "t": 0 }, { "text": "Scattershot launched at Ethiopia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }] |
 | `arsenal.luau` | structure HP: 0 HP drops a level, then destroys at level 1 | pass |  |
 | `arsenal.luau` | Rapid Reload stays off unless unlocked | pass | unlocked=false mult=1.00 |
-| `simsys_naval.luau` | shared land border: launch_boat does not convert to launch_attack | pass | ok=true atk 60->60 |
-| `simsys_naval.luau` | boat can land on a bordered nation's coast (upstream) | pass | boats 1->2 |
+| `simsys_naval.luau` | shared land border: launch_boat does not convert to launch_attack | pass | ok=true atk 58->58 |
+| `simsys_naval.luau` | boat can land on a bordered nation's coast (upstream) | pass | boats 4->5 |
 | `simsys_naval.luau` | launch_boat to an overseas coast | pass | dest=160342 foe=2 |
 | `simsys_naval.luau` | a transport is at sea | pass |  |
 | `simsys_naval.luau` | own land / coast rejected | pass |  |
 | `simsys_naval.luau` | player boat cap is MAX_BOATS_PLAYER (10) | pass |  |
 | `simsys_naval.luau` | AI boat cap is 3 | pass |  |
 | `simsys_warships.luau` | build / spawn a warship | pass | ok=true n=1 water=604992 port=true |
-| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=5 sunk=1 en_hp=0 state=1 rival=2 alive=true |
+| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=6 sunk=1 en_hp=0 state=1 rival=2 alive=true |
 | `simsys_warships.luau` | order_warship accepts reachable water | pass |  |
-| `simsys_warships.luau` | ordered warship sails toward the target | pass | d0=35.8 d1=25.9 |
-| `simsys_warships.luau` | warship speed respects warship_speed (0.35x) | pass | moved=9.94 cap=21.01 |
+| `simsys_warships.luau` | ordered warship sails toward the target | pass | d0=36.1 d1=25.6 |
+| `simsys_warships.luau` | warship speed respects warship_speed (0.35x) | pass | moved=10.48 cap=21.01 |
 | `simsys_warships.luau` | rails connect stations 15..110 tiles apart (SimStructures._link_nearby) | pass | fac=774985 a=740985 b=723000 |
 | `simsys_warships.luau` | launch_plane is a no-op (no custom cargo/transport planes) | pass |  |
 | `simsys_warships.luau` | atom flight ticks = ceil(arc length x k_lin / 10) (upstream speed) | pass | ft=36 arc=353.8 |
 | `simsys_warships.luau` | warship has max HP | pass |  |
-| `sim_units.luau` | player attack starts (25% HUD share) | pass | ok=true attacks=59 tgt_o=50 |
-| `sim_units.luau` | expansion does not shrink the player (land 12148 -> 12913) | pass |  |
+| `sim_units.luau` | player attack starts (25% HUD share) | pass | ok=true attacks=65 tgt_o=50 |
+| `sim_units.luau` | expansion does not shrink the player (land 11403 -> 13782) | pass |  |
 | `sim_units.luau` | live Rules.conquer_gold still half of a human's gold | pass | 500 |
 | `simsys_ai.luau` | AI driver is attached | pass |  |
 | `simsys_ai.luau` | grace constants still 5/3/2 min | pass |  |
-| `simsys_ai.luau` | AI + economy soak 200 ticks, player still in the match | pass | alive 183 -> 162 |
+| `simsys_ai.luau` | AI + economy soak 200 ticks, player still in the match | pass | alive 186 -> 166 |
 | `simsys_ai.luau` | sim_nav: water bodies were computed | pass | nonzero samples=13520 |
 | `growth_rules.luau` | World is the native 2000x1000 grid | pass | 2000x1000 |
 | `growth_rules.luau` | World row 0 is water and the bottom row is land | pass | top=0 bottom=2000 |
@@ -478,7 +478,7 @@ _None this run._
 | `bot_skill.luau` | bot players count as people (kind HUMAN) and build like nations | pass |  |
 | `bot_skill.luau` | which bots are smart is deterministic | pass |  |
 | `bot_skill.luau` | a novice waits twice the Easy grace before attacking a player | pass |  |
-| `bot_skill.luau` | and may attack after it | pass | base=3587 |
+| `bot_skill.luau` | and may attack after it | pass | base=3783 |
 | `bot_skill.luau` | a smart bot waits the Easy grace (no doubling) | pass |  |
 | `sim_bots.luau spawn_shield` | a match with bot players is not solo | pass |  |
 | `sim_bots.luau spawn_shield` | every person gets a spawn shield when play starts | pass |  |

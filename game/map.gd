@@ -9,6 +9,9 @@ func _ready() -> void:
 	for x in OS.get_cmdline_user_args():
 		if x.begins_with("--pace="): _pace = {"init": true}
 	rng.randomize()
+	for x in OS.get_cmdline_user_args():
+		if x == "--server" or x.begins_with("--connect="):
+			call_deferred("_net_boot")  # defined in main.gd
 	if autoshot or bench: save_path = "user://save_test.json"
 	Engine.max_fps = 0  # uncapped
 	load_save()

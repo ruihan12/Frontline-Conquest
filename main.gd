@@ -14,6 +14,28 @@ func _pf_line() -> String:
 	out += " ticks/frame=%.2f tiles/tick=%.0f atk_per_tick=%.0f set_owner_ms/tick=%.1f naval=%.1f" % [_pf.get("ticks", 0.0) / f, _pf.get("tiles", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)), _pf.get("atk_n", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)), _pf.get("set_owner", 0.0) / maxf(1.0, _pf.get("ticks", 0.0)) / 1000.0, _pf.get("naval", 0.0) / f / 1000.0]
 	_pf = {}
 	return out
+# Multiplayer from the command line (see net/mp_node.gd): a dedicated server or a viewer that connects to one.
+func _net_boot() -> void:
+	var args := OS.get_cmdline_user_args()
+	var opt := {}
+	for a in args:
+		var kv: PackedStringArray = a.trim_prefix("--").split("=", true, 1)
+		opt[kv[0]] = kv[1] if kv.size() > 1 else "1"
+	var node = preload("res://net/mp_node.gd").new()
+	node.name = "MPNode"
+	add_child(node)
+	node.netlog = opt.has("netlog")
+	if opt.has("server"):
+		Engine.max_fps = 60  # a dedicated server needs no more than the tick rate
+		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
+		var bots := int(OS.get_environment("FRONTLINE_DEFAULT_BOTS")) if OS.has_environment("FRONTLINE_DEFAULT_BOTS") else int(opt.get("bots", 40))
+		var mp := str(opt.get("map", "0:0")).split(":")
+		var err: int = node.start_server(self, port, bots, int(mp[0]), int(mp[1]) if mp.size() > 1 else 0, int(opt.get("max", 8)), opt.has("enet"))
+		print("MPSERVER ", node.status, " err=", err)
+	elif opt.has("connect"):
+		var err2: int = node.start_client(self, str(opt.connect), str(opt.get("name", "Player")), opt.has("enet"))
+		print("MPCLIENT ", node.status, " err=", err2)
+
 func _process(dt: float) -> void:
 	_rail_bfs_left = 40
 	_rail_calc_left = 40
