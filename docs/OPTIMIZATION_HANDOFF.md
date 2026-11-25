@@ -2,6 +2,9 @@
 
 Repo: ruihan12/Frontline-Conquest, branch multiplayer. Godot 4.3 (binary: godot 4.3.stable), GDScript. Read CLAUDE.md first (customs list, rules for agents).
 
+## Scope: do everything in one run (owner request 2026-11-25)
+Do all of the hotspots and ideas below in one pass, not one at a time and without stopping to report between steps. Continue on branch perf-world (first commit 23f20bd: name-tag histogram reuse, 373 to 285 ms). Order: static typing audit, attack pass (flat arrays instead of Dictionaries, bucket queue only if the hash is unchanged), paint and upload, name relabel burst, naval and economy spikes, client reads, then isolated worker jobs. Keep every step that gives a measured gain and verified hash; revert the rest. Run the full test list once at the end plus the sim hash after each step, push perf-world after each large step, and finish with one summary of the before/after numbers. Do not merge into multiplayer or vanilla; the owner decides.
+
 ## Goal
 Steady 60 fps at 1x on the World map (400 tribes) in the web build (threads on, Chrome/Edge) and on a phone. The owner measured about 30 fps before the earlier perf work and still reports lag. Do not change gameplay.
 
