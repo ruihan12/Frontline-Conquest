@@ -16,6 +16,7 @@ signal pick_map
 signal show_help
 signal open_arsenal
 signal open_crates
+signal open_account
 
 const NAME := "FRONTLINE CONQUEST"
 const TAG := "CONQUER THE WORLD"
@@ -267,6 +268,9 @@ func _build_dock() -> void:
 	_help.tooltip_text = "How to play"
 	_help.pressed.connect(func() -> void: show_help.emit())
 	row.add_child(_help)
+	var account := UITheme.button("Account", "GlassButton", "", 42)
+	account.pressed.connect(func() -> void: open_account.emit())
+	v.add_child(account)
 
 	# (these three live in the PLAY SOLO panel)
 	var mb := UITheme.button("", "GlassButton", "globe", 42.0)

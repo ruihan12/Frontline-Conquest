@@ -5,6 +5,8 @@
 class_name ClientHud
 extends Node
 
+const AccountWindow := preload("res://client/ui/account.gd")
+
 var g  # main.gd
 var ctx: UICtx
 var root: Control
@@ -36,6 +38,7 @@ var advisor: UIAdvisor
 var tutorial: Tutorial
 var arsenal: Arsenal
 var crates: Crates
+var account: AccountWindow
 var _tutorial_at := -1.0
 const TUTORIAL_DELAY_S := 0.9
 var _advise_t := 0.0
@@ -89,6 +92,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	title.show_help.connect(toggle_help)
 	title.open_arsenal.connect(func() -> void: open_arsenal(null, "title"))
 	title.open_crates.connect(func() -> void: crates.open())
+	title.open_account.connect(func() -> void: account.open())
 
 	top = TopStatus.new(ctx)
 	root.add_child(top)
@@ -250,6 +254,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(arsenal)
 	crates = Crates.new(ctx, main)
 	root.add_child(crates)
+	account = AccountWindow.new(ctx, main)
+	root.add_child(account)
 	map_picker = MapPicker.new(ctx, main)
 	root.add_child(map_picker)
 	title.pick_map.connect(func() -> void: map_picker.open(UIMaps.selected(g)))
@@ -299,6 +305,8 @@ func layout() -> void:
 		arsenal.apply_layout()
 	if crates != null:
 		crates.apply_layout()
+	if account != null:
+		account.apply_layout()
 	top.apply_layout()
 	spawn.apply_layout()
 	if coach != null:
