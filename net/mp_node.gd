@@ -17,6 +17,9 @@ var client
 var role := ""
 var server_peers := {}
 var party_service  # server: the party hub
+var requested_mode := ""
+var mixed_modes := false
+var _mode_locked := false
 var party := ""    # client: the party key named when joining a match
 var joined := false
 var player_name := "Player"
@@ -64,7 +67,8 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 	ranked = OS.get_environment("FRONTLINE_RANKED") == "1"
 	host.ranked = ranked
 	# team games: FRONTLINE_MODE=teams, FRONTLINE_TEAM_PLAYERS = how many people the match waits for (4-12)
-	if OS.get_environment("FRONTLINE_MODE") == "teams" or OS.get_environment("FRONTLINE_MODE") == "mixed":
+	mixed_modes = OS.get_environment("FRONTLINE_MODE") == "mixed"
+	if OS.get_environment("FRONTLINE_MODE") == "teams" or mixed_modes:
 		host.team_game = true
 		host.team_expected = clampi(int(OS.get_environment("FRONTLINE_TEAM_PLAYERS")) if OS.has_environment("FRONTLINE_TEAM_PLAYERS") else 6, 4, 12)
 	if internal_key != "":
@@ -72,6 +76,8 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		host.on_end = _report_result
 	elif ranked:
 		push_warning("FRONTLINE_RANKED=1 without INTERNAL_KEY: results will not be reported")
+	if mixed_modes and not host.join_gate.is_valid():
+		host.join_gate = func(peer: int, d: Dictionary) -> void: _join_match(peer, d, str(d.get("name", "")))
 	party_service = PartyServiceC.new(func(peer: int, t: int, payload) -> void: transport.send(peer, HostC._pack(t, payload)))
 	host.party_valid = party_service.key_alive
 	transport.peer_connected.connect(func(id: int) -> void: server_peers[id] = true)
@@ -155,8 +161,9 @@ func _process(dt: float) -> void:
 					continue  # people waiting in the party hub stay connected
 				transport.disconnect_peer(peer)
 				server_peers.erase(peer)
-			if OS.get_environment("FRONTLINE_MODE") == "mixed":
-				host.team_game = not host.team_game  # alternate free-for-all and team matches
+			if mixed_modes:
+				_mode_locked = false
+				host.team_game = not host.team_game  # default for older clients
 				host.team_expected = clampi(int(OS.get_environment("FRONTLINE_TEAM_PLAYERS")) if OS.has_environment("FRONTLINE_TEAM_PLAYERS") else 6, 4, 12)
 			_pending = _last_args.duplicate()  # the next match starts next frame
 	if netlog and _log_t == 0.0 and not has_meta("first"):
@@ -182,7 +189,7 @@ func _process(dt: float) -> void:
 		connected_ok = true
 		status = "connected"
 		connected.emit()
-		client.join(player_name, token, party)
+		client.join(player_name, token, party, requested_mode)
 	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
 			and (not g.team_mode or not g.team_names.is_empty()):
 		_spawn_wait += dt
@@ -214,7 +221,7 @@ func _gate_join(peer: int, d: Dictionary) -> void:
 		if ranked:
 			host.reject(peer, "account_required")
 		else:
-			host.join(peer, str(d.get("name", "")))
+			_join_match(peer, d, str(d.get("name", "")))
 		return
 	_api("/internal/verify-session", {"token": tok}, func(ok: bool, r: Dictionary) -> void:
 		if not server_peers.has(peer):
@@ -230,7 +237,26 @@ func _gate_join(peer: int, d: Dictionary) -> void:
 			if not guest and int(p.get("account", 0)) == int(r.get("account_id", -1)):
 				host.reject(peer, "already_joined")
 				return
-		host.join(peer, str(r.get("username", r.get("name", d.get("name", "")))), 0 if guest else int(r.get("account_id", 0))))
+		_join_match(peer, d, str(r.get("username", r.get("name", d.get("name", "")))), 0 if guest else int(r.get("account_id", 0))))
+
+
+
+func _join_match(peer: int, data: Dictionary, display_name: String, account := 0) -> void:
+	if mixed_modes:
+		var mode = data.get("mode", "")
+		if mode not in ["", "ffa", "teams"]:
+			host.reject(peer, "mode_unavailable")
+			return
+		if mode != "" and (mode == "teams") != host.team_game:
+			if _mode_locked or host.ended or not host.peers.is_empty() or g.state != "pick":
+				host.reject(peer, "mode_unavailable")
+				return
+			host.team_game = mode == "teams"
+			host.start_match(_last_args[0], _last_args[1], _last_args[2])
+	if host.join(peer, display_name, account) != -1:
+		_mode_locked = true
+	else:
+		host.reject(peer, "match_full")
 
 
 func _report_result(placements: Array) -> void:

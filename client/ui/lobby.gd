@@ -151,10 +151,13 @@ func _button(value: String, action: Callable, primary := false) -> Button:
 func _show_entry() -> void:
 	_reset("MULTIPLAYER")
 	_label("Online · connects to the game server", UITheme.TEXT_3)
-	_button("Casual", model.join_casual, true)
+	_button("Casual FFA", model.join_casual, true)
+	_button("Casual Teams", model.join_casual.bind("teams"))
 	_label("Unranked · Guests welcome · No Elo change", UITheme.TEXT_2)
-	var ranked := _button("Ranked", model.join_ranked)
+	var ranked := _button("Ranked FFA", model.join_ranked)
 	ranked.disabled = not model.signed_in
+	var ranked_teams := _button("Ranked Teams", model.join_ranked.bind("teams"))
+	ranked_teams.disabled = not model.signed_in
 	_label("Accounts only · Server hosted · 1× speed", UITheme.TEXT_2)
 	if model.signed_in:
 		_label("Your Elo: %d" % model.elo)
@@ -185,7 +188,7 @@ func _show_lobby(snapshot: Dictionary) -> void:
 		_show_entry()
 		return
 	var ranked: bool = snapshot.ranked
-	_reset("RANKED LOBBY" if ranked else "CASUAL LOBBY")
+	_reset(("RANKED" if ranked else "CASUAL") + (" TEAMS" if snapshot.get("mode") == "teams" else "") + " LOBBY")
 	_label("Host: %s" % snapshot.host)
 	_label("%s · %d bots%s" % [snapshot.map, snapshot.bots, " · 1× speed" if ranked else ""], UITheme.TEXT_2)
 	_body.add_child(UITheme.hdivider())

@@ -76,7 +76,7 @@ func on_message(peer: int, d: Variant) -> void:
 		"kick": party.kick(peer, uid)
 		"leave": party.leave(peer)
 		"join_code": _join_code(peer, str(d.get("code", "")))
-		"go": _go(peer, bool(d.get("ranked", false)))
+		"go": _go(peer, bool(d.get("ranked", false)), "teams" if d.get("mode") == "teams" else "ffa")
 
 
 func peer_left(peer: int) -> void:
@@ -127,13 +127,13 @@ func _join_code(peer: int, code: String) -> void:
 		_notice(peer, r.reason)
 
 
-func _go(peer: int, ranked: bool) -> void:
+func _go(peer: int, ranked: bool, mode: String) -> void:
 	var key := party.key_of(peer)
 	if key == "" or not party.is_leader(peer):
 		return
 	for m: int in party.members(peer):
 		if peers.has(m):
-			send.call(m, 14, {"key": key, "ranked": ranked})
+			send.call(m, 14, {"key": key, "ranked": ranked, "mode": mode})
 
 
 func _notice(peer: int, text: String) -> void:

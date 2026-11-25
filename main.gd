@@ -48,7 +48,7 @@ func _net_boot() -> void:
 		print("MPCLIENT ", node.status, " err=", err2)
 
 ## Joins an online match (a dedicated server or a player's host). Returns the connection node, or null when it can't start.
-func net_join(url: String, pname: String, token := "", use_enet := false, party := "") -> Node:
+func net_join(url: String, pname: String, token := "", use_enet := false, party := "", mode := "") -> Node:
 	var old := get_node_or_null("MPNode")
 	if old != null: old.free()
 	var node = preload("res://net/mp_node.gd").new()
@@ -56,6 +56,7 @@ func net_join(url: String, pname: String, token := "", use_enet := false, party 
 	add_child(node)
 	node.token = token
 	node.party = party
+	node.requested_mode = mode
 	if node.start_client(self, url, pname, use_enet) != OK:
 		node.queue_free()
 		return null

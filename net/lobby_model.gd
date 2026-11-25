@@ -17,6 +17,7 @@ var queue_text := "Finding ranked players…"
 var _generation := 0
 var _queued_at := -1
 var _lobby := {}
+var _mode := "ffa"
 
 
 func configure_identity(username: String, rating: int, authenticated: bool) -> void:
@@ -25,15 +26,17 @@ func configure_identity(username: String, rating: int, authenticated: bool) -> v
 	signed_in = authenticated
 
 
-func join_casual() -> void:
+func join_casual(mode := "ffa") -> void:
 	leave()
+	_mode = mode
 	_join(false)
 
 
-func join_ranked() -> void:
+func join_ranked(mode := "ffa") -> void:
 	if not signed_in:
 		return
 	leave()
+	_mode = mode
 	_queued_at = Time.get_ticks_msec()
 	queue_state.emit(true, 0.0)
 	if auto_advance:
@@ -57,9 +60,10 @@ func _join(ranked: bool) -> void:
 		second.name = "Guest_0003" if player_name == "Guest_0002" else "Guest_0002"
 	_lobby = {
 		"ranked": ranked,
+		"mode": _mode,
 		"host": "server" if ranked else "%s's PC" % player_name,
 		"map": "World",
-		"bots": 40,
+		"bots": 0 if _mode == "teams" else 40,
 		"speed": 1.0,
 		"can_start": not ranked,
 		"players": [{"name": player_name, "elo": elo, "ready": false}, second],

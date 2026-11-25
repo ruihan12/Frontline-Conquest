@@ -40,3 +40,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - Flow: hello {name} -> invite/accept/decline/kick/leave, join_code {code}, go {ranked} (leader only). S_GO {key, ranked} goes to every member's hub connection; each PC then joins the match with C_JOIN {party: key}. A key is honoured only while that party exists; it fills MPHost.team_groups so Teams.assign keeps the party together.
 - The hub connections survive the end-of-match disconnect sweep. Not done: party members already inside a match are not marked busy; a party that fills the lobby partly can still be split across full seats (the host takes people in arrival order).
 - Tests: tests/test_party.gd (rules + panel), tests/test_party_net.gd (real WebSockets), tests/test_net_teams.gd (party stays on a team).
+
+- 2026-11-25: Casual and Ranked lobby picks send FFA or Teams through C_JOIN, including party joins. In mixed mode the first accepted join selects and locks the single round. Fixed-mode servers keep their configured mode.

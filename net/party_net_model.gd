@@ -9,6 +9,7 @@ const TransportC := preload("res://net/transport.gd")
 const RETRY_S := 6.0
 
 signal go(key: String, ranked: bool)
+var go_mode := "ffa"
 signal notice(text: String)
 
 var main
@@ -99,6 +100,7 @@ func _on_packet(_id: int, data: PackedByteArray) -> void:
 				_waiting = false
 				changed.emit()
 		HostC.S_GO:
+			go_mode = str(d.get("mode", "ffa"))
 			go.emit(str(d.get("key", "")), bool(d.get("ranked", false)))
 		HostC.S_NOTICE:
 			notice.emit(str(d.get("text", "")))
@@ -135,8 +137,8 @@ func join_code(c: String) -> void:
 
 
 ## The leader picks the match: the server tells every member to join it (S_GO), this PC included.
-func request_go(ranked: bool) -> void:
-	_send({"op": "go", "ranked": ranked})
+func request_go(ranked: bool, mode := "ffa") -> void:
+	_send({"op": "go", "ranked": ranked, "mode": mode})
 
 
 func act(action: String, uid: int = 0) -> String:

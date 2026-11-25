@@ -29,35 +29,36 @@ func server_url() -> String:
 ## starts the join on every member's PC, this one included.
 func bind_party(p) -> void:
 	party = p
-	p.go.connect(func(key: String, ranked: bool) -> void: _connect(ranked, key))
+	p.go.connect(func(key: String, ranked: bool) -> void: _connect(ranked, key, p.go_mode))
 
 
 ## True when the party took over the join (a follower may not pick; a leader asks the server to send all in).
-func _party_gate(ranked: bool) -> bool:
+func _party_gate(ranked: bool, mode: String) -> bool:
 	if party == null or not party.in_party():
 		return false
 	if not party.is_leader():
 		main.notify("Your party leader picks the match.", "bad")
 		return true
-	party.request_go(ranked)
+	party.request_go(ranked, mode)
 	return true
 
 
-func join_casual() -> void:
-	if not _party_gate(false):
-		_connect(false)
+func join_casual(mode := "ffa") -> void:
+	if not _party_gate(false, mode):
+		_connect(false, "", mode)
 
 
-func join_ranked() -> void:
-	if signed_in and not _party_gate(true):
-		_connect(true)
+func join_ranked(mode := "ffa") -> void:
+	if signed_in and not _party_gate(true, mode):
+		_connect(true, "", mode)
 
 
-func _connect(ranked: bool, party_key := "") -> void:
+func _connect(ranked: bool, party_key := "", mode := "ffa") -> void:
 	leave()
+	_entered = false
 	var gen := _generation
 	var token := str(main.save.get("settings", {}).get("session_token", ""))
-	_node = main.net_join(server_url(), player_name, token, false, party_key)
+	_node = main.net_join(server_url(), player_name, token, false, party_key, mode)
 	if _node == null:
 		_fail("Could not start the connection.")
 		return
@@ -84,6 +85,7 @@ func _reason_text(reason: String) -> String:
 	match reason:
 		"account_required": return "This match needs an account. Log in from the Account screen."
 		"invalid_session": return "Your session expired. Log in again."
+		"mode_unavailable": return "The current match uses a different mode. Try again next round."
 		"already_joined": return "This account is already in the match."
 	return "The server refused the connection."
 
