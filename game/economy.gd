@@ -646,7 +646,7 @@ func _supply_claim(o: int, d: Dictionary) -> void:
 	var n = nations[o]
 	var r := _supply_rng.randf()
 	var msg := ""
-	if o == PLAYER and r < 0.18 and client != null and client.ctx.session != null:
+	if false and o == PLAYER and r < 0.18 and client != null and client.ctx.session != null:
 		var co: Dictionary = save.cosmetics
 		var id := CosmeticsRules.roll(co.owned, _supply_rng.randf(), _supply_rng.randf())
 		if id != "":

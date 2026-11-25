@@ -110,7 +110,7 @@ func _run() -> void:
 	_press(lobby, "Ready")
 	_check(lobby._title.text == "MATCH STARTING", "ranked server starts after readiness")
 	model.finish_ranked(2, 1234, 1242)
-	_check(_has_text(lobby, "Placement: #2") and _has_text(lobby, "1234 → 1242"), "ranked result displayed")
+	_check(_has_text(lobby, "Placement: #2") and _has_text(lobby, "1234 -> 1242"), "ranked result displayed")
 	_press(lobby, "Back")
 
 	_press(lobby, "Leaderboard")

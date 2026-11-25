@@ -78,6 +78,7 @@ var _solo_open := false
 var _start: Button
 var _credits: Label
 var _arsenal_btn: ArsenalButton
+const CRATES_ON := false  # loot boxes removed (owner request 2026-11-25); the code stays, nothing reaches it
 var _crates_btn: CrateButton
 var party: PartyPanel
 var _building := false
@@ -160,6 +161,7 @@ func _init(c: UICtx, main) -> void:
 	add_child(_arsenal_btn)
 	_crates_btn = CrateButton.new(c)
 	_crates_btn.pressed.connect(func() -> void: open_crates.emit())
+	_crates_btn.visible = CRATES_ON
 	add_child(_crates_btn)
 	party = PartyPanel.new(c)
 	add_child(party)
@@ -435,7 +437,7 @@ func _cluster_w() -> float:
 	var a := _arsenal_btn
 	a.set_scale_k(1.0)
 	_crates_btn.set_scale_k(1.0)
-	return ctx.insets.z + 28.0 + _crates_btn.size_px().x + 6.0 + a.size_px().x + a.overhang()
+	return ctx.insets.z + 28.0 + (_crates_btn.size_px().x + 6.0 if CRATES_ON else 0.0) + a.size_px().x + a.overhang()
 
 
 func _place_arsenal_button(compact: bool, head_top: float) -> void:
@@ -448,7 +450,7 @@ func _place_arsenal_button(compact: bool, head_top: float) -> void:
 	var top := maxf(6.0, ins.y * 0.5) if compact else head_top
 	var gap := 10.0 if compact else 6.0
 	var csz := Vector2.ZERO
-	if _crates_btn != null:
+	if _crates_btn != null and CRATES_ON:
 		_crates_btn.set_scale_k(CrateButton.PHONE_K if compact else 1.0)
 		csz = _crates_btn.size_px()
 		_crates_btn.size = csz
