@@ -332,7 +332,13 @@ func _process_inner(dt: float) -> void:
 					chunk_dirty[k] = 0  # (a server has no screen: skip the texture upload)
 					continue
 				if up >= cap_up: more = true; _up_cursor = k; break
-				chunk_tex[k].update(chunk_img[k]); chunk_dirty[k] = 0; uploads += 1; up += 1; _pf_add("uploads", 1)
+				var tex: ImageTexture = chunk_tex[k]
+				tex.update(chunk_img[k])
+				chunk_dirty[k] = 0
+				up += 1
+		if up > 0:
+			uploads += up
+			_pf_add("uploads", up)
 		dirty = more
 		_pf_add("paint", Time.get_ticks_usec() - p0)
 	_pf_add("cam_paint", Time.get_ticks_usec() - _q3)

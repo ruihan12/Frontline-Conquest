@@ -139,6 +139,18 @@ func _palette(o: int) -> Dictionary:
 	return p
 
 
+# Painting is synchronous: neither owner colours nor skins change during a flush.
+# Resolve each owner's palette once per flush rather than once per tile.
+var _flush_palettes := {}
+var _painting := false
+
+func begin_paint() -> void:
+	_painting = true
+
+func end_paint() -> void:
+	_painting = false
+	_flush_palettes.clear()
+
 ## The colour of tile i (terrain under its territory), opaque.
 func tile_color(i: int) -> Color:
 	var W: int = g.W
@@ -165,7 +177,13 @@ func tile_color(i: int) -> Color:
 	if not border and hl:
 		# highlight thicken: Chebyshev distance 1 (the diagonals; never off the map here)
 		border = own[i - W - 1] != o or own[i - W + 1] != o or own[i + W - 1] != o or own[i + W + 1] != o
-	var p := _palette(o)
+	var p: Dictionary
+	if _painting:
+		if not _flush_palettes.has(o):
+			_flush_palettes[o] = _palette(o)
+		p = _flush_palettes[o]
+	else:
+		p = _palette(o)
 	if border:
 		var ally: bool = (nw > 0 and nw != o and g.allied(o, nw)) or (ne > 0 and ne != o and g.allied(o, ne)) \
 			or (nn > 0 and nn != o and g.allied(o, nn)) or (ns > 0 and ns != o and g.allied(o, ns))

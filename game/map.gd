@@ -777,13 +777,21 @@ func _repaint(i: int) -> void:
 func _flush_paint_budget(budget_us: int) -> bool:
 	var deadline := Time.get_ticks_usec() + budget_us if budget_us > 0 else -1
 	var q := _qual()
-	var surf = surface if q >= 2 else null
+	var surf: MapSurface = surface if q >= 2 else null
 	var om := owner_map
 	var Wl := W
 	var N := W * H
 	var cols := _chunk_cols()
 	var imgs: Array = chunk_img
 	var cd := chunk_dirty
+	if surf != null:
+		surf.begin_paint()
+	var more := _drain_paint(deadline, surf, om, Wl, N, cols, imgs, cd)
+	if surf != null:
+		surf.end_paint()
+	return more
+
+func _drain_paint(deadline: int, surf: MapSurface, om: PackedInt32Array, Wl: int, N: int, cols: int, imgs: Array, cd: PackedByteArray) -> bool:
 	var c := 0
 	# 1) the packed FIFO (captures)
 	var ls := _rp_list
@@ -828,7 +836,7 @@ func _flush_paint_budget(budget_us: int) -> bool:
 
 # Same colour as _px(x, y, _tile_color(i)): the surface colour (or the legacy rules) with the alpha the map
 # shader reads (water 0.5, own border 0.86, own interior 0.94, unowned 1.0).
-func _paint_one(i: int, surf, om: PackedInt32Array, Wl: int, N: int, cols: int, imgs: Array, cd: PackedByteArray) -> void:
+func _paint_one(i: int, surf: MapSurface, om: PackedInt32Array, Wl: int, N: int, cols: int, imgs: Array, cd: PackedByteArray) -> void:
 	var c0: Color = surf.tile_color(i) if surf != null else _tile_color_rgb(i)
 	var o: int = om[i]
 	var x := i % Wl
