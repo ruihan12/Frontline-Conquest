@@ -100,26 +100,27 @@ func k_lin() -> float:
 	return maxf(0.01, float(st.map.k_lin))
 
 
-## Largest rectangle under a histogram: [x, width, height].
-static func largest_in_histogram(h: PackedInt32Array, n: int) -> Array:
-	var stack := PackedInt32Array()
-	var best := 0
-	var bx := 0
-	var bw := 0
-	var bh := 0
+## Largest rectangle under a histogram: (x, width, height). The caller reuses a stack
+## large enough for all columns plus the sentinel.
+static func largest_in_histogram(h: PackedInt32Array, stack: PackedInt32Array) -> Vector3i:
+	var n := h.size()
+	var depth := 0
+	var best_area := 0
+	var best := Vector3i.ZERO
 	for i in n + 1:
 		var cur := 0 if i == n else h[i]
-		while not stack.is_empty() and cur < h[stack[stack.size() - 1]]:
-			var height := h[stack[stack.size() - 1]]
-			stack.remove_at(stack.size() - 1)
-			var width := i if stack.is_empty() else i - stack[stack.size() - 1] - 1
-			if height * width > best:
-				best = height * width
-				bx = 0 if stack.is_empty() else stack[stack.size() - 1] + 1
-				bw = width
-				bh = height
-		stack.append(i)
-	return [bx, bw, bh]
+		while depth > 0 and cur < h[stack[depth - 1]]:
+			depth -= 1
+			var height := h[stack[depth]]
+			var x := 0 if depth == 0 else stack[depth - 1] + 1
+			var width := i - x
+			var area := height * width
+			if area > best_area:
+				best_area = area
+				best = Vector3i(x, width, height)
+		stack[depth] = i
+		depth += 1
+	return best
 
 
 static func font_size(width: float, height: float, text: String) -> float:
@@ -269,6 +270,8 @@ func _place_from_box(id: int, x0: int, y0: int, x1: int, y1: int):
 	var gh := y1 / sf - gy0 + 1
 	var heights := PackedInt32Array()
 	heights.resize(gw)
+	var stack := PackedInt32Array()
+	stack.resize(gw + 1)
 	var own: PackedInt32Array = g.owner_map
 	var tb: PackedByteArray = g.tile_bytes
 	var has_tb := tb.size() == own.size()
@@ -290,13 +293,14 @@ func _place_from_box(id: int, x0: int, y0: int, x1: int, y1: int):
 					usable = (b & 64) != 0 or (b < 128 and (b & 32) != 0 and (b & 31) < 10)
 				usable = usable or (has_fall and fall[t] == 1)
 			heights[gx] = heights[gx] + 1 if usable else 0
-		var r := largest_in_histogram(heights, gw)
-		if int(r[1]) * int(r[2]) > best:
-			best = int(r[1]) * int(r[2])
-			bx = r[0]
-			by = gy - int(r[2]) + 1
-			bw = r[1]
-			bh = r[2]
+		var r := largest_in_histogram(heights, stack)
+		var area := r.y * r.z
+		if area > best:
+			best = area
+			bx = r.x
+			by = gy - r.z + 1
+			bw = r.y
+			bh = r.z
 	var rw := bw * sf
 	var rh := bh * sf
 	var cx := floorf(bx * sf + rw / 2.0 + gx0 * sf)

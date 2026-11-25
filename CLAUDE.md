@@ -78,6 +78,9 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Team games (online only, 2026-11-25): upstream Teams rules, random team size, no bot players; see docs/MULTIPLAYER.md.
 - Known gaps: see the last Status entry in docs/MULTIPLAYER.md (attack list replication, interpolation, host events, VM deploy).
 
+## Optimization started on 2026-11-25 (branch perf-world)
+- Name placement reuses the histogram stack across rows and preserves the chosen rectangle, ties and refresh cadence. A 16,000-row seeded benchmark matched every rectangle and took a median 372.82 ms before and 285.29 ms after (five runs, Godot 4.3 native headless). The 3,000-tick World owner and weighted troop/gold checksums matched at all five checkpoints.
+
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
    Known hotspots: per-tick attack pass ~80–90ms in web build (sliced 8ms/frame -> only ~1–1.5 ticks/s in software-rendered Chrome);
