@@ -16,7 +16,12 @@ static func apply(g, me: int, intent: Dictionary) -> void:
 			g.launch_boat(me, int(intent.get("tile", -1)), float(intent.get("ratio", 0.25)))
 		"build", "nuke":
 			var k: int = RWGameState.BUILD_ID.get(String(intent.get("kind", "")), -1)
-			if k >= 0:
+			if k >= 0 and String(intent.get("type", "")) == "nuke":
+				var n_amt := maxi(1, int(intent.get("amount", 1)))
+				if g.try_build(k, int(intent.get("tile", -1)), me):
+					for j in range(1, n_amt):
+						g.queue_nuke(k, int(intent.get("tile", -1)), me, g.sim_atk.tick + j * g.NUKE_GAP_TICKS)
+			elif k >= 0:
 				for _i in maxi(1, int(intent.get("amount", 1))):
 					if not g.try_build(k, int(intent.get("tile", -1)), me):
 						break

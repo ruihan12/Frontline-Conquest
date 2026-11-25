@@ -53,7 +53,10 @@ func _load_progress(v: float) -> void:
 	if client != null and _loading: client.set_loading(true, v)
 
 ## Drops everything the finished round left in the sim lists and the client layers (no map work).
+var nuke_queue: Array = []  # [due_tick, kind, tile, owner]: bulk nukes waiting their 0.2 s turn (game/economy.gd)
+
 func _clear_round_state() -> void:
+	nuke_queue.clear()
 	nations.clear(); nations.append({})
 	border.clear(); border.append({})
 	attacks.clear(); boats.clear(); missiles.clear(); warships.clear(); traders.clear()

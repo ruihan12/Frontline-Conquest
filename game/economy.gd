@@ -669,7 +669,25 @@ func _supply_claim(o: int, d: Dictionary) -> void:
 	elif allied(PLAYER, o):
 		notify("%s claimed a supply drop" % _nname(o), "info")
 
+# Bulk nuke launches: the 2nd, 3rd... bomb leave NUKE_GAP_TICKS (0.2 s) after the one before (owner request 2026-11-25).
+const NUKE_GAP_TICKS := 2
+
+func queue_nuke(k: int, tile: int, o: int, due: int) -> void:
+	nuke_queue.append([due, k, tile, o])
+
+func _nuke_queue_tick() -> void:
+	var t: int = sim_atk.tick
+	var i := 0
+	while i < nuke_queue.size():
+		var q: Array = nuke_queue[i]
+		if int(q[0]) <= t:
+			nuke_queue.remove_at(i)
+			try_build(int(q[1]), int(q[2]), int(q[3]))
+		else:
+			i += 1
+
 func _economy(dt: float) -> void:
+	if not nuke_queue.is_empty(): _nuke_queue_tick()
 	if supply_on: _supply_tick()
 	fallout_count = fallout_list.size()
 	var city_lv := {}

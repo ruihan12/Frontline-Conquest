@@ -248,7 +248,7 @@ func _show_result(result: Dictionary) -> void:
 		return
 	_reset("RANKED RESULT")
 	_label("Placement: #%d" % result.placement)
-	_label("Elo: %d → %d" % [result.elo_before, result.elo_after], UITheme.AMBER)
+	_label("Elo: %d -> %d" % [result.elo_before, result.elo_after], UITheme.AMBER)
 	_button("Back", model.leave)
 
 

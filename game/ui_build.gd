@@ -722,7 +722,7 @@ func _update_build_tip() -> bool:
 	if k == 16:
 		var rows := [["Status", "ON" if icbm_mode else "OFF", ORANGE_Y if icbm_mode else MUTED], ["Fee", "+10% of the bomb's price", GOLD_C], ["SAMs", "20% SAM evasion, +20% speed, 20% shorter silo cooldown", ORANGE_Y]]
 		for nk in [7, 8, 9, 11, 12]:
-			rows.append([build_data[nk][1], "%s  →  %s" % [_fmt(float(build_data[nk][2])), _fmt(float(build_data[nk][2]) * (1.0 + ICBM_FEE_PCT))], GOLD_C])
+			rows.append([build_data[nk][1], "%s  ->  %s" % [_fmt(float(build_data[nk][2])), _fmt(float(build_data[nk][2]) * (1.0 + ICBM_FEE_PCT))], GOLD_C])
 		_show_tip({"title": "ICBM upgrade", "badge": "I", "rows": rows, "desc": build_data[16][3], "foot": "Click to turn " + ("OFF" if icbm_mode else "ON"), "foot_col": CYAN, "foot_icon": "o"}, build_btns[16].global_position + Vector2(build_btns[16].size.x * 0.5, 0), true)
 		return true
 	var bd = build_data[k]

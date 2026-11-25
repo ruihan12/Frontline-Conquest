@@ -319,7 +319,7 @@ func _history() -> void:
 		var team := " · Team %d" % int(row.team) if row.get("team") != null else ""
 		_label("%s · #%d%s" % [row.get("map", "World"), int(row.get("placement", 0)), team])
 		if row.get("ranked", false):
-			_label("Elo %d → %d" % [int(row.elo_before), int(row.elo_after)])
+			_label("Elo %d -> %d" % [int(row.elo_before), int(row.elo_after)])
 
 
 func _logout() -> void:

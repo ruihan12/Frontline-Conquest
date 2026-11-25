@@ -233,7 +233,7 @@ func _aim_spec(tile: int) -> Dictionary:
 	# Your own structure under the cursor: the click upgrades it.
 	var upgrade: bool = pl.ok and pl.get("upgrade", false) == true and not nuke
 	if upgrade:
-		spec["title"] = "Upgrade %s → Lv %d" % [title, int(pl.get("level", 2))]
+		spec["title"] = "Upgrade %s -> Lv %d" % [title, int(pl.get("level", 2))]
 	var rows := [["Cost", Th.fmt_cost(av.cost) + " gold", Th.GOLD]]
 	if nuke:
 		rows.append(["Blast radius", ctx.rules.blast_text(k), Th.TEXT])
@@ -797,7 +797,7 @@ func _ghost_caption(kind: String, pl: Dictionary) -> String:
 		return r if r != "" else "Can't place here"
 	var cost := UITheme.fmt_cost(ctx.rules.availability(kind).cost)
 	if pl.get("upgrade", false):
-		return "Upgrade %s → Lv %d · %s" % [UIRules.SHORT[kind], int(pl.get("level", 2)), cost]
+		return "Upgrade %s -> Lv %d · %s" % [UIRules.SHORT[kind], int(pl.get("level", 2)), cost]
 	if kind == "warship":
 		return "Warship patrols here · " + cost
 	if UIRules.is_nuke(kind):
