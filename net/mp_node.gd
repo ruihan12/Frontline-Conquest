@@ -19,6 +19,8 @@ var joined := false
 var player_name := "Player"
 var connected_ok := false
 var status := "idle"
+var autospawn := false
+var _spawned := false
 var _pending := []
 var netlog := false
 var _log_t := 0.0
@@ -88,9 +90,12 @@ func _process(dt: float) -> void:
 		_log_t += dt
 		if _log_t >= 2.0:
 			_log_t = 0.0
-			print("NETLOG ", role, " status=", status, " state=", g.get("state"), " tick=", g.get("tick"), " peers=", server_peers.size(), " remote=", g.get("net_remote"))
+			print("NETLOG ", role, " status=", status, " state=", g.get("state"), " tick=", g.get("tick"), " peers=", server_peers.size(), " remote=", g.get("net_remote"), " land=", (g.nations[1].land if g.nations.size() > 1 else -1), " nations=", g.nations.size())
 	if role == "client" and not joined and transport.is_up():
 		joined = true
 		connected_ok = true
 		status = "connected"
 		client.join(player_name)
+	if autospawn and role == "client" and joined and not _spawned and g.net_remote and g.state == "pick" and g.nations.size() > 1:
+		_spawned = true
+		client.send_intent({"type": "spawn", "tile": g._find_spawn_tile(g.W / 2 + randi() % 200, g.H / 2)})

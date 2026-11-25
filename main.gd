@@ -25,6 +25,7 @@ func _net_boot() -> void:
 	node.name = "MPNode"
 	add_child(node)
 	node.netlog = opt.has("netlog")
+	node.autospawn = opt.has("autospawn")
 	if opt.has("server"):
 		Engine.max_fps = 60  # a dedicated server needs no more than the tick rate
 		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
