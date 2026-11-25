@@ -172,6 +172,8 @@ func _http(url: String, headers: PackedStringArray, method: int, body: String) -
 	var request := HTTPRequest.new()
 	request.timeout = 10.0
 	request.max_redirects = 0
+	# the browser already decodes Cloudflare's gzip; Godot then fails to decompress the plain body ("could not reach")
+	request.accept_gzip = false
 	_host.add_child(request)
 	if request.request(url, headers, method, body) != OK:
 		request.queue_free()
