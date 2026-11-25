@@ -30,7 +30,11 @@ func _net_boot() -> void:
 	if opt.has("hostlocal"):
 		node.free()
 		var hn := net_host_local(int(opt.get("port", 8070)), int(opt.get("bots", 40)), int(opt.get("max", 8)))
-		if hn != null: hn.netlog = opt.has("netlog")
+		if hn != null:
+			hn.netlog = opt.has("netlog")
+			if opt.has("teams"):
+				hn.host.team_game = true
+				hn.host.team_expected = int(opt.teams)
 		print("MPHOSTLOCAL ", "ok" if hn != null else "failed")
 	elif opt.has("server"):
 		Engine.max_fps = 30  # a dedicated server needs little more than the tick rate (10/s)

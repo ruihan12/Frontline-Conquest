@@ -5,7 +5,16 @@ func _akey(a: int, b: int) -> int:
 	return mini(a, b) * 4096 + maxi(a, b)
 
 func allied(a: int, b: int) -> bool:
-	return a > 0 and b > 0 and not allies.is_empty() and allies.has(_akey(a, b))
+	if a <= 0 or b <= 0: return false
+	if team_mode and a != b and same_team(a, b) and not nations[a].get("left", false) and not nations[b].get("left", false):
+		return true  # a team game: teammates are friendly (until one leaves) and need no alliance
+	return not allies.is_empty() and allies.has(_akey(a, b))
+
+## Teammates in a team game (whether present or not); upstream SimState.same_team.
+func same_team(a: int, b: int) -> bool:
+	if not team_mode or a == b or a <= 0 or b <= 0 or a >= nations.size() or b >= nations.size(): return false
+	var t: int = int(nations[a].get("team", 0))
+	return t != 0 and t == int(nations[b].get("team", 0))
 
 func is_traitor(id: int) -> bool:
 	return int(traitor.get(id, -1)) > sim_atk.tick

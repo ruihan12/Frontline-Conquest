@@ -29,6 +29,7 @@ var token := ""  # client: the session token sent when joining
 var api_base := "http://127.0.0.1:8071/api/v1"
 var internal_key := ""
 var ranked := false
+var _spawn_wait := 0.0
 var autospawn := false
 var _spawned := false
 var local_player := false
@@ -59,6 +60,10 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 	internal_key = OS.get_environment("INTERNAL_KEY")
 	ranked = OS.get_environment("FRONTLINE_RANKED") == "1"
 	host.ranked = ranked
+	# team games: FRONTLINE_MODE=teams, FRONTLINE_TEAM_PLAYERS = how many people the match waits for (4-12)
+	if OS.get_environment("FRONTLINE_MODE") == "teams" or OS.get_environment("FRONTLINE_MODE") == "mixed":
+		host.team_game = true
+		host.team_expected = clampi(int(OS.get_environment("FRONTLINE_TEAM_PLAYERS")) if OS.has_environment("FRONTLINE_TEAM_PLAYERS") else 6, 4, 12)
 	if internal_key != "":
 		host.join_gate = _gate_join
 		host.on_end = _report_result
@@ -128,6 +133,8 @@ func _process(dt: float) -> void:
 		g.set_speed_x(g.net_speed_cap)
 		print("MPSERVER match started state=", g.state, " speed=", g.sim_speed / g.SPEED_BASE)
 	transport.poll()
+	if role == "server" and host != null:
+		host.frame(dt)
 	if role == "server" and host != null and host.ended and not local_player:
 		_end_wait += dt
 		if _end_wait >= NEXT_MATCH_AFTER:
@@ -135,6 +142,9 @@ func _process(dt: float) -> void:
 			for peer in server_peers.keys():
 				transport.disconnect_peer(peer)
 			server_peers.clear()
+			if OS.get_environment("FRONTLINE_MODE") == "mixed":
+				host.team_game = not host.team_game  # alternate free-for-all and team matches
+				host.team_expected = clampi(int(OS.get_environment("FRONTLINE_TEAM_PLAYERS")) if OS.has_environment("FRONTLINE_TEAM_PLAYERS") else 6, 4, 12)
 			_pending = _last_args.duplicate()  # the next match starts next frame
 	if netlog and _log_t == 0.0 and not has_meta("first"):
 		set_meta("first", true)
@@ -160,8 +170,12 @@ func _process(dt: float) -> void:
 		status = "connected"
 		connected.emit()
 		client.join(player_name, token)
-	if autospawn and role == "client" and joined and not _spawned and g.net_remote and g.state == "pick" and g.nations.size() > 1:
-		_spawned = true
+	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
+			and (not g.team_mode or not g.team_names.is_empty()):
+		_spawn_wait += dt
+		if _spawn_wait < 1.0:
+			return
+		_spawn_wait = 0.0
 		client.send_intent({"type": "spawn", "tile": g._find_spawn_tile(g.W / 2 + randi() % 200, g.H / 2)})
 
 
@@ -212,13 +226,16 @@ func _report_result(placements: Array) -> void:
 	var players := []
 	for p in placements:
 		if int(p.account) > 0:
-			players.append({"account_id": int(p.account), "placement": int(p.placement), "survival_secs": int(p.survival_secs),
-				"tile_share": snappedf(float(p.tile_share), 0.0001), "left_early": bool(p.left_early)})
+			var row := {"account_id": int(p.account), "placement": int(p.placement), "survival_secs": int(p.survival_secs),
+				"tile_share": snappedf(float(p.tile_share), 0.0001), "left_early": bool(p.left_early)}
+			if host.team_game:
+				row["team"] = int(p.get("team", 0))
+			players.append(row)
 	if players.is_empty():
 		return
 	var now := Time.get_datetime_string_from_system(true) + "Z"
 	var started := Time.get_datetime_string_from_unix_time(int(Time.get_unix_time_from_system()) - int(g.elapsed)) + "Z"
-	_api("/internal/match-result", {"ranked": ranked, "map": "World", "started_at": started, "ended_at": now, "players": players},
+	_api("/internal/match-result", {"ranked": ranked, "team_mode": host.team_game, "map": "World", "started_at": started, "ended_at": now, "players": players},
 		func(ok: bool, r: Dictionary) -> void:
 			print("MPSERVER result reported ok=", ok)
 			if not ok: return

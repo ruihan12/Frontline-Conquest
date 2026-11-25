@@ -48,6 +48,9 @@ func on_message(pkt: PackedByteArray) -> void:
 			g.diff_i = int(d.get("diff", 1))
 			g._start_game()
 			g.net_rec = false
+			g.team_mode = bool(d.get("team_game", false))  # (the teams themselves arrive in S_TEAMS once the roster is full)
+			if g.team_mode:
+				g.notify("Team match: waiting for %d players" % int(d.get("team_expected", 0)), "info")
 			# the round starts in the host's phase; the replicated tiles come next
 			started = true
 		HostC.S_SNAPSHOT:
@@ -97,6 +100,16 @@ func on_message(pkt: PackedByteArray) -> void:
 		HostC.S_EVENT:
 			last_event = bytes_to_var(body)
 			g.notify(str(last_event.get("text", "")), str(last_event.get("kind", "info")))
+		HostC.S_TEAMS:
+			var td: Dictionary = bytes_to_var(body)
+			g.team_mode = true
+			g.team_names = td.names
+			for k in td.teams:
+				if int(k) < g.nations.size():
+					g.nations[int(k)]["team"] = int(td.teams[k])
+			var mt := int(td.me_team)
+			if mt > 0 and mt <= g.team_names.size():
+				g.notify("You are on team %s" % g.team_names[mt - 1], "info")
 		HostC.S_RESULT:
 			result = bytes_to_var(body)
 		HostC.S_REJECT:
@@ -105,4 +118,4 @@ func on_message(pkt: PackedByteArray) -> void:
 			var e: Dictionary = bytes_to_var(body)
 			winner = int(e.winner)
 			ranks = e.ranks
-			g._game_over(winner == 1)
+			g._game_over(winner == 1 or (int(e.get("winner_team", 0)) != 0 and int(e.get("winner_team", 0)) == int(e.get("me_team", -1))))

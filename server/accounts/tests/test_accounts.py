@@ -225,3 +225,35 @@ def test_http_transport(service):
         finally:
             server.shutdown()
             thread.join()
+
+
+def test_team_elo():
+    from accounts.service import team_elo_changes
+    # 2v2, equal ratings: the winners gain 16, the losers lose 16
+    players = [{"account_id": i, "team": 1 if i < 3 else 2, "placement": 1 if i < 3 else 2, "left_early": False} for i in (1, 2, 3, 4)]
+    ratings = {i: {"elo": 1000, "matches": 20 if i < 3 else 20} for i in (1, 2, 3, 4)}
+    out = {c["account_id"]: c["elo_after"] for c in team_elo_changes(players, ratings)}
+    assert out == {1: 1012, 2: 1012, 3: 988, 4: 988}
+    # a stronger winning team gains less than an even one would
+    ratings = {1: {"elo": 1400, "matches": 20}, 2: {"elo": 1400, "matches": 20}, 3: {"elo": 1000, "matches": 20}, 4: {"elo": 1000, "matches": 20}}
+    out = {c["account_id"]: c["elo_after"] - ratings[c["account_id"]]["elo"] for c in team_elo_changes(players, ratings)}
+    assert 0 < out[1] < 12 and out[3] < 0 and out[1] == out[2]
+    # a leaver on the winning team still loses, the rest of the team wins
+    players[1]["left_early"] = True
+    out = {c["account_id"]: c["elo_after"] for c in team_elo_changes(players, {i: {"elo": 1000, "matches": 20} for i in (1, 2, 3, 4)})}
+    assert out[1] == 1012 and out[2] < 1000
+
+
+def test_team_match_needs_teams(service):
+    first = signup(service)
+    second = signup(service, "Player_2")
+    body = {"ranked": True, "team_mode": True, "map": "World", "started_at": "2026-11-24T12:00:00Z",
+            "ended_at": "2026-11-24T12:30:00Z", "players": [
+                {"account_id": a["account_id"], "placement": i, "survival_secs": 1800, "tile_share": 0.4,
+                 "left_early": False} for i, a in enumerate((first, second), 1)]}
+    with pytest.raises(ApiError):
+        call(service, "POST", "/internal/match-result", body, key=KEY)
+    for i, pl in enumerate(body["players"], 1):
+        pl["team"] = i
+    result = call(service, "POST", "/internal/match-result", body, key=KEY)
+    assert [x["elo_after"] for x in result["changes"]] == [1016, 984]

@@ -145,6 +145,37 @@ def elo_changes(players, ratings):
     return changes
 
 
+def team_elo_changes(players, ratings):
+    """Team match: a team's rating is the mean Elo of its members; each member's change is their own K times the
+    mean of (outcome - expectation) against every other team. Equal team placements draw; someone who left early
+    scores a loss against every team whatever their team did."""
+    teams = {}
+    for p in players:
+        teams.setdefault(p["team"], []).append(p)
+    mean = {t: sum(ratings[m["account_id"]]["elo"] for m in members) / len(members) for t, members in teams.items()}
+    place = {t: members[0]["placement"] for t, members in teams.items()}
+    changes = []
+    for player in players:
+        rating = ratings[player["account_id"]]
+        before = rating["elo"]
+        k = 32 if rating["matches"] < 10 else 24
+        mine = player["team"]
+        deltas = []
+        for other in teams:
+            if other == mine:
+                continue
+            expectation = 1 / (1 + 10 ** max(-300, min(300, (mean[other] - mean[mine]) / 400)))
+            if player["left_early"]:
+                outcome = 0.0
+            else:
+                outcome = 0.5 if place[mine] == place[other] else float(place[mine] < place[other])
+            deltas.append(k * (outcome - expectation))
+        delta = math.fsum(deltas) / len(deltas) if deltas else 0
+        rounded = math.floor(delta + 0.5) if delta >= 0 else math.ceil(delta - 0.5)
+        changes.append({"account_id": player["account_id"], "elo_before": before, "elo_after": before + rounded})
+    return changes
+
+
 class Service:
     def __init__(self, store, internal_key, guest_secret, clock=time.time):
         self.store = store
@@ -468,10 +499,15 @@ class Service:
                 raise bad_request("Supply ISO8601 times with a timezone.") from None
         if dates[0] > dates[1]:
             raise bad_request("The match must end after it starts.")
+        team_mode = body.get("team_mode", False)
+        if type(team_mode) is not bool:
+            raise bad_request()
         ids = set()
         for player in players:
             if not isinstance(player, dict):
                 raise bad_request()
+            if team_mode and (type(player.get("team")) is not int or not 0 < player["team"] < 64):
+                raise bad_request("Team matches need a team for every player.")
             aid, placement, seconds, share, early = (player.get(key) for key in
                 ("account_id", "placement", "survival_secs", "tile_share", "left_early"))
             if (type(aid) is not int or not 0 < aid < 2**64 or aid in ids
@@ -487,7 +523,7 @@ class Service:
                 if not row:
                     raise bad_request("A match player does not have an account.")
                 ratings[aid] = row
-            changes = elo_changes(players, ratings) if ranked else [
+            changes = ((team_elo_changes if team_mode else elo_changes)(players, ratings)) if ranked else [
                 {"account_id": p["account_id"], "elo_before": ratings[p["account_id"]]["elo"],
                  "elo_after": ratings[p["account_id"]]["elo"]} for p in players]
             mid = db.execute("INSERT INTO matches (ranked,map,started_at,ended_at) VALUES (%s,%s,%s,%s)",

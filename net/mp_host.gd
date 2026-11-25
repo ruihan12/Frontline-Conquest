@@ -24,9 +24,11 @@ const S_LISTS := 5
 const S_STATE := 6
 const S_EVENT := 7
 const S_END := 8
+const S_TEAMS := 12  # var {names, config, me_team, teams: {id: team}} (ids in the receiver's space), once the teams are made
 const S_RESULT := 11  # var {placement, elo_before, elo_after, ranked}: this person's result, after the account service rated the match
 const S_REJECT := 10  # var {reason}: the join was refused (full, ranked match needs an account, bad session)
 const S_NATION_INFO := 9  # var [[id, name, #color, alive, human], ...] in the receiver's id space
+const TeamsC = preload("res://net/teams.gd")
 const C_JOIN := 1
 const C_INTENT := 2
 
@@ -47,6 +49,14 @@ var log_fn: Callable = Callable()
 var join_gate: Callable = Callable()  # (peer, dict) -> void; when set, it decides (maybe later) and calls join()/reject()
 var on_end: Callable = Callable()     # (result dict) once, when the match ends
 var ranked := false
+# team games (ranked teams, casual teams): players only, no bot players, tribes on no team
+var team_game := false
+var team_expected := 0       # the roster size; the teams are made when this many have joined (or after TEAM_WAIT_SECS)
+var teams_ready := false
+var team_config := ""        # Duos / Trios / Quads, picked at random when the teams are made
+var team_groups := {}        # peer -> party key (players who queued together stay on one team)
+var _team_wait := 0.0
+const TEAM_WAIT_SECS := 60.0
 var host_is_player := false  # a player's PC: nation 1 is played locally, remote people take the other slots
 var started_ms := 0
 var died_tick := {}  # human nid -> tick it was eliminated
@@ -62,7 +72,12 @@ func _init(main, send_cb: Callable) -> void:
 func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 	g.map_tab = map_tab
 	g.map_i = map_i
-	g.bot_players = bots
+	g.bot_players = 0 if team_game else bots  # no bot players in a team game (tribes still exist)
+	g.team_mode = team_game
+	g.team_names = []
+	g.winner_team = 0
+	teams_ready = false
+	_team_wait = 0.0
 	g.diff_i = diff
 	g.net_remote = false
 	g.net_host = self
@@ -96,7 +111,7 @@ func any_placed() -> bool:
 
 ## A person arrives. Returns their nation id or -1 (full / match over).
 func join(peer: int, pname: String, account = 0) -> int:
-	if ended or peers.size() >= max_humans or peers.has(peer):
+	if ended or peers.size() >= max_humans or peers.has(peer) or (team_game and teams_ready):
 		return -1
 	var nm := _clean_name(pname)
 	var taken := {}
@@ -122,6 +137,8 @@ func join(peer: int, pname: String, account = 0) -> int:
 	_send_hello(peer)
 	_send_full(peer)
 	_broadcast_nation_info(peer)
+	if team_game and peers.size() + (1 if host_is_player else 0) >= team_expected:
+		make_teams()
 	return nid
 
 
@@ -143,8 +160,9 @@ func reject(peer: int, reason: String) -> void:
 func leave(peer: int) -> void:
 	if peers.has(peer):
 		if not ended:
-			if g.state == "play":
+			if g.state == "play" or (team_game and teams_ready):
 				left_early[int(peers[peer].nid)] = true
+				g.nations[int(peers[peer].nid)]["left"] = true  # a team game: a leaver is no longer a teammate
 			if ranked:
 				departed.append(peers[peer])
 		peers.erase(peer)
@@ -171,7 +189,7 @@ func _client_nations(my: int) -> Array:
 
 func _send_hello(peer: int) -> void:
 	var my: int = peers[peer].nid
-	send.call(peer, _pack(S_HELLO, {"map_tab": g.map_tab, "map_i": g.map_i, "nations": _client_nations(my), "my": my, "diff": g.diff_i}))
+	send.call(peer, _pack(S_HELLO, {"map_tab": g.map_tab, "map_i": g.map_i, "nations": _client_nations(my), "my": my, "diff": g.diff_i, "team_game": team_game, "team_expected": team_expected}))
 
 
 func _send_full(peer: int) -> void:
@@ -252,10 +270,35 @@ func check_end() -> void:
 	if ended or g.ticks_done % 10 != 0:
 		return
 	var winner := 0
-	for id in range(1, g.nations.size()):
-		if g.dominates(id):
-			winner = id
-			break
+	var winner_team := 0
+	if team_game:
+		# the team's land together reaches 80% of the contestable land (upstream Sim._check_victory); players only
+		if teams_ready:
+			var sums := team_land()
+			for t in range(1, sums.size()):
+				if float(sums[t]) >= g.win_threshold_tiles():
+					winner_team = t
+			if winner_team == 0 and g.state == "play":
+				# only one team still has a living human: it wins
+				var live := {}
+				for p in peers.values():
+					if g.nations[p.nid].alive and int(g.nations[p.nid].land) > 0 and not g.nations[p.nid].get("left", false):
+						live[int(g.nations[p.nid].get("team", 0))] = true
+				if host_is_player and g.nations[g.PLAYER].alive and int(g.nations[g.PLAYER].land) > 0:
+					live[int(g.nations[g.PLAYER].get("team", 0))] = true
+				if live.size() == 1 and g.ticks_done > 100:
+					winner_team = int(live.keys()[0])
+			if winner_team != 0:
+				var bt := -1
+				for id in range(1, g.nations.size()):
+					if int(g.nations[id].get("team", 0)) == winner_team and g.nations[id].alive and int(g.nations[id].land) > bt:
+						bt = int(g.nations[id].land)
+						winner = id
+	else:
+		for id in range(1, g.nations.size()):
+			if g.dominates(id):
+				winner = id
+				break
 	var humans_alive := 0
 	if host_is_player and g.nations[g.PLAYER].alive and int(g.nations[g.PLAYER].land) > 0:
 		humans_alive += 1
@@ -266,16 +309,17 @@ func check_end() -> void:
 		return
 	ended = true
 	g.state = "over"
+	g.winner_team = winner_team
 	if on_end.is_valid():
 		on_end.call(placements(winner))
 	if host_is_player:
-		g._game_over(winner == int(g.PLAYER))
+		g._game_over(winner == int(g.PLAYER) or (winner_team != 0 and int(g.nations[g.PLAYER].get("team", 0)) == winner_team))
 	for peer in peers:
 		var my: int = peers[peer].nid
 		var ranks := []
 		for id in range(1, g.nations.size()):
 			ranks.append([NetRepC.swap_id(id, my), int(g.nations[id].land), bool(g.nations[id].alive)])
-		send.call(peer, _pack(S_END, {"winner": NetRepC.swap_id(winner, my) if winner > 0 else 0, "ranks": ranks}))
+		send.call(peer, _pack(S_END, {"winner": NetRepC.swap_id(winner, my) if winner > 0 else 0, "ranks": ranks, "winner_team": winner_team, "me_team": int(g.nations[my].get("team", 0))}))
 
 
 ## One packet from `peer`.
@@ -312,6 +356,8 @@ func apply_intent(nid: int, d: Dictionary) -> bool:
 	var ty := str(d.get("type", ""))
 	if not ALLOWED.has(ty):
 		return false
+	if team_game and not teams_ready:
+		return false  # nothing is allowed until the teams are made
 	var it := {"type": ty}
 	for k in ["tile", "target", "uid", "amount", "attack_id"]:
 		if d.has(k):
@@ -367,6 +413,8 @@ func placements(winner: int) -> Array:
 		_add_placement(list, int(p.nid), str(p.name), p.get("account", 0), total)
 	for e in departed:
 		_add_placement(list, int(e.nid), str(e.name), e.get("account", 0), total)
+	if team_game:
+		return _team_placements(list, winner)
 	list.sort_custom(func(a, b) -> bool:
 		if (a.nid == winner) != (b.nid == winner): return a.nid == winner
 		if a.alive != b.alive: return a.alive
@@ -374,6 +422,41 @@ func placements(winner: int) -> Array:
 		return a.died > b.died)
 	for i in list.size():
 		list[i].placement = i + 1
+	return list
+
+
+## Team games: every member shares the team's place. The winning team is first; the others by their land together
+## while any member lives, else by when their last member fell (later is better).
+func _team_placements(list: Array, winner: int) -> Array:
+	var tl := {}
+	for e in list:
+		var t: int = int(g.nations[e.nid].get("team", 0))
+		e["team"] = t
+		if not tl.has(t):
+			tl[t] = {"team": t, "land": 0, "alive": false, "died": 0}
+		var rec: Dictionary = tl[t]
+		rec.land += int(e.land)
+		rec.alive = rec.alive or e.alive
+		rec.died = maxi(int(rec.died), int(e.died))
+	var order: Array = tl.values()
+	var wt: int = int(g.winner_team)
+	order.sort_custom(func(a, b) -> bool:
+		if (a.team == wt) != (b.team == wt): return a.team == wt
+		if a.alive != b.alive: return a.alive
+		if a.alive: return a.land > b.land
+		return a.died > b.died)
+	var place := {}
+	for i in order.size():
+		place[order[i].team] = i + 1
+	for e in list:
+		e.placement = int(place[e.team])
+		e["team_size"] = 0
+	var sizes := {}
+	for e in list:
+		sizes[e.team] = int(sizes.get(e.team, 0)) + 1
+	for e in list:
+		e.team_size = int(sizes[e.team])
+	list.sort_custom(func(a, b) -> bool: return a.placement < b.placement)
 	return list
 
 
@@ -385,3 +468,67 @@ func _add_placement(list: Array, nid: int, pname: String, account, total: float)
 	list.append({"nid": nid, "name": pname, "account": account, "alive": bool(n.alive) and int(n.land) > 0, "land": int(n.land),
 		"died": int(died_tick.get(nid, g.ticks_done)), "tile_share": float(n.land) / total,
 		"survival_secs": int(float(died_tick.get(nid, g.ticks_done)) / 10.0), "left_early": left_early.has(nid), "placement": 0})
+
+
+# ---- team games ----
+
+## Called every frame by the node: waits for the roster, then makes the teams anyway after TEAM_WAIT_SECS.
+func frame(dt: float) -> void:
+	if team_game and not teams_ready and not ended:
+		_team_wait += dt
+		if _team_wait >= TEAM_WAIT_SECS and peers.size() + (1 if host_is_player else 0) >= 2:
+			make_teams()
+
+
+## Teams are made once, from whoever is in: a random team size (Duos / Trios / Quads), teams filled one by one,
+## a party kept together (upstream Core/Teams); each player gets the team's colour in a shade of their own.
+func make_teams() -> void:
+	if teams_ready or not team_game:
+		return
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	team_config = TeamsC.random_config(rng)
+	var players := []
+	if host_is_player:
+		players.append({"id": int(g.PLAYER), "group": ""})
+	for peer in peers:
+		players.append({"id": int(peers[peer].nid), "group": str(team_groups.get(peer, ""))})
+	g.team_names = TeamsC.resolve(team_config, players.size())
+	var out: Dictionary = TeamsC.assign(players, g.team_names.size(), true, rng)
+	var counts := {}
+	for p in players:
+		var t: int = out[p.id]
+		var idx: int = int(counts.get(t, 0))
+		counts[t] = idx + 1
+		g.nations[p.id]["team"] = t
+		g.nations[p.id].color = TeamsC.color(str(g.team_names[t - 1]), t, idx)
+	teams_ready = true
+	g._rebuild_kind_cache()
+	for peer in peers:
+		_send_teams(peer)
+		for q in peers:
+			var my: int = peers[peer].nid
+			var nq: Dictionary = g.nations[peers[q].nid]
+			send.call(peer, _pack(S_NATION_INFO, [[NetRepC.swap_id(int(peers[q].nid), my), str(nq.name), "#" + Color(nq.color).to_html(false), bool(nq.alive), true]]))
+
+
+func _send_teams(peer: int) -> void:
+	var my: int = peers[peer].nid
+	var teams := {}
+	for id in range(1, g.nations.size()):
+		var t: int = int(g.nations[id].get("team", 0))
+		if t != 0:
+			teams[NetRepC.swap_id(id, my)] = t
+	send.call(peer, _pack(S_TEAMS, {"names": g.team_names, "config": team_config, "me_team": int(g.nations[my].get("team", 0)), "teams": teams}))
+
+
+## Land per team (alive members): index 1..n.
+func team_land() -> Array:
+	var sums := []
+	sums.resize(g.team_names.size() + 1)
+	sums.fill(0)
+	for id in range(1, g.nations.size()):
+		var t: int = int(g.nations[id].get("team", 0))
+		if t != 0 and g.nations[id].alive:
+			sums[t] += int(g.nations[id].land)
+	return sums
