@@ -109,4 +109,8 @@ The index lists direct references and common helper calls by file, function and 
 
 Under `--sim-snapshot`, the frame loop publishes selected nation and structure fields before painting and updating the HUD. The name layer, map palettes, and structure markers use the published records. The copy includes a separate read-only shot history so a launcher can update its reload list without changing a published frame. Round transitions invalidate the published records.
 
-Unit drawing still uses live routes and records. In particular, legacy flight smoothing and warship interpolation write `sdir` and `dp` into the source records. Moving unit reads requires relocating that smoothing state to the renderer and keeping selection and alert tracking keyed by stable IDs.
+## Transport and warship draw records
+
+With `--sim-snapshot`, the unit layer draws transports and warships from detached records. Transport paths and cumulative distances are copied. Viewer interpolation samples retain their network timestamps, and the selected warship is identified by UID. Aircraft transport heading and local warship smoothing live in render caches that expire with the unit and reset each round.
+
+Trade ships, trains, missiles and other munitions still have live draw paths. The legacy fallback renderer also retains its original draw path. Those consumers and the fixed- and frame-time simulation ownership remain open before enabling a worker.

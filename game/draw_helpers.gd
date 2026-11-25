@@ -202,14 +202,17 @@ func _q() -> int:
 	return clampi(int(save.get("settings", {}).get("qual_i", 3)), 0, 3)
 
 func _sdir(obj: Dictionary, raw: Vector2) -> Vector2:
-	if raw == Vector2.ZERO: raw = obj.get("sdir", Vector2.RIGHT)
-	if _q() == 0: obj["sdir"] = raw.normalized(); return obj["sdir"]
-	var prev: Vector2 = obj.get("sdir", raw)
+	var direction := _smooth_direction(obj, raw)
+	obj["sdir"] = direction
+	return direction
+
+func _smooth_direction(previous: Dictionary, raw: Vector2) -> Vector2:
+	if raw == Vector2.ZERO: raw = previous.get("sdir", Vector2.RIGHT)
+	if _q() == 0: return raw.normalized()
+	var prev: Vector2 = previous.get("sdir", raw)
 	var k := 1.0 - exp(-[0.0, 8.0, 7.0, 6.0][_q()] * get_process_delta_time())
 	var d := prev.slerp(raw.normalized(), clampf(k, 0.0, 1.0)) if prev.length() > 0.5 else raw.normalized()
-	if d == Vector2.ZERO: d = raw.normalized()
-	obj["sdir"] = d
-	return d
+	return raw.normalized() if d == Vector2.ZERO else d
 
 func _wake(p: Vector2, dir: Vector2, sc: float) -> void:
 	var q := _q()

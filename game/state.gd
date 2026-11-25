@@ -62,10 +62,16 @@ var _render_records: RenderRecords
 
 func _publish_render_records() -> void:
 	if tile_snapshot != null:
-		_render_records = RenderRecords.new(nations, structs)
+		_render_records = RenderRecords.new(nations, structs, boats, warships)
 
 func _render_nations() -> Array:
 	return nations if _render_records == null else _render_records.nations
+
+func _render_boats() -> Array:
+	return boats if _render_records == null else _render_records.boats
+
+func _render_warships() -> Array:
+	return warships if _render_records == null else _render_records.warships
 
 func _render_structures() -> Array:
 	return structs if _render_records == null else _render_records.structures

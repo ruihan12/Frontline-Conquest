@@ -8,11 +8,18 @@ const STRUCTURE_FIELDS := [
 	"k", "o", "tile", "level", "bt", "bmax", "shots", "cd", "cmax",
 ]
 
+const BOAT_FIELDS := ["uid", "a", "pts", "cum", "d", "air", "_draw_previous", "_draw_received", "_draw_duration"]
+const WARSHIP_FIELDS := ["uid", "o", "pos", "tgt", "vet", "_draw_previous", "_draw_received", "_draw_duration"]
+
+var boats: Array
+var warships: Array
 var nations: Array
 var structures: Array
 
-func _init(source_nations: Array, source_structures: Array) -> void:
+func _init(source_nations: Array, source_structures: Array, source_boats: Array = [], source_warships: Array = []) -> void:
 	nations = _copy_fields(source_nations, NATION_FIELDS)
+	boats = _copy_units(source_boats, BOAT_FIELDS)
+	warships = _copy_units(source_warships, WARSHIP_FIELDS)
 	structures = _copy_fields(source_structures, STRUCTURE_FIELDS)
 	for building: Dictionary in structures:
 		if building.has("shots"):
@@ -33,4 +40,16 @@ static func _copy_fields(records: Array, fields: Array) -> Array:
 			if record.has(field):
 				copy[field] = record[field]
 		result.append(copy)
+	return result
+
+
+static func _copy_units(source: Array, fields: Array) -> Array:
+	var result := _copy_fields(source, fields)
+	for unit: Dictionary in result:
+		for key in ["pts", "cum"]:
+			if unit.has(key):
+				var value = unit[key].duplicate()
+				unit[key] = value
+		unit.make_read_only()
+	result.make_read_only()
 	return result

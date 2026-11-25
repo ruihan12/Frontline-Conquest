@@ -123,6 +123,34 @@ func _draw_boat_pos(boat: Dictionary) -> Array:
 	return g._boat_pos(visual)
 
 
+var _boat_headings := {}
+var _ship_positions := {}
+
+func reset_motion() -> void:
+	_boat_headings.clear()
+	_ship_positions.clear()
+
+func _boat_heading(boat: Dictionary, direction: Vector2, next: Dictionary) -> Vector2:
+	var uid: int = boat.get("uid", -1)
+	var heading: Vector2 = g._smooth_direction(_boat_headings.get(uid, {}) if uid >= 0 else {}, direction)
+	if uid >= 0:
+		next[uid] = {"sdir": heading}
+	return heading
+
+func _warship_position(ship: Dictionary, next: Dictionary) -> Vector2:
+	if g.net_remote:
+		return ViewerMotion.sample(ship, "pos")
+	var uid: int = ship.get("uid", -1)
+	var position: Vector2 = ship.pos
+	var previous: Vector2 = _ship_positions.get(uid, position) if uid >= 0 else position
+	var movement := position - previous
+	if g._q() != 0 and movement.length() <= 6.0:
+		position = previous + movement * clampf(1.0 - exp(-8.0 * g.get_process_delta_time()), 0.0, 1.0)
+	if uid >= 0:
+		next[uid] = position
+	return position
+
+
 func draw(ci: CanvasItem) -> void:
 	var vp: Vector2 = g.get_viewport_rect().size
 	var px: float = sprite_px()
@@ -130,16 +158,18 @@ func draw(ci: CanvasItem) -> void:
 	var ppt: float = g.cam.zoom.x * g.TS / k
 	var wake_w := maxf(TRAIL_MIN_PX, ppt)
 	# transports: wake under the sprite
-	for bt in g.boats:
+	var headings := {}
+	for bt: Dictionary in g._render_boats():
 		var bp: Array = _draw_boat_pos(bt)
 		var col: Color = _owner_col(int(bt.a))
 		var p0: Vector2 = g._screen_of(bp[0])
 		if bt.get("air", false):
-			g._plane_glyph(p0, g._sdir(bt, bp[1]), col, 1.0, false)
+			g._plane_glyph(p0, _boat_heading(bt, bp[1], headings), col, 1.0, false)
 			continue
 		_wake(ci, bt, p0, wake_w, col, vp)
 		if _on_screen(p0, px, vp):
 			sprite(ci, COL_TRANSPORT, col, p0, px, true)
+	_boat_headings = headings
 	# trains: cars back to front, the engine on top
 	var cars_shown := ppt * DEVICE_RATIO >= CARS_MIN_ZOOM
 	for tr in g.trains:
@@ -173,17 +203,13 @@ func draw(ci: CanvasItem) -> void:
 			continue
 		sprite(ci, COL_TRADE, ocol, p0, px, true)
 	# warships (smoothed toward their sim position), the selected one ringed
-	for ws in g.warships:
-		var dp: Vector2 = ws.get("dp", ws.pos)
-		var mv: Vector2 = ws.pos - dp
-		if g.net_remote:
-			dp = ViewerMotion.sample(ws, "pos")
-		else:
-			dp = ws.pos if g._q() == 0 or mv.length() > 6.0 else dp + mv * clampf(1.0 - exp(-8.0 * g.get_process_delta_time()), 0.0, 1.0)
-			ws["dp"] = dp
+	var positions := {}
+	var selected_id: int = g.sel_ws.get("uid", -1) if g.sel_ws != null else -1
+	for ws: Dictionary in g._render_warships():
+		var dp := _warship_position(ws, positions)
 		var p: Vector2 = g._screen_of(dp * g.TS)
 		var col: Color = _owner_col(int(ws.o))
-		if g.sel_ws != null and is_same(g.sel_ws, ws):
+		if selected_id >= 0 and selected_id == int(ws.get("uid", -1)):
 			ci.draw_arc(p, px, 0, TAU, 32, Color(1, 1, 1, 0.9), 2.0, true)
 			if ws.tgt.distance_to(ws.pos) > 1.5:
 				var tp: Vector2 = g._screen_of(ws.tgt * g.TS)
@@ -195,6 +221,7 @@ func draw(ci: CanvasItem) -> void:
 		if int(ws.vet) > 0:
 			for v in int(ws.vet):
 				ci.draw_circle(p + Vector2(-8 + v * 4, -px * 0.5 - 3), 1.6, g.GOLD_C)
+	_ship_positions = positions
 	_draw_munitions(ci, px, vp)
 
 
