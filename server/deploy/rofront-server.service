@@ -1,0 +1,19 @@
+[Unit]
+Description=Frontline Conquest game server
+After=network.target rofront-accounts.service
+
+[Service]
+User=opc
+WorkingDirectory=/home/opc/frontline-server
+EnvironmentFile=/etc/rofront/server.env
+ExecStart=/home/opc/frontline-server/bin/godot --headless --main-pack /home/opc/frontline-server/bin/rofront.pck -- --server
+# the Minecraft server shares this machine: stay out of its way
+Nice=10
+CPUWeight=60
+MemoryMax=2G
+NoNewPrivileges=yes
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
