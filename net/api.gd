@@ -121,8 +121,8 @@ func rating() -> Dictionary:
 
 func _request(method: int, path: String, auth := false, body = null) -> Dictionary:
 	var base := str(settings().get("api_base", DEFAULT_BASE)).strip_edges()
-	if base.is_empty():
-		base = DEFAULT_BASE
+	if base.is_empty() or not (base.begins_with("https://") or base.begins_with("http://localhost") or base.begins_with("http://127.0.0.1")):
+		base = DEFAULT_BASE  # passwords and tokens only ever travel over https (or to a local dev server)
 	var headers := PackedStringArray(["Accept: application/json"])
 	if body != null:
 		headers.append("Content-Type: application/json")
