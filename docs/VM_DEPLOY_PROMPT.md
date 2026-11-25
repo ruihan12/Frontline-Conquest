@@ -9,7 +9,7 @@ You are deploying the game server and account service for Frontline Conquest on 
 Source: https://github.com/ruihan12/Frontline-Conquest, branch `multiplayer` (clone read-only to /home/opc/frontline-src; `git pull` for updates; never push).
 
 1. Account service (server/accounts in the repo; README.md there has the details)
-   - MariaDB: use the existing server. Create a separate database and user for the game (names of your choice), apply `schema.sql` (schema version 4), case-insensitive collation. Grant that user only SELECT, INSERT, UPDATE, DELETE on that database.
+   - MariaDB: use the existing server. Create a separate database and user for the game (names of your choice), apply `schema.sql` (schema version 5; the file is idempotent). If a version 4 database already exists, reapply `schema.sql` BEFORE starting the updated service: it adds `match_players.team` and sets the version to 5 (the service refuses to start on any other version). Case-insensitive collation. Grant that user only SELECT, INSERT, UPDATE, DELETE on that database.
    - Python venv, `pip install -r requirements.txt`, env file `/etc/rofront/accounts.env` (root:root, 600) with DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, INTERNAL_KEY, GUEST_SECRET (generate the two secrets with `openssl rand -hex 32`).
    - systemd unit as in the README, listening on 127.0.0.1:8071. Run the tests first: `python -m pytest` in server/accounts.
 2. Game server (server/deploy in the repo has the unit, env example, README and nginx block)
