@@ -12,6 +12,7 @@ const GOLD := Color8(255, 200, 61)
 const MUTED := Color8(170, 182, 211)
 const NIGHT := Color8(8, 12, 26)
 const CRATE_W := 250.0
+const COMPACT_CRATE_W := 196.0
 const GRID := Vector2(560, 430)
 const SKIN_CARD := Vector2(116, 128)
 const FLAG_CARD := Vector2(104, 96)
@@ -23,6 +24,9 @@ var _dim: ColorRect
 var _panel: GlassPanel
 var _v: VBoxContainer
 var _count: Label
+var _foot: Label
+var _balance_note: Label
+var _pack_button: Button
 var _body: HBoxContainer
 var _tab := 0
 var _chest: ChestView
@@ -85,7 +89,8 @@ func _init(c: UICtx, main) -> void:
 	_v.add_child(head)
 	_body = UITheme.hbox(16)
 	_v.add_child(_body)
-	_v.add_child(UITheme.label("Flags: Wikimedia Commons (public domain)", 11, 500, UITheme.TEXT_3))
+	_foot = UITheme.label("Flags: Wikimedia Commons (public domain)", 11, 500, UITheme.TEXT_3)
+	_v.add_child(_foot)
 
 
 func _session():
@@ -156,6 +161,8 @@ func _card(it, slot: String, owned_map: Dictionary, wearing: String) -> Control:
 	var owned: bool = it == null or owned_map.has(it.id)
 	var equipped: bool = (wearing == "") if it == null else (wearing == str(it.id))
 	var cell := SKIN_CARD if slot == "skin" else FLAG_CARD
+	if ctx.compact:
+		cell = (cell * 0.82).floor()
 	var b := Button.new()
 	b.custom_minimum_size = cell
 	b.focus_mode = Control.FOCUS_NONE
@@ -211,13 +218,69 @@ func _card(it, slot: String, owned_map: Dictionary, wearing: String) -> Control:
 	return b
 
 
-func _crate_card(s, owned: Dictionary) -> Control:
+func _crate_card(owned: Dictionary, width: float) -> Control:
+	_balance_note = null
+	_pack_button = null
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(CRATE_W, 0)
+	card.custom_minimum_size = Vector2(width, 0)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_theme_stylebox_override("panel", UITheme.flat(UITheme.c(UITheme.GOLD, 0.07), 16, UITheme.c(UITheme.GOLD, 0.45), 1, 16.0, 14.0))
-	var v := UITheme.vbox(8)
+	var v := UITheme.vbox(5 if ctx.compact else 8)
 	card.add_child(v)
+	if not ctx.compact:
+		_add_chest_art(v)
+	var t := UITheme.label("COSMETIC CRATE", 13 if ctx.compact else 16, 800, UITheme.TEXT, 2)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(t)
+	var sub := UITheme.label("A territory skin or a flag you don't own yet", 12, 500, UITheme.TEXT_2)
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sub.custom_minimum_size = Vector2(width - 32.0, 0)
+	sub.visible = not ctx.compact
+	v.add_child(sub)
+	var total := CosmeticsRules.all().size()
+	var all_owned := owned.size() >= total
+	var odds := CosmeticsRules.odds(owned)
+	if not all_owned:
+		var ob := UITheme.vbox(1 if ctx.compact else 3)
+		var odds_font := 11 if ctx.compact else 12
+		for e: Dictionary in odds:
+			var row := UITheme.hbox(8)
+			var sw := UITheme.swatch(Color.hex((int(e.rarity.color) << 8) | 0xFF), 10.0, 3)
+			sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(sw)
+			var nm := UITheme.label(str(e.rarity.name), odds_font, 600, UITheme.TEXT)
+			nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(nm)
+			row.add_child(UITheme.label("%d%%" % int(round(float(e.odds) * 100.0)) if int(e.left) > 0 else "all owned", odds_font, 700, UITheme.TEXT))
+			ob.add_child(row)
+		v.add_child(ob)
+		var stars := int(g.save.stars)
+		var left := total - owned.size()
+		var many := mini(mini(10, int(stars / CosmeticsRules.CRATE_COST)), left)
+		var button_height := 40.0 if ctx.compact else 48.0
+		var openb := UITheme.button(UICtx.commas(CosmeticsRules.CRATE_COST), "PrimaryButton", "star", button_height)
+		openb.custom_minimum_size.x = width - 32.0
+		openb.disabled = stars < CosmeticsRules.CRATE_COST
+		openb.pressed.connect(func() -> void: _start_open(1))
+		v.add_child(openb)
+		if left >= 2:
+			var pack := many if many >= 2 else mini(10, left)
+			var pack_height := 34.0 if ctx.compact else 42.0
+			var tenb := UITheme.button("Open ×%d  ·  %s" % [pack, UICtx.commas(CosmeticsRules.CRATE_COST * pack)], "GhostButton", "", pack_height)
+			tenb.custom_minimum_size.x = width - 32.0
+			tenb.add_theme_font_size_override("font_size", 12 if ctx.compact else 13)
+			tenb.disabled = many < 2
+			tenb.pressed.connect(func() -> void: _start_open(pack))
+			v.add_child(tenb)
+			_pack_button = tenb
+		_balance_note = _note_line(v, _note if _note != "" else "You have %s Stars  ·  Never a duplicate" % UICtx.commas(stars), width)
+	else:
+		_note_line(v, "You own every skin and flag.", width)
+	return card
+
+
+func _add_chest_art(v: VBoxContainer) -> void:
 	var art := Control.new()
 	art.custom_minimum_size = Vector2(CRATE_W - 32.0, 150)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -234,56 +297,15 @@ func _crate_card(s, owned: Dictionary) -> Control:
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	art.add_child(glow)
 	art.add_child(_chest)
-	var t := UITheme.label("COSMETIC CRATE", 16, 800, UITheme.TEXT, 2)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	v.add_child(t)
-	var sub := UITheme.label("A territory skin or a flag you don't own yet", 12, 500, UITheme.TEXT_2)
-	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	sub.custom_minimum_size = Vector2(CRATE_W - 32.0, 0)
-	v.add_child(sub)
-	var total := CosmeticsRules.all().size()
-	var all_owned := owned.size() >= total
-	var odds := CosmeticsRules.odds(owned)
-	if not all_owned:
-		var ob := UITheme.vbox(3)
-		for e: Dictionary in odds:
-			var row := UITheme.hbox(8)
-			var sw := UITheme.swatch(Color.hex((int(e.rarity.color) << 8) | 0xFF), 10.0, 3)
-			sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			row.add_child(sw)
-			var nm := UITheme.label(str(e.rarity.name), 12, 600, UITheme.TEXT)
-			nm.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(nm)
-			row.add_child(UITheme.label("%d%%" % int(round(float(e.odds) * 100.0)) if int(e.left) > 0 else "all owned", 12, 700, UITheme.TEXT))
-			ob.add_child(row)
-		v.add_child(ob)
-		var stars := int(g.save.stars)
-		var left := total - owned.size()
-		var many := mini(mini(10, int(stars / CosmeticsRules.CRATE_COST)), left)
-		var openb := UITheme.button("%s" % UICtx.commas(CosmeticsRules.CRATE_COST), "PrimaryButton", "star", 48.0)
-		openb.custom_minimum_size = Vector2(CRATE_W - 32.0, 48)
-		openb.disabled = stars < CosmeticsRules.CRATE_COST
-		openb.pressed.connect(func() -> void: _start_open(1))
-		v.add_child(openb)
-		if left >= 2:
-			var tenb := UITheme.button("Open ×%d  ·  %s" % [maxi(many, 10) if many < 2 else many, UICtx.commas(CosmeticsRules.CRATE_COST * (many if many >= 2 else mini(10, left)))], "GhostButton", "", 38.0)
-			tenb.custom_minimum_size = Vector2(CRATE_W - 32.0, 38)
-			tenb.disabled = many < 2
-			tenb.pressed.connect(func() -> void: _start_open(many))
-			v.add_child(tenb)
-		_note_line(v, _note if _note != "" else "You have %s Stars  ·  Never a duplicate" % UICtx.commas(stars))
-	else:
-		_note_line(v, "You own every skin and flag.")
-	return card
 
 
-func _note_line(v: VBoxContainer, text: String) -> void:
+func _note_line(v: VBoxContainer, text: String, width: float) -> Label:
 	var n := UITheme.label(text, 11, 500, UITheme.TEXT_3)
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	n.custom_minimum_size = Vector2(CRATE_W - 32.0, 0)
+	n.custom_minimum_size = Vector2(width - 32.0, 0)
 	v.add_child(n)
+	return n
 
 
 func _refresh() -> void:
@@ -296,7 +318,15 @@ func _refresh() -> void:
 	var co: Dictionary = g.save.cosmetics
 	var owned: Dictionary = co.owned
 	_count.text = "%d of %d unlocked" % [owned.size(), CosmeticsRules.all().size()]
-	_body.add_child(_crate_card(s, owned))
+	var area := ctx.clear_rect()
+	var compact := ctx.compact
+	var crate_width := COMPACT_CRATE_W if compact else CRATE_W
+	var pad := 14.0 if compact else 22.0
+	var pad_y := 10.0 if compact else 20.0
+	_panel.set_padding(pad, pad_y, pad, pad_y)
+	_v.add_theme_constant_override("separation", 8 if compact else 12)
+	_foot.visible = not compact
+	_body.add_child(_crate_card(owned, crate_width))
 	var right := UITheme.vbox(10)
 	_body.add_child(right)
 	var tabs := UITheme.hbox(6)
@@ -312,9 +342,8 @@ func _refresh() -> void:
 		tabs.add_child(chip)
 	right.add_child(tabs)
 	var slot := "skin" if _tab == 0 else "flag"
-	var area := ctx.clear_rect()
-	var gw := clampf(area.size.x - CRATE_W - 110.0, 300.0, GRID.x)
-	var gh := clampf(area.size.y - 170.0, 120.0, GRID.y)
+	var gw := clampf(area.size.x - crate_width - 110.0, 120.0, GRID.x)
+	var gh := clampf(area.size.y - (120.0 if compact else 170.0), 120.0, GRID.y)
 	var sc := ScrollContainer.new()
 	sc.custom_minimum_size = Vector2(gw, gh)
 	sc.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -345,11 +374,18 @@ func _refresh() -> void:
 	for it: Dictionary in list:
 		fl.add_child(_card(it, slot, owned, wearing))
 	await get_tree().process_frame
-	if not is_open:
+	if not is_open or not is_instance_valid(right) or right.get_parent() != _body:
 		return
+	var max_height := area.size.y - 4.0
+	var excess := _panel.get_combined_minimum_size().y - max_height
+	if excess > 0.0:
+		sc.custom_minimum_size.y = maxf(100.0, gh - excess)
+	if compact and _panel.get_combined_minimum_size().y > max_height and _note.is_empty() and _balance_note != null:
+		_balance_note.hide()
+	if compact and _panel.get_combined_minimum_size().y > max_height and _pack_button != null:
+		_pack_button.hide()
 	_panel.reset_size()
 	var sz := _panel.get_combined_minimum_size()
-	sz.y = minf(sz.y, area.size.y - 8.0)
 	var p := area.position + (area.size - sz) * 0.5
 	_panel.position = Vector2(floorf(p.x + 0.5), floorf(maxf(p.y, area.position.y + 4.0) + 0.5))
 	_panel.size = sz
@@ -455,10 +491,13 @@ func _end_show() -> void:
 func _reveal_cards() -> void:
 	var n := _rids.size()
 	var area := ctx.clear_rect()
-	var per_row := 1 if n == 1 else (5 if n > 6 else 3)
+	var wide_row := 1 if n == 1 else (5 if n > 6 else 3)
+	var gap := 12.0
 	var cw := 190.0 if n == 1 else 112.0
 	var chh := 230.0 if n == 1 else 138.0
-	var gap := 12.0
+	var per_row := clampi(floori((area.size.x - 12.0 + gap) / (cw + gap)), 1, wide_row)
+	var grid_h := ceili(float(n) / per_row) * (chh + gap) - gap
+	_rbox.scale = Vector2.ONE * clampf((area.size.y - 60.0) / grid_h, 0.4, 1.0)
 	var rows := int(ceil(float(n) / per_row))
 	var total_h := rows * chh + (rows - 1) * gap
 	for i in n:
