@@ -208,7 +208,12 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	if audio_dir != null and not _audio_dir_known.has(key):
 		_audio_dir_known[key] = audio_dir.has_sfx(key)  # keys the legacy table lacks (eliminate, ...)
 	if audio_dir != null and (_audio_dir_known.get(key, false) or key == "build"):
-		audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
+		if _collect_presentation and tile_snapshot != null:
+			var clock: int = audio_dir.clock_ms
+			_presentation_events.append(["sound", key, vol_db, pitch_jitter, who,
+				clock if clock >= 0 else Time.get_ticks_msec()])
+		else:
+			audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
 		return
 	if not sfx_streams.has(key) or sfx_pool.is_empty(): return
 	var now := Time.get_ticks_msec()
@@ -225,6 +230,14 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	p.volume_db = vol_db
 	p.pitch_scale = 1.0 + rng.randf_range(-pitch_jitter, pitch_jitter)
 	p.play()
+
+func _present_director_sound(key: String, vol_db: float, pitch_jitter: float, who: int, msec: int) -> void:
+	if audio_dir == null:
+		return
+	var previous_clock: int = audio_dir.clock_ms
+	audio_dir.set_clock_ms(msec)
+	audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
+	audio_dir.set_clock_ms(previous_clock)
 
 func _play_music() -> void:
 	if not bool(save.get("settings", {}).get("music_on", true)): return

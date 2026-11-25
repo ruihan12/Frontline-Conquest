@@ -60,14 +60,14 @@ func fire_railgun(o: int, tile: int) -> bool:
 
 func _draw_meta_fx(z: float) -> void:
 	_draw_port_munitions(z)
-	for pl in planes:
+	for pl in (planes if _render_records == null else _render_records.planes):
 		var flight: float = preload("res://client/map/viewer_motion.gd").sample(pl, "t") if net_remote else pl.t
 		var f: float = clampf(flight / maxf(0.01, pl.dur), 0.0, 1.0)
 		var p := _screen_of(pl.from.lerp(pl.to, f) * TS)
 		var d: Vector2 = (pl.to - pl.from).normalized()
 		if d == Vector2.ZERO: d = Vector2.RIGHT
 		var nrm := Vector2(-d.y, d.x)
-		var col: Color = nations[pl.o].color
+		var col: Color = _render_nations()[pl.o].color
 		# Flight path & twin jet contrails
 		overlay.draw_line(_screen_of(pl.from * TS), p, Color(col.r, col.g, col.b, 0.65), 2.4)
 		overlay.draw_line(p - d * 22 + nrm * 3.5, p - d * 5 + nrm * 3.5, Color(1, 1, 1, 0.65), 1.8)

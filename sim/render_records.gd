@@ -11,15 +11,44 @@ const STRUCTURE_FIELDS := [
 const BOAT_FIELDS := ["uid", "a", "pts", "cum", "d", "air", "_draw_previous", "_draw_received", "_draw_duration"]
 const WARSHIP_FIELDS := ["uid", "o", "pos", "tgt", "vet", "_draw_previous", "_draw_received", "_draw_duration"]
 
+const TRADER_FIELDS := ["uid", "o", "pts", "cum", "d", "air", "_draw_previous", "_draw_received", "_draw_duration"]
+const MISSILE_FIELDS := ["o", "nk", "from", "to", "lt", "ft", "t", "dur", "r", "_draw_previous", "_draw_received", "_draw_duration"]
+const PLANE_FIELDS := ["o", "from", "to", "t", "dur", "_draw_previous", "_draw_received", "_draw_duration"]
+const MUNITION_FIELDS := ["o", "nk", "from", "to", "t0", "t1"]
+
+var traders: Array
+var missiles: Array
+var planes: Array
+var munitions: Array
+var sam_shots: Array = []
+var shells: Array = []
+
 var boats: Array
 var warships: Array
 var nations: Array
 var structures: Array
 
-func _init(source_nations: Array, source_structures: Array, source_boats: Array = [], source_warships: Array = []) -> void:
+func _init(source_nations: Array, source_structures: Array, source_boats: Array = [], source_warships: Array = [], projectiles: Dictionary = {}) -> void:
 	nations = _copy_fields(source_nations, NATION_FIELDS)
 	boats = _copy_units(source_boats, BOAT_FIELDS)
 	warships = _copy_units(source_warships, WARSHIP_FIELDS)
+	traders = _copy_units(projectiles.get("traders", []), TRADER_FIELDS)
+	missiles = _copy_units(projectiles.get("missiles", []), MISSILE_FIELDS)
+	planes = _copy_units(projectiles.get("planes", []), PLANE_FIELDS)
+	munitions = _copy_units(projectiles.get("munitions", []), MUNITION_FIELDS)
+	for shot: Dictionary in projectiles.get("sam_shots", []):
+		var record := {"o": shot.o, "from": shot.from, "t0": shot.t0, "t1": shot.t1, "k": shot.k}
+		record["ms"] = null
+		if shot.ms != null:
+			record.ms = _copy_units([shot.ms], MISSILE_FIELDS)[0]
+		record.make_read_only()
+		sam_shots.append(record)
+	sam_shots.make_read_only()
+	for shell: Dictionary in projectiles.get("shells", []):
+		var record := shell.duplicate()
+		record.make_read_only()
+		shells.append(record)
+	shells.make_read_only()
 	structures = _copy_fields(source_structures, STRUCTURE_FIELDS)
 	for building: Dictionary in structures:
 		if building.has("shots"):

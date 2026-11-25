@@ -177,6 +177,26 @@ func _drain_sim_intents() -> void:
 		for command in sim_intents.take():
 			NetIntents.apply(self, PLAYER, command)
 
+# These updates depend on the frame clocks. Keep their sequence and RNG draw
+# timing while separating them from the fixed tick and the match-end UI.
+func _advance_sim_frame(dt: float, tdt: float) -> void:
+	var u0 := Time.get_ticks_usec()
+	_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
+	_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
+	_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
+	_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
+	_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
+	donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
+	donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
+	var _q1 := Time.get_ticks_usec()
+	if ai_timer == 0.0 or rng.randf() < 0.2: _tick_alliances()
+	_pf_add("alliances", Time.get_ticks_usec() - _q1)
+	var b0 := Time.get_ticks_usec()
+	_tick_boats(tdt)
+	prof.boat += Time.get_ticks_usec() - b0
+	_pf_add("boats", Time.get_ticks_usec() - b0)
+	ai_timer += dt
+
 func _process_inner(dt: float) -> void:
 	var _qp := Time.get_ticks_usec()
 	_pump_previews()
@@ -274,22 +294,7 @@ func _process_inner(dt: float) -> void:
 			if net_host != null: net_host.on_tick()
 		_flush_presentation_batch()
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
-		var u0 := Time.get_ticks_usec()
-		_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
-		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
-		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
-		_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
-		_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
-		donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
-		donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
-		var _q1 := Time.get_ticks_usec()
-		if ai_timer == 0.0 or rng.randf() < 0.2: _tick_alliances()
-		_pf_add("alliances", Time.get_ticks_usec() - _q1)
-		var b0 := Time.get_ticks_usec()
-		_tick_boats(tdt)
-		prof.boat += Time.get_ticks_usec() - b0
-		_pf_add("boats", Time.get_ticks_usec() - b0)
-		ai_timer += dt
+		_advance_sim_frame(dt, tdt)
 		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 		var _q2 := Time.get_ticks_usec()
 		var pl = nations[PLAYER]

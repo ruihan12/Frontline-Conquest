@@ -62,7 +62,18 @@ var _render_records: RenderRecords
 
 func _publish_render_records() -> void:
 	if tile_snapshot != null:
-		_render_records = RenderRecords.new(nations, structs, boats, warships)
+		var render_shells := []
+		if sim_ws != null:
+			for shell: Dictionary in sim_ws.shells:
+				if shell.has("from") and shell.has("target"):
+					var end: float = shell.t1
+					render_shells.append({"o": shell.o, "from": shell.from, "to": sim_ws.unit_pos(shell.target),
+						"t0": shell.get("t0", end - 3.0), "t1": end})
+		_render_records = RenderRecords.new(nations, structs, boats, warships, {
+			"traders": traders, "missiles": missiles, "planes": planes, "shells": render_shells,
+			"munitions": sim_ars.munitions if sim_ars != null else [],
+			"sam_shots": sim_ars.sam_shots if sim_ars != null else [],
+		})
 
 func _render_nations() -> Array:
 	return nations if _render_records == null else _render_records.nations
@@ -1055,6 +1066,15 @@ func _init_audio() -> void:
 
 func _apply_volumes() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
+
+func _present_ally_card(_mode: String, _who: int) -> void:
+	pass  # implemented in game/diplomacy.gd
+
+func _present_ally_close(_who: int) -> void:
+	pass  # implemented in game/diplomacy.gd
+
+func _present_director_sound(_key: String, _vol_db: float, _pitch_jitter: float, _who: int, _msec: int) -> void:
+	pass  # implemented in game/audio.gd
 
 func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
 	pass  # forward declaration; implemented in game/audio.gd

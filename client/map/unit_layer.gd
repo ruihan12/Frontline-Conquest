@@ -124,10 +124,12 @@ func _draw_boat_pos(boat: Dictionary) -> Array:
 
 
 var _boat_headings := {}
+var _trade_headings := {}
 var _ship_positions := {}
 
 func reset_motion() -> void:
 	_boat_headings.clear()
+	_trade_headings.clear()
 	_ship_positions.clear()
 
 func _boat_heading(boat: Dictionary, direction: Vector2, next: Dictionary) -> Vector2:
@@ -135,6 +137,14 @@ func _boat_heading(boat: Dictionary, direction: Vector2, next: Dictionary) -> Ve
 	var heading: Vector2 = g._smooth_direction(_boat_headings.get(uid, {}) if uid >= 0 else {}, direction)
 	if uid >= 0:
 		next[uid] = {"sdir": heading}
+	return heading
+
+func _trade_heading(trade: Dictionary, direction: Vector2, next: Dictionary) -> Vector2:
+	if not trade.is_read_only():
+		return g._sdir(trade, direction)
+	var route := [trade.o, trade.pts]
+	var heading: Vector2 = g._smooth_direction(_trade_headings.get(route, {}), direction)
+	next[route] = {"sdir": heading}
 	return heading
 
 func _warship_position(ship: Dictionary, next: Dictionary) -> Vector2:
@@ -191,7 +201,8 @@ func draw(ci: CanvasItem) -> void:
 		if _on_screen(ep, px, vp):
 			sprite(ci, COL_TRAIN, col, ep, px)
 	# trade ships
-	for tr in g.traders:
+	var trade_headings := {}
+	for tr: Dictionary in (g.traders if g._render_records == null else g._render_records.traders):
 		var bp: Array = _draw_boat_pos(tr)
 		var p0: Vector2 = g._screen_of(bp[0])
 		if not _on_screen(p0, maxf(px, 40.0), vp):
@@ -199,9 +210,10 @@ func draw(ci: CanvasItem) -> void:
 		var ocol: Color = _owner_col(int(tr.o)) if tr.o > 0 and tr.o < g._render_nations().size() else g.GOLD_C
 		if tr.get("air", false):
 			var rd: Vector2 = bp[1] if bp[1] != Vector2.ZERO else Vector2.RIGHT
-			g._plane_glyph(p0, g._sdir(tr, rd), ocol, 0.85, true)
+			g._plane_glyph(p0, _trade_heading(tr, rd, trade_headings), ocol, 0.85, true)
 			continue
 		sprite(ci, COL_TRADE, ocol, p0, px, true)
+	_trade_headings = trade_headings
 	# warships (smoothed toward their sim position), the selected one ringed
 	var positions := {}
 	var selected_id: int = g.sel_ws.get("uid", -1) if g.sel_ws != null else -1
@@ -239,10 +251,13 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 	var ppt: float = g.cam.zoom.x * g.TS
 	var thick := maxf(2.0, roundf(ppt / k * TRAIL_WIDTH))
 	var now := FrameClock.now()
-	var flying: int = g.missiles.size()
+	var missiles: Array = g.missiles if g._render_records == null else g._render_records.missiles
+	var flying := missiles.size()
 	var trail_dots: int = mini(TRAIL_MAX, TRAIL_BUDGET / maxi(flying, 1))
 	var rings_for_warheads: bool = flying <= TRAIL_RING_MAX
-	for ms in g.missiles:
+	for source: Dictionary in missiles:
+		# Cache the computed arc once for this draw without writing to the snapshot.
+		var ms := source.duplicate() if source.is_read_only() else source
 		var f: float = clampf(float(ViewerMotion.sample(ms, "t")) / maxf(0.001, float(ms.dur)), 0.0, 1.0) if g.net_remote else g.missile_frac(ms)
 		var nk := int(ms.get("nk", SimRules.N_ATOM))
 		var col_i := COL_ATOM
@@ -264,7 +279,7 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 		var spx: float = px * (MEGA_SCALE if nk == SimRules.N_MEGA else 1.0)
 		if _on_screen(head, spx, vp):
 			sprite(ci, col_i, c, head, spx)
-		heads[ms] = head
+		heads[source] = head
 		if nk == SimRules.N_WARHEAD and not rings_for_warheads:
 			continue
 		if nk == SimRules.N_MIRV:
@@ -288,7 +303,7 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 	if g.sim_ars == null:
 		return
 	var tf: float = float(g.sim_atk.tick) + g.sub_tick_counted()
-	for m in g.sim_ars.munitions:
+	for m in (g.sim_ars.munitions if g._render_records == null else g._render_records.munitions):
 		var f: float = clampf((tf - float(m.t0)) / maxf(1.0, float(m.t1 - m.t0)), 0.0, 1.0)
 		var a: Vector2 = m.from
 		var b: Vector2 = m.to
@@ -305,7 +320,7 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 			SimRules.N_SLUG:
 				if _on_screen(p, px, vp):
 					sprite(ci, COL_SHELL, col, p, px * SLUG_SCALE)
-	for sm in g.sim_ars.sam_shots:
+	for sm in (g.sim_ars.sam_shots if g._render_records == null else g._render_records.sam_shots):
 		var ms = sm.ms
 		var f2: float = clampf((tf - float(sm.t0)) / maxf(1.0, float(sm.t1 - sm.t0)), 0.0, 1.0)
 		var to_w: Vector2 = g._missile_world_pos(ms, clampf(int(sm.k) * SimArsenal.DT_TICK / maxf(0.001, float(ms.dur)), 0.0, 1.0)) if ms != null else sm.from * g.TS
@@ -315,12 +330,12 @@ func _draw_munitions(ci: CanvasItem, px: float, vp: Vector2) -> void:
 			sprite(ci, COL_SAM, _owner_col(int(sm.o)), q1, px)
 	# warship (and defense post) shells in flight: from the shooter to where the target is now
 	if g.sim_ws != null:
-		for sh in g.sim_ws.shells:
-			if not (sh.has("from") and sh.has("target")):
+		for sh in (g.sim_ws.shells if g._render_records == null else g._render_records.shells):
+			if not (sh.has("from") and (sh.has("target") or sh.has("to"))):
 				continue
 			var t1: float = float(sh.t1)
 			var f3: float = clampf((tf - float(sh.get("t0", t1 - 3.0))) / maxf(1.0, t1 - float(sh.get("t0", t1 - 3.0))), 0.0, 1.0)
-			var tgp: Vector2 = g.sim_ws.unit_pos(sh.target)
+			var tgp: Vector2 = sh.to if sh.has("to") else g.sim_ws.unit_pos(sh.target)
 			var q2: Vector2 = g._screen_of((sh.from as Vector2).lerp(tgp, f3) * g.TS)
 			if _on_screen(q2, px, vp):
 				var c3: Color = _owner_col(int(sh.o)) if int(sh.o) > 0 and int(sh.o) < g._render_nations().size() else Color(1, 0.6, 0.3)

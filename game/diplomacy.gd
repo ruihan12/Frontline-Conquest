@@ -221,8 +221,7 @@ func _requests_tick() -> void:
 				var from: int = k / 1024; var to: int = k % 1024
 				_close_request(from, to)
 				if from == PLAYER: notify("%s did not answer your alliance request" % _nname(to), "info")
-				if to == PLAYER and ally_card != null and ally_card_mode == "propose" and ally_card_who == from and ally_card.visible: _fade_out(ally_card)
-				if to == PLAYER and client != null: client.close_ally_request(from)
+				if to == PLAYER: _dismiss_ally_request(from)
 
 func is_embargoed(_a: int, _b: int) -> bool:
 	return false
@@ -278,7 +277,25 @@ func _build_ally_card() -> void:
 	ally_card_btn_b.pressed.connect(func(): _fade_out(ally_card))
 	ally_card.visible = false
 
+func _dismiss_ally_request(who: int) -> void:
+	if _collect_presentation and tile_snapshot != null:
+		_presentation_events.append(["ally_close", who])
+	else:
+		_present_ally_close(who)
+
+func _present_ally_close(who: int) -> void:
+	if ally_card != null and ally_card_mode == "propose" and ally_card_who == who and ally_card.visible:
+		_fade_out(ally_card)
+	if client != null:
+		client.close_ally_request(who)
+
 func _show_ally_card(mode: String, who: int) -> void:
+	if _collect_presentation and tile_snapshot != null:
+		_presentation_events.append(["ally_show", mode, who])
+	else:
+		_present_ally_card(mode, who)
+
+func _present_ally_card(mode: String, who: int) -> void:
 	if client != null:  # the remade client's EventFeed draws the card
 		client.show_ally_card(mode, who)
 		return

@@ -793,6 +793,9 @@ func _flush_presentation_batch() -> void:
 			"notice": _present_notice(event[1], event[2])
 			"float": _present_float(event[1], event[2], event[3])
 			"map": _present_map_effect(event[1], event[2])
+			"ally_show": _present_ally_card(event[1], event[2])
+			"ally_close": _present_ally_close(event[1])
+			"sound": _present_director_sound(event[1], event[2], event[3], event[4], event[5])
 
 func _map_effect(kind: String, values: Array) -> void:
 	if _collect_presentation:

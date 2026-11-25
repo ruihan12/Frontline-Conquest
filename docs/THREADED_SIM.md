@@ -114,3 +114,13 @@ Under `--sim-snapshot`, the frame loop publishes selected nation and structure f
 With `--sim-snapshot`, the unit layer draws transports and warships from detached records. Transport paths and cumulative distances are copied. Viewer interpolation samples retain their network timestamps, and the selected warship is identified by UID. Aircraft transport heading and local warship smoothing live in render caches that expire with the unit and reset each round.
 
 Trade ships, trains, missiles and other munitions still have live draw paths. The legacy fallback renderer also retains its original draw path. Those consumers and the fixed- and frame-time simulation ownership remain open before enabling a worker.
+
+## Additional unit and projectile records
+
+The opt-in draw snapshot now carries trade ships, missiles, planes, artillery and interceptor effects. Warship shells capture their target position when published. Drawing a missile arc can compute missing geometry without writing into the published record. The standard live path continues to use its existing cached arc.
+
+Train drawing still resolves rail links and paths through live caches. Rail cache budgeting, legacy fallback rendering, and the tick loop's shared state remain ownership boundaries for a worker.
+
+The snapshot experiment also queues audio director playback. Each event retains the clock value from its original emission, so director cooldown checks use the same timestamps. The legacy audio player remains synchronous because selecting its stream and pitch consumes the simulation RNG. The render visibility check also remains on the current path.
+
+Alliance request cards can also be queued in snapshot mode. The frame-time simulation now has a dedicated entry point covering trade, FX aging, air updates, donation cooldowns, alliance warnings and transport movement, in their original order. It still runs synchronously and uses two different clocks, both supplied by the frame loop.

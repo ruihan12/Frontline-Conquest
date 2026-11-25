@@ -96,7 +96,7 @@ func _missile_arc(ms) -> Dictionary:
 	var arc = ms.get("arc")
 	if arc == null:
 		arc = sim_rules.munition_arc(H, ms.from, ms.to, int(ms.get("nk", SimRules.N_ATOM)))
-		ms["arc"] = arc
+		if not ms.is_read_only(): ms["arc"] = arc
 	return arc
 
 # map position (world px) at arc fraction s
