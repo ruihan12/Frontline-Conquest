@@ -47,6 +47,7 @@ var log_fn: Callable = Callable()
 var join_gate: Callable = Callable()  # (peer, dict) -> void; when set, it decides (maybe later) and calls join()/reject()
 var on_end: Callable = Callable()     # (result dict) once, when the match ends
 var ranked := false
+var host_is_player := false  # a player's PC: nation 1 is played locally, remote people take the other slots
 var started_ms := 0
 var died_tick := {}  # human nid -> tick it was eliminated
 var left_early := {}  # human nid -> true when the person left a running match
@@ -103,6 +104,8 @@ func join(peer: int, pname: String, account = 0) -> int:
 		taken[int(p.nid)] = true
 	var nid := -1
 	for sid in slots:
+		if host_is_player and int(sid) == int(g.PLAYER):
+			continue
 		if not taken.has(int(sid)):
 			nid = int(sid)
 			break
@@ -235,15 +238,19 @@ func check_end() -> void:
 			winner = id
 			break
 	var humans_alive := 0
+	if host_is_player and g.nations[g.PLAYER].alive and int(g.nations[g.PLAYER].land) > 0:
+		humans_alive += 1
 	for p in peers.values():
 		if g.nations[p.nid].alive and int(g.nations[p.nid].land) > 0:
 			humans_alive += 1
-	if winner == 0 and (humans_alive > 0 or g.state != "play" or peers.is_empty()):
+	if winner == 0 and (humans_alive > 0 or g.state != "play" or (peers.is_empty() and not host_is_player)):
 		return
 	ended = true
 	g.state = "over"
 	if on_end.is_valid():
 		on_end.call(placements(winner))
+	if host_is_player:
+		g._game_over(winner == int(g.PLAYER))
 	for peer in peers:
 		var my: int = peers[peer].nid
 		var ranks := []

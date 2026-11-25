@@ -31,6 +31,7 @@ var internal_key := ""
 var ranked := false
 var autospawn := false
 var _spawned := false
+var local_player := false
 var _pending := []
 var _end_wait := 0.0
 var _last_args := []
@@ -66,6 +67,17 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 	_pending = [map_tab, map_i, bots]
 	_last_args = [map_tab, map_i, bots]
 	status = "listening on %d" % port
+	return OK
+
+
+## A player's PC hosts a casual match: this process runs the sim and plays nation 1, others connect over ENet.
+func start_local_host(main, port: int, bots: int, max_humans: int) -> int:
+	var err: int = start_server(main, port, bots, int(main.map_tab), int(main.map_i), max_humans, true)
+	if err != OK:
+		return err
+	role = "server"
+	local_player = true
+	host.host_is_player = true
 	return OK
 
 
@@ -106,10 +118,12 @@ func _process(dt: float) -> void:
 		host.start_match(pm[0], pm[1], pm[2])
 		var cap := float(OS.get_environment("FRONTLINE_SPEED_CAP")) if OS.has_environment("FRONTLINE_SPEED_CAP") else 1.0
 		g.net_speed_cap = clampf(cap, 0.5, 2.0 if ranked else 10.0)
+		if local_player:
+			g.net_speed_cap = 1.0  # a hosted casual match is 1x for everyone
 		g.set_speed_x(g.net_speed_cap)
 		print("MPSERVER match started state=", g.state, " speed=", g.sim_speed / g.SPEED_BASE)
 	transport.poll()
-	if role == "server" and host != null and host.ended:
+	if role == "server" and host != null and host.ended and not local_player:
 		_end_wait += dt
 		if _end_wait >= NEXT_MATCH_AFTER:
 			_end_wait = 0.0

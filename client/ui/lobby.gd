@@ -162,6 +162,19 @@ func _show_entry() -> void:
 		_label(_profile_message, UITheme.TEXT_2)
 	else:
 		_label("Create an account or log in from the Account screen to play ranked.", UITheme.TEXT_2)
+	if model.has_method("host_local"):
+		_body.add_child(UITheme.hdivider())
+		_label("Play with friends", UITheme.TEXT_3)
+		if not OS.has_feature("web"):
+			_button("Host on this PC", model.host_local)
+		var addr := LineEdit.new()
+		addr.placeholder_text = "Friend's address, e.g. 192.168.1.20:8070"
+		addr.custom_minimum_size.y = 34
+		addr.max_length = 80
+		addr.text_submitted.connect(func(v: String) -> void: model.join_address(v))
+		_body.add_child(addr)
+		_button("Join address", func() -> void: model.join_address(addr.text))
+		_body.add_child(UITheme.hdivider())
 	_button("Leaderboard", _show_rankings)
 
 

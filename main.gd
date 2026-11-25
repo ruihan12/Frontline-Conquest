@@ -27,7 +27,12 @@ func _net_boot() -> void:
 	node.netlog = opt.has("netlog")
 	node.autospawn = opt.has("autospawn")
 	node.token = str(opt.get("token", ""))
-	if opt.has("server"):
+	if opt.has("hostlocal"):
+		node.free()
+		var hn := net_host_local(int(opt.get("port", 8070)), int(opt.get("bots", 40)), int(opt.get("max", 8)))
+		if hn != null: hn.netlog = opt.has("netlog")
+		print("MPHOSTLOCAL ", "ok" if hn != null else "failed")
+	elif opt.has("server"):
 		Engine.max_fps = 60  # a dedicated server needs no more than the tick rate
 		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
 		var bots := int(OS.get_environment("FRONTLINE_DEFAULT_BOTS")) if OS.has_environment("FRONTLINE_DEFAULT_BOTS") else int(opt.get("bots", 40))
@@ -47,6 +52,19 @@ func net_join(url: String, pname: String, token := "", use_enet := false) -> Nod
 	add_child(node)
 	node.token = token
 	if node.start_client(self, url, pname, use_enet) != OK:
+		node.queue_free()
+		return null
+	return node
+
+## Hosts a casual match on this PC (ENet, desktop only); this player is nation 1. Returns the node or null.
+func net_host_local(port := 8070, bots := 40, max_humans := 8) -> Node:
+	if OS.has_feature("web"): return null
+	var old := get_node_or_null("MPNode")
+	if old != null: old.free()
+	var node = preload("res://net/mp_node.gd").new()
+	node.name = "MPNode"
+	add_child(node)
+	if node.start_local_host(self, port, bots, max_humans) != OK:
 		node.queue_free()
 		return null
 	return node

@@ -84,3 +84,45 @@ func leave() -> void:
 	queue_state.emit(false, 0.0)
 	_lobby.clear()
 	lobby_updated.emit({})
+
+
+## Casual: this PC runs the match (desktop only); friends join by address.
+func host_local() -> void:
+	leave()
+	_node = main.net_host_local()
+	if _node == null:
+		_fail("Could not host a match on this PC.")
+		return
+	_entered = true
+	var ips := []
+	for a in IP.get_local_addresses():
+		if a.count(".") == 3 and not a.begins_with("127.") and not a.begins_with("169.254."):
+			ips.append(a)
+	main.notify("Hosting on port 8070. Friends join with %s:8070" % (ips[0] if not ips.is_empty() else "your IP"), "info")
+	match_starting.emit({"ranked": false, "online": true, "map": "World", "host": "this PC"})
+
+
+func join_address(addr: String) -> void:
+	leave()
+	var gen := _generation
+	var a := addr.strip_edges()
+	if a == "":
+		return
+	if not ":" in a:
+		a += ":8070"
+	_node = main.net_join(a, player_name, "", true)
+	if _node == null:
+		_fail("Could not start the connection.")
+		return
+	queue_state.emit(true, 0.0)
+	_node.entered.connect(func() -> void:
+		if gen != _generation:
+			return
+		_entered = true
+		queue_state.emit(false, 0.0)
+		match_starting.emit({"ranked": false, "online": true, "map": "World", "host": a}))
+	_node.rejected.connect(func(reason: String) -> void:
+		if gen == _generation: _fail(_reason_text(reason)))
+	await (Engine.get_main_loop() as SceneTree).create_timer(CONNECT_TIMEOUT).timeout
+	if gen == _generation and not _entered and _node != null:
+		_fail("Nobody answered at %s." % a)
