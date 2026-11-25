@@ -24,6 +24,11 @@ var party := ""    # client: the party key named when joining a match
 var joined := false
 var player_name := "Player"
 var connected_ok := false
+var _ws_url := ""
+var _retrying := false
+var _retry_until := 0
+var _retry_at := 0
+const RETRY_INTERVAL_MS := 2200
 var status := "idle"
 signal rejected(reason: String)
 signal connected
@@ -55,7 +60,9 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 	if err != OK:
 		status = "listen failed (%d)" % err
 		return err
-	host = HostC.new(g, func(peer: int, pkt: PackedByteArray) -> void: transport.send(peer, pkt))
+	host = HostC.new(g, func(peer: int, pkt: PackedByteArray) -> void:
+		if server_peers.has(peer):
+			transport.send(peer, pkt))
 	host.max_humans = max_humans
 	if not use_enet or DisplayServer.get_name() == "headless":
 		g.net_dedicated = DisplayServer.get_name() == "headless"
@@ -87,7 +94,10 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 	transport.peer_disconnected.connect(func(id: int) -> void:
 		server_peers.erase(id)
 		party_service.peer_left(id)
-		host.leave(id))
+		if use_enet:
+			host.leave(id)
+		else:
+			host.transport_lost(id))
 	transport.packet.connect(func(id: int, data: PackedByteArray) -> void:
 		if data.size() > 1 and data[0] == HostC.C_PARTY:
 			if data.size() <= 512:
@@ -121,15 +131,52 @@ func start_client(main, url: String, pname: String, use_enet := false) -> int:
 		var parts := url.split(":")
 		err = transport.connect_enet(parts[0], int(parts[1]) if parts.size() > 1 else 8070)
 	else:
+		_ws_url = url
 		err = transport.connect_ws(url)
 	if err != OK:
 		status = "connect failed (%d)" % err
 		return err
 	client = ClientC.new(g, func(pkt: PackedByteArray) -> void: transport.send(1, pkt))
-	transport.packet.connect(func(_id: int, data: PackedByteArray) -> void: client.on_message(data))
-	transport.peer_disconnected.connect(func(_id: int) -> void: status = "disconnected")
+	_wire_client()
 	status = "connecting"
 	return OK
+
+
+func _wire_client() -> void:
+	transport.packet.connect(func(_id: int, data: PackedByteArray) -> void:
+		client.on_message(data)
+		if _retrying and not data.is_empty() and data[0] == HostC.S_HELLO:
+			_retrying = false
+			status = "connected"
+			g.notify("Reconnected to the match.", "good"))
+	transport.peer_disconnected.connect(func(_id: int) -> void: _lost_connection())
+
+
+func _lost_connection() -> void:
+	status = "disconnected"
+	if _ws_url.is_empty() or not _entered or client.resume_token.is_empty() or g.state != "play":
+		return
+	if not _retrying:
+		_retrying = true
+		_retry_until = Time.get_ticks_msec() + HostC.RESUME_GRACE_MS
+		_retry_at = 0
+		g.notify("Connection lost. Reconnecting…", "info")
+
+
+func _poll_reconnect() -> void:
+	var now := Time.get_ticks_msec()
+	if now >= _retry_until:
+		_retrying = false
+		client.rejected = "resume_expired"
+		return
+	if now < _retry_at:
+		return
+	_retry_at = now + RETRY_INTERVAL_MS
+	transport.close()
+	transport = TransportC.new()
+	joined = false
+	if transport.connect_ws(_ws_url) == OK:
+		_wire_client()
 
 
 func _dbg(m: String) -> void:
@@ -152,7 +199,11 @@ func _process(dt: float) -> void:
 			g.net_speed_cap = 1.0  # a hosted casual match is 1x for everyone
 		g.set_speed_x(g.net_speed_cap)
 		print("MPSERVER match started state=", g.state, " speed=", g.sim_speed / g.SPEED_BASE)
+	if _retrying:
+		_poll_reconnect()
 	transport.poll()
+	if role == "client" and joined and status == "connected" and not transport.is_up():
+		_lost_connection()
 	if role == "server" and host != null:
 		host.frame(dt)
 	if role == "server" and host != null and host.ended and not local_player:
@@ -179,6 +230,7 @@ func _process(dt: float) -> void:
 			print("NETLOG ", role, " status=", status, " state=", g.get("state"), " ticks=", g.get("ticks_done"), " peers=", server_peers.size(), " remote=", g.get("net_remote"), " land=", (g.nations[1].land if g.nations.size() > 1 else -1), " nations=", g.nations.size())
 	if role == "client" and client != null and client.rejected != "" and status != "rejected":
 		status = "rejected"
+		_retrying = false
 		rejected.emit(client.rejected)
 	if role == "client" and client != null:
 		if not _entered and client.started:
@@ -192,7 +244,10 @@ func _process(dt: float) -> void:
 		connected_ok = true
 		status = "connected"
 		connected.emit()
-		client.join(player_name, token, party, requested_mode)
+		if _retrying:
+			client.resume()
+		else:
+			client.join(player_name, token, party, requested_mode)
 	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
 			and (not g.team_mode or not g.team_names.is_empty()):
 		_spawn_wait += dt

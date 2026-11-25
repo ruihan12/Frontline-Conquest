@@ -98,6 +98,16 @@ func _init() -> void:
 		var tick0: int = hs.m.ticks_done
 		host.on_message(1, pkt)
 	_ok(float(host.peers[1].tokens) < 1.0, "intent flood drains the rate-limit bucket")
+	var prior_token := cb.resume_token
+	host.transport_lost(2)
+	_ok(host.peers.has(2) and not hs.m.nations[nb].get("left", false), "disconnect holds the nation without flagging early leave")
+	hs.m._set_owner(edge, nb)
+	clients[3] = cb
+	cb.send = func(pkt: PackedByteArray) -> void: host.on_message(3, pkt)
+	cb.resume()
+	_ok(not host.peers.has(2) and host.peers.has(3) and host.peers[3].nid == nb, "resume keeps the nation across peer ids")
+	_ok(hb.m.owner_map[edge] == 1, "resume replaces stale tile state with a fresh snapshot")
+	_ok(cb.resume_token != prior_token and not host._resume(4, prior_token), "used token cannot be replayed")
 	# placements: Bob eliminated first, Alice survives -> Alice 1st
 	hs.m.nations[nb].alive = false
 	hs.m.nations[nb].land = 0
@@ -106,6 +116,12 @@ func _init() -> void:
 	_ok(pl.size() == 2 and pl[0].nid == 1 and pl[0].placement == 1 and pl[1].nid == nb and pl[1].placement == 2, "placements: survivor first, eliminated last")
 	host.left_early[nb] = true
 	_ok(host.placements(0)[1].left_early, "early leave is flagged")
+	host.left_early.erase(nb)
+	host.transport_lost(3, 100)
+	host.expire_disconnected(99 + Host.RESUME_GRACE_MS)
+	_ok(host.peers.has(3), "seat stays reserved until the grace deadline")
+	host.expire_disconnected(100 + Host.RESUME_GRACE_MS)
+	_ok(not host.peers.has(3) and host.left_early.has(nb), "expired reconnect counts as an early leave")
 	print("NET_MATCH_TEST ", "PASS" if fails == 0 else "FAIL", " fails=", fails)
 	for h in [hs, ha, hb]:
 		h.m.queue_free()

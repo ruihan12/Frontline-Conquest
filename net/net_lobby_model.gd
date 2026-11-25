@@ -92,6 +92,7 @@ func _reason_text(reason: String) -> String:
 		"account_required": return "This match needs an account. Log in from the Account screen."
 		"invalid_session": return "Your session expired. Log in again."
 		"party_too_big": return "There are not enough seats for your whole party. Try again next round."
+		"resume_expired": return "The reconnect window expired. Open the lobby to join another match."
 		"match_full": return "The match is full."
 		"mode_unavailable": return "The current match uses a different mode. Try again next round."
 		"already_joined": return "This account is already in the match."

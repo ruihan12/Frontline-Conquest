@@ -11,6 +11,7 @@ var g  # main.gd
 var send: Callable
 var my_name := "Player"
 var started := false
+var resume_token := ""
 var winner := -1
 var ranks := []
 var rejected := ""
@@ -29,6 +30,10 @@ func join(pname: String, token := "", party := "", mode := "") -> void:
 	send.call(HostC._pack(HostC.C_JOIN, {"name": pname, "token": token, "party": party, "mode": mode}))
 
 
+func resume() -> void:
+	send.call(HostC._pack(HostC.C_JOIN, {"resume": resume_token}))
+
+
 func send_intent(intent: Dictionary) -> void:
 	send.call(HostC._pack(HostC.C_INTENT, intent))
 
@@ -41,6 +46,8 @@ func on_message(pkt: PackedByteArray) -> void:
 	match t:
 		HostC.S_HELLO:
 			var d: Dictionary = bytes_to_var(body)
+			resume_token = str(d.get("resume", ""))
+			d.erase("resume")
 			g.net_remote = true
 			g.net_client = self
 			g.net_hello = d
@@ -50,7 +57,7 @@ func on_message(pkt: PackedByteArray) -> void:
 			g._start_game()
 			g.net_rec = false
 			g.team_mode = bool(d.get("team_game", false))  # (the teams themselves arrive in S_TEAMS once the roster is full)
-			if g.team_mode:
+			if g.team_mode and not started:
 				g.notify("Team match: waiting for %d players" % int(d.get("team_expected", 0)), "info")
 			# the round starts in the host's phase; the replicated tiles come next
 			started = true

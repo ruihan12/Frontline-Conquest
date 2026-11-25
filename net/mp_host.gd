@@ -69,6 +69,8 @@ var team_groups := {}        # peer -> party key (players who queued together st
 var _team_wait := 0.0
 const TEAM_WAIT_SECS := 60.0
 var host_is_player := false  # a player's PC: nation 1 is played locally, remote people take the other slots
+const RESUME_GRACE_MS := 30_000
+var _crypto := Crypto.new()
 var started_ms := 0
 var died_tick := {}  # human nid -> tick it was eliminated
 var left_early := {}  # human nid -> true when the person left a running match
@@ -186,7 +188,7 @@ func join(peer: int, pname: String, account = 0) -> int:
 			_reservations[key].remaining -= 1
 		if party_joined.is_valid():
 			party_joined.call(peer, key)
-	peers[peer] = {"nid": nid, "name": nm, "account": account, "tokens": BURST, "t": Time.get_ticks_msec()}
+	peers[peer] = {"nid": nid, "name": nm, "account": account, "resume": _crypto.generate_random_bytes(32).hex_encode(), "tokens": BURST, "t": Time.get_ticks_msec()}
 	_send_hello(peer)
 	_send_full(peer)
 	_broadcast_nation_info(peer)
@@ -233,6 +235,52 @@ func reject(peer: int, reason: String) -> void:
 	send.call(peer, _pack(S_REJECT, {"reason": reason}))
 
 
+func transport_lost(peer: int, now := -1) -> void:
+	if not peers.has(peer) or ended or g.state != "play":
+		leave(peer)
+		return
+	if now < 0:
+		now = Time.get_ticks_msec()
+	peers[peer]["disconnected_until"] = now + RESUME_GRACE_MS
+
+
+func expire_disconnected(now: int) -> void:
+	for peer in peers.keys():
+		if peers[peer].has("disconnected_until") and now >= int(peers[peer].disconnected_until):
+			leave(peer)
+
+
+func _resume(peer: int, token: String) -> bool:
+	if token.length() != 64 or peers.has(peer) or ended:
+		return false
+	var now := Time.get_ticks_msec()
+	for former in peers.keys():
+		var seat: Dictionary = peers[former]
+		if not seat.has("disconnected_until") or now >= int(seat.disconnected_until):
+			continue
+		if not _crypto.constant_time_compare(token.to_utf8_buffer(), str(seat.resume).to_utf8_buffer()):
+			continue
+		seat.erase("disconnected_until")
+		seat.resume = _crypto.generate_random_bytes(32).hex_encode()
+		peers.erase(former)
+		peers[peer] = seat
+		var group := str(team_groups.get(former, ""))
+		team_groups.erase(former)
+		pending_party.erase(former)
+		if not group.is_empty():
+			team_groups[peer] = group
+			if party_joined.is_valid():
+				party_joined.call(peer, group)
+			if party_left.is_valid():
+				party_left.call(former)
+		_send_hello(peer)
+		_send_full(peer)
+		if teams_ready:
+			_send_teams(peer)
+		return true
+	return false
+
+
 func leave(peer: int) -> void:
 	pending_party.erase(peer)
 	team_groups.erase(peer)
@@ -269,7 +317,7 @@ func _client_nations(my: int) -> Array:
 
 func _send_hello(peer: int) -> void:
 	var my: int = peers[peer].nid
-	send.call(peer, _pack(S_HELLO, {"map_tab": g.map_tab, "map_i": g.map_i, "nations": _client_nations(my), "my": my, "diff": g.diff_i, "team_game": team_game, "team_expected": team_expected}))
+	send.call(peer, _pack(S_HELLO, {"map_tab": g.map_tab, "map_i": g.map_i, "nations": _client_nations(my), "my": my, "resume": peers[peer].resume, "diff": g.diff_i, "team_game": team_game, "team_expected": team_expected}))
 
 
 func _send_full(peer: int) -> void:
@@ -330,6 +378,8 @@ func on_tick() -> void:
 	var sv_changed: bool = g._sv != _sv_sent
 	_sv_sent = g._sv
 	for peer in peers:
+		if peers[peer].has("disconnected_until"):
+			continue
 		var my: int = peers[peer].nid
 		if tiles.size() > 0:
 			send.call(peer, _pack_raw(S_DELTA, NetRepC.encode_tiles(g, tiles, my)))
@@ -410,6 +460,11 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 	var d = bytes_to_var(pkt.slice(1))  # no objects (allow_objects defaults to false in bytes_to_var)
 	if t == C_JOIN:
 		if d is Dictionary and not peers.has(peer):
+			var resume := str(d.get("resume", ""))
+			if not resume.is_empty():
+				if not _resume(peer, resume):
+					reject(peer, "resume_expired")
+				return
 			var pk := str(d.get("party", ""))
 			if pk != "" and party_valid.is_valid() and party_valid.call(pk):
 				pending_party[peer] = pk
@@ -418,7 +473,7 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 			else:
 				join(peer, str(d.get("name", "")))
 		return
-	if t != C_INTENT or not peers.has(peer) or not (d is Dictionary):
+	if t != C_INTENT or not peers.has(peer) or peers[peer].has("disconnected_until") or not (d is Dictionary):
 		return
 	if pkt.size() > MAX_INTENT_BYTES:
 		return
@@ -560,6 +615,7 @@ func _add_placement(list: Array, nid: int, pname: String, account, total: float)
 
 ## Called every frame by the node: waits for the roster, then makes the teams anyway after TEAM_WAIT_SECS.
 func frame(dt: float) -> void:
+	expire_disconnected(Time.get_ticks_msec())
 	if team_game and not teams_ready and not ended:
 		_team_wait += dt
 		if _team_wait >= TEAM_WAIT_SECS and peers.size() + (1 if host_is_player else 0) >= 2:
