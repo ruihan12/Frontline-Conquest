@@ -182,18 +182,30 @@ func draw(ci: CanvasItem) -> void:
 	_boat_headings = headings
 	# trains: cars back to front, the engine on top
 	var cars_shown := ppt * DEVICE_RATIO >= CARS_MIN_ZOOM
-	for tr in g.trains:
-		if not g._has_rail_link(tr.src, tr.dst):
-			continue
+	var train_records: Array = g.trains if g._render_records == null else g._capture_train_draws()
+	for tr: Dictionary in train_records:
+		var from_tile: int
+		var to_tile: int
+		var curve: Array
+		if tr.has("curve"):
+			from_tile = tr.from_tile
+			to_tile = tr.to_tile
+			curve = tr.curve
+		else:
+			if not g._has_rail_link(tr.src, tr.dst):
+				continue
+			from_tile = tr.src.tile
+			to_tile = tr.dst.tile
+			curve = g._rail_curve(from_tile, to_tile)
 		var f: float = clampf((tr.t + g.sub_tick()) / maxf(0.01, tr.dur), 0.0, 1.0)
-		var rp: Array = g._rail_pos(tr.src, tr.dst, f)
+		var rp: Array = g._rail_pos_on_curve(from_tile, to_tile, f, curve)
 		var col: Color = _owner_col(int(tr.o))
 		if cars_shown:
 			var tot: float = maxf(4.0, float(rp[2]))
 			var step := TRAIN_SPACING / k
 			for j in range(TRAIN_CARRIAGES + 1, 0, -1):
 				var fj := clampf(f - float(j) * step / tot, 0.0, 1.0)
-				var rj: Array = g._rail_pos(tr.src, tr.dst, fj)
+				var rj: Array = g._rail_pos_on_curve(from_tile, to_tile, fj, curve) if tr.has("curve") else g._rail_pos(tr.src, tr.dst, fj)
 				var cp: Vector2 = g._screen_of(rj[0] * g.TS)
 				if _on_screen(cp, px, vp):
 					sprite(ci, COL_TRAIN if j > TRAIN_CARRIAGES else COL_CARRIAGE, col, cp, px)

@@ -220,15 +220,23 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	var gap := int(float(SFX_GAP.get(key, 0.12)) * 1000.0)
 	if now - int(sfx_last.get(key, -100000)) < gap: return
 	sfx_last[key] = now
+	var arr: Array = sfx_streams[key]
+	var stream_index := int(rng.randi() % arr.size())
+	var pitch := 1.0 + rng.randf_range(-pitch_jitter, pitch_jitter)
+	if _collect_presentation and tile_snapshot != null:
+		_presentation_events.append(["legacy_sound", key, stream_index, vol_db, pitch])
+	else:
+		_present_legacy_sound(key, stream_index, vol_db, pitch)
+
+func _present_legacy_sound(key: String, stream_index: int, vol_db: float, pitch: float) -> void:
 	var p: AudioStreamPlayer = null
 	for c in sfx_pool:
 		if not c.playing: p = c; break
 	if p == null:  # steal the oldest-started voice
 		p = sfx_pool[0]; sfx_pool.remove_at(0); sfx_pool.append(p)
-	var arr: Array = sfx_streams[key]
-	p.stream = arr[rng.randi() % arr.size()]
+	p.stream = sfx_streams[key][stream_index]
 	p.volume_db = vol_db
-	p.pitch_scale = 1.0 + rng.randf_range(-pitch_jitter, pitch_jitter)
+	p.pitch_scale = pitch
 	p.play()
 
 func _present_director_sound(key: String, vol_db: float, pitch_jitter: float, who: int, msec: int) -> void:

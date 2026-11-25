@@ -795,6 +795,7 @@ func _flush_presentation_batch() -> void:
 			"map": _present_map_effect(event[1], event[2])
 			"ally_show": _present_ally_card(event[1], event[2])
 			"ally_close": _present_ally_close(event[1])
+			"legacy_sound": _present_legacy_sound(event[1], event[2], event[3], event[4])
 			"sound": _present_director_sound(event[1], event[2], event[3], event[4], event[5])
 
 func _map_effect(kind: String, values: Array) -> void:

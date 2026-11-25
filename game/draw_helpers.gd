@@ -98,16 +98,37 @@ func _map_icon_proc(p: Vector2, k: int, col: Color, a := 1.0) -> void:
 	overlay.draw_polyline(ring, Color(col.darkened(0.55), a), 2.0, true)
 	_icon(p + Vector2(0, 1 if k == 5 else 0), k, col.darkened(0.5), a, overlay, 5.0, false)
 
+# Resolve route validity in the same draw pass where the live renderer used to do
+# it. The rail search budgets are shared with simulation and must keep their order.
+func _capture_train_draws() -> Array:
+	var records := []
+	for train: Dictionary in trains:
+		var source = train.src
+		var target = train.dst
+		if not _has_rail_link(source, target):
+			continue
+		var route := _rail_curve(source.tile, target.tile)
+		var curve: Array = [] if route.is_empty() else [route[0].duplicate(), route[1].duplicate()]
+		curve.make_read_only()
+		var record := {"o": train.o, "from_tile": source.tile, "to_tile": target.tile,
+			"t": train.t, "dur": train.dur, "curve": curve}
+		record.make_read_only()
+		records.append(record)
+	records.make_read_only()
+	return records
+
 func _rail_pos(st_from, st_to, f: float) -> Array:
-	var rc := _rail_curve(st_from.tile, st_to.tile)
+	return _rail_pos_on_curve(st_from.tile, st_to.tile, f, _rail_curve(st_from.tile, st_to.tile))
+
+func _rail_pos_on_curve(from_tile: int, to_tile: int, f: float, rc: Array) -> Array:
 	if rc.is_empty():
-		var p0 := Vector2(st_from.tile % W + 0.5, st_from.tile / W + 0.5)
-		var p1 := Vector2(st_to.tile % W + 0.5, st_to.tile / W + 0.5)
+		var p0 := Vector2(from_tile % W + 0.5, from_tile / W + 0.5)
+		var p1 := Vector2(to_tile % W + 0.5, to_tile / W + 0.5)
 		return [p0.lerp(p1, f), (p1 - p0).normalized(), maxf(1.0, p0.distance_to(p1))]
 	var pts: PackedVector2Array = rc[0]
 	var cum: PackedFloat32Array = rc[1]
 	var tot: float = maxf(0.001, cum[cum.size() - 1])
-	var forward: bool = st_from.tile < st_to.tile
+	var forward: bool = from_tile < to_tile
 	var u: float = clampf(f, 0.0, 1.0) if forward else clampf(1.0 - f, 0.0, 1.0)
 	var d: float = u * tot
 	var m := 1

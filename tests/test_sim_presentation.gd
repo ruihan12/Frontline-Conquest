@@ -48,8 +48,23 @@ func _run() -> void:
 		and game.rng.state == rng_before
 	game.audio_dir = null
 	audio.free()
+	var voice := AudioStreamPlayer.new()
+	var stream := AudioStreamWAV.new()
+	game.sfx_pool.append(voice)
+	game.sfx_streams["legacy"] = [stream]
+	var expected_rng := RandomNumberGenerator.new()
+	expected_rng.state = game.rng.state
+	expected_rng.randi()
+	var pitch := 1.0 + expected_rng.randf_range(-0.04, 0.04)
+	game._begin_presentation_batch()
+	game.sfx("legacy")
+	var legacy_queued: bool = voice.stream == null and game.rng.state == expected_rng.state
+	game._flush_presentation_batch()
+	var legacy_played: bool = voice.stream == stream and is_equal_approx(voice.pitch_scale, pitch) \
+		and game.rng.state == expected_rng.state
+	voice.free()
 	game.fx_layer.free()
 	game.free()
-	var passed := queued and applied and drained and sound
+	var passed := queued and applied and drained and sound and legacy_queued and legacy_played
 	print("SIM_PRESENTATION ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

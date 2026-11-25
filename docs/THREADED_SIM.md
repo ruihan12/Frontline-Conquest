@@ -97,7 +97,7 @@ The index lists direct references and common helper calls by file, function and 
 
 - The range overlay can read a render-owned tile mirror under `--sim-snapshot`. The initial publication copies ownership and fallout. Later publications transfer changed tile values, including fallout-only updates, through a journal independent of multiplayer's dirty list. Map generation and round start invalidate the mirror.
 - Fallout glow, SAM interception effects, explosions, shake, structure removal and conquest effects now use queued values during the fixed-tick slice. Conquest stores the fallback position before ownership changes and reads the displayed name position when presenting the event.
-- Audio remains synchronous. The legacy playback path consumes simulation RNG draws after checking audio state and visibility, so delaying it would risk changing outcomes. The snapshot probe covers range-overlay tile reads only. The rest of the client, frame-time simulation, ordered intent delivery, and audio RNG ownership still need to be separated before a worker can own the game.
+- The initial snapshot probe covered range-overlay reads. Later sections track the expansion to other consumers.
 
 ## Tick-boundary input and draw consumers
 
@@ -119,8 +119,10 @@ Trade ships, trains, missiles and other munitions still have live draw paths. Th
 
 The opt-in draw snapshot now carries trade ships, missiles, planes, artillery and interceptor effects. Warship shells capture their target position when published. Drawing a missile arc can compute missing geometry without writing into the published record. The standard live path continues to use its existing cached arc.
 
-Train drawing still resolves rail links and paths through live caches. Rail cache budgeting, legacy fallback rendering, and the tick loop's shared state remain ownership boundaries for a worker.
+Train drawing samples detached route records in snapshot mode. A main-thread capture step still resolves rail links and routes with the existing cache budgets. Rail cache budgeting, legacy fallback rendering, and the tick loop's shared state remain ownership boundaries for a worker.
 
-The snapshot experiment also queues audio director playback. Each event retains the clock value from its original emission, so director cooldown checks use the same timestamps. The legacy audio player remains synchronous because selecting its stream and pitch consumes the simulation RNG. The render visibility check also remains on the current path.
+The snapshot experiment also queues audio director playback. Each event retains the clock value from its original emission, so director cooldown checks use the same timestamps. The render visibility check stays at emission time.
 
 Alliance request cards can also be queued in snapshot mode. The frame-time simulation now has a dedicated entry point covering trade, FX aging, air updates, donation cooldowns, alliance warnings and transport movement, in their original order. It still runs synchronously and uses two different clocks, both supplied by the frame loop.
+
+Legacy playback now also uses queued presentation in snapshot mode. The simulation still chooses the stream and pitch and applies the original throttle before enqueuing playback, which preserves the draw order of the RNG. Playback no longer advances it. Camera visibility still affects which legacy events consume RNG.

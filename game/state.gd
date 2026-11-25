@@ -1073,6 +1073,9 @@ func _present_ally_card(_mode: String, _who: int) -> void:
 func _present_ally_close(_who: int) -> void:
 	pass  # implemented in game/diplomacy.gd
 
+func _present_legacy_sound(_key: String, _stream_index: int, _vol_db: float, _pitch: float) -> void:
+	pass  # implemented in game/audio.gd
+
 func _present_director_sound(_key: String, _vol_db: float, _pitch_jitter: float, _who: int, _msec: int) -> void:
 	pass  # implemented in game/audio.gd
 
