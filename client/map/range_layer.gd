@@ -55,8 +55,11 @@ var _seen_bsel := -2
 var _dirty := true
 var _unit := {}
 var _now := 0.0
-var _seen_structs: Array = []
 var _seen_tick := -1
+var _last_transform := Transform2D.IDENTITY
+var _last_viewport := Vector2.ZERO
+var _last_unit := {}
+var _pulsing := false
 
 
 func _init(main, state: RWGameState) -> void:
@@ -77,6 +80,7 @@ func unbind() -> void:
 	_want.clear()
 	_unit = {}
 	_seen_tick = -1
+	_dirty = true
 
 
 ## Re-reads the ringed structures (upstream: reload plus the on_structure_* handlers).
@@ -360,17 +364,27 @@ func _process(dt: float) -> void:
 	if int(g.build_sel) != _seen_bsel:
 		_seen_bsel = int(g.build_sel)
 		_dirty = true
-	var structs: Array = st.structures()
 	var cur := int(st.tick)
-	if cur != _seen_tick or structs.size() != _seen_structs.size():
+	if cur != _seen_tick:
 		_seen_tick = cur
-		_seen_structs = structs
 		reload()
-	if _dirty:
+	var rebuilt := _dirty
+	if rebuilt:
 		_dirty = false
 		_update_hot()
 		_rebuild()
-	queue_redraw()
+		_pulsing = false
+		for ring: Array in _want:
+			if PULSE[ring[2]]:
+				_pulsing = true
+				break
+	var transform_now: Transform2D = g.get_canvas_transform()
+	var viewport_now := get_viewport_rect().size
+	if rebuilt or _pulsing or transform_now != _last_transform or viewport_now != _last_viewport or _unit != _last_unit:
+		_last_transform = transform_now
+		_last_viewport = viewport_now
+		_last_unit = _unit
+		queue_redraw()
 
 
 func _ring(u: float, v: float, radius: float, cls: int, col: Color, k: float) -> void:
