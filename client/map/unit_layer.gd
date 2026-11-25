@@ -112,6 +112,17 @@ func _wake(ci: CanvasItem, bt: Dictionary, cur: Vector2, w: float, col: Color, v
 	ci.draw_polyline(line, Color(col.r, col.g, col.b, TRAIL_ALPHA), w, false)
 
 
+const ViewerMotion := preload("res://client/map/viewer_motion.gd")
+
+
+func _draw_boat_pos(boat: Dictionary) -> Array:
+	if not g.net_remote or not boat.has("_draw_previous"):
+		return g._boat_pos(boat)
+	var visual := boat.duplicate(false)
+	visual.d = ViewerMotion.sample(boat, "d")
+	return g._boat_pos(visual)
+
+
 func draw(ci: CanvasItem) -> void:
 	var vp: Vector2 = g.get_viewport_rect().size
 	var px: float = sprite_px()
@@ -120,7 +131,7 @@ func draw(ci: CanvasItem) -> void:
 	var wake_w := maxf(TRAIL_MIN_PX, ppt)
 	# transports: wake under the sprite
 	for bt in g.boats:
-		var bp: Array = g._boat_pos(bt)
+		var bp: Array = _draw_boat_pos(bt)
 		var col: Color = _owner_col(int(bt.a))
 		var p0: Vector2 = g._screen_of(bp[0])
 		if bt.get("air", false):
@@ -151,7 +162,7 @@ func draw(ci: CanvasItem) -> void:
 			sprite(ci, COL_TRAIN, col, ep, px)
 	# trade ships
 	for tr in g.traders:
-		var bp: Array = g._boat_pos(tr)
+		var bp: Array = _draw_boat_pos(tr)
 		var p0: Vector2 = g._screen_of(bp[0])
 		if not _on_screen(p0, maxf(px, 40.0), vp):
 			continue
@@ -165,8 +176,11 @@ func draw(ci: CanvasItem) -> void:
 	for ws in g.warships:
 		var dp: Vector2 = ws.get("dp", ws.pos)
 		var mv: Vector2 = ws.pos - dp
-		dp = ws.pos if g._q() == 0 or mv.length() > 6.0 else dp + mv * clampf(1.0 - exp(-8.0 * g.get_process_delta_time()), 0.0, 1.0)
-		ws["dp"] = dp
+		if g.net_remote:
+			dp = ViewerMotion.sample(ws, "pos")
+		else:
+			dp = ws.pos if g._q() == 0 or mv.length() > 6.0 else dp + mv * clampf(1.0 - exp(-8.0 * g.get_process_delta_time()), 0.0, 1.0)
+			ws["dp"] = dp
 		var p: Vector2 = g._screen_of(dp * g.TS)
 		var col: Color = _owner_col(int(ws.o))
 		if g.sel_ws != null and is_same(g.sel_ws, ws):
@@ -202,7 +216,7 @@ func draw_nukes(ci: CanvasItem) -> Dictionary:
 	var trail_dots: int = mini(TRAIL_MAX, TRAIL_BUDGET / maxi(flying, 1))
 	var rings_for_warheads: bool = flying <= TRAIL_RING_MAX
 	for ms in g.missiles:
-		var f: float = g.missile_frac(ms)
+		var f: float = clampf(float(ViewerMotion.sample(ms, "t")) / maxf(0.001, float(ms.dur)), 0.0, 1.0) if g.net_remote else g.missile_frac(ms)
 		var nk := int(ms.get("nk", SimRules.N_ATOM))
 		var col_i := COL_ATOM
 		match nk:

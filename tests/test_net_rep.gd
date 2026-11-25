@@ -3,6 +3,7 @@
 extends SceneTree
 
 const NetRep = preload("res://net/rep.gd")
+const Motion := preload("res://client/map/viewer_motion.gd")
 var fails := 0
 
 func _ok(cond: bool, what: String) -> void:
@@ -52,6 +53,19 @@ func _init() -> void:
 	_ok(cm.boats.size() == hm.boats.size() and cm.warships.size() == hm.warships.size() and cm.missiles.size() == hm.missiles.size(), "boats/warships/missiles counts match")
 	NetRep.apply_lists(cm, NetRep.encode_lists(hm, 3))
 	_ok(int(cm.struct_at[7 * cm.W + 7].o) == 2, "id 2 unchanged by swap(1,3)")
+	# Render samples lag one packet and leave the incoming gameplay values intact.
+	var motion := Motion.new()
+	var original_boats: Array = hm.boats
+	hm.boats = [{"uid": 9, "a": 1, "d": 20.0}]
+	NetRep.apply_lists(cm, NetRep.encode_lists(hm, 1, ["boats"]), motion.update)
+	hm.boats[0].d = 40.0
+	NetRep.apply_lists(cm, NetRep.encode_lists(hm, 1, ["boats"]), motion.update)
+	var received: Dictionary = cm.boats[0]
+	var middle: float = received._draw_received + received._draw_duration * 0.5
+	_ok(is_equal_approx(float(Motion.sample(received, "d", middle)), 30.0) and received.d == 40.0, "boat renders halfway without changing replicated distance")
+	_ok(Motion.sample(received, "d", middle + 500) == 40.0, "viewer does not extrapolate after missed packets")
+	hm.boats = original_boats
+	NetRep.apply_lists(cm, NetRep.encode_lists(hm, 1, ["boats"]))
 	# id remap: a client whose nation is 3 sees itself as 1 and the host's player as 3
 	_ok(NetRep.swap_id(1, 3) == 3 and NetRep.swap_id(3, 3) == 1 and NetRep.swap_id(5, 3) == 5 and NetRep.swap_id(0, 3) == 0, "remap swaps 1 and my only")
 	var snap3: PackedByteArray = NetRep.encode_snapshot(hm, 3)

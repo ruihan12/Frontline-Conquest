@@ -126,6 +126,7 @@ const LISTS := {
 	"traders": {"own": ["o"]},
 	"warships": {"own": ["o"]},
 	"missiles": {"own": ["o", "tgt_o"]},
+	"planes": {"own": ["o"]},
 	"attacks": {"own": ["a", "t"], "keep": ["a", "t", "troops", "aid", "started", "sent", "last", "retreat_at", "tgt"]},  # light: no front/history
 }
 
@@ -152,7 +153,7 @@ static func encode_lists(main, my := 1, names := []) -> PackedByteArray:
 	return var_to_bytes(out).compress(FileAccess.COMPRESSION_DEFLATE)
 
 
-static func apply_lists(main, packet: PackedByteArray) -> void:
+static func apply_lists(main, packet: PackedByteArray, draw_sample := Callable()) -> void:
 	var raw := packet.decompress_dynamic(64 * 1024 * 1024, FileAccess.COMPRESSION_DEFLATE)
 	var got: Dictionary = bytes_to_var(raw)
 	for name in got:
@@ -160,6 +161,8 @@ static func apply_lists(main, packet: PackedByteArray) -> void:
 		if name == "attacks":
 			_apply_attacks(main, got[name])
 			continue
+		if draw_sample.is_valid():
+			draw_sample.call(name, dst, got[name])
 		dst.clear()
 		dst.append_array(got[name])
 	if got.has("structs"):

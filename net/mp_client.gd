@@ -16,6 +16,7 @@ var ranks := []
 var rejected := ""
 var result := {}
 var last_event := {}
+var _motion := preload("res://client/map/viewer_motion.gd").new()
 
 
 func _init(main, send_cb: Callable) -> void:
@@ -60,7 +61,7 @@ func on_message(pkt: PackedByteArray) -> void:
 		HostC.S_NATIONS:
 			NetRepC.apply_nations(g, body)
 		HostC.S_LISTS:
-			NetRepC.apply_lists(g, body)
+			NetRepC.apply_lists(g, body, _motion.update)
 		HostC.S_STATE:
 			var s: Dictionary = bytes_to_var(body)
 			g.sim_atk.tick = int(s.tick)

@@ -61,7 +61,8 @@ func fire_railgun(o: int, tile: int) -> bool:
 func _draw_meta_fx(z: float) -> void:
 	_draw_port_munitions(z)
 	for pl in planes:
-		var f: float = clampf(pl.t / maxf(0.01, pl.dur), 0.0, 1.0)
+		var flight: float = preload("res://client/map/viewer_motion.gd").sample(pl, "t") if net_remote else pl.t
+		var f: float = clampf(flight / maxf(0.01, pl.dur), 0.0, 1.0)
 		var p := _screen_of(pl.from.lerp(pl.to, f) * TS)
 		var d: Vector2 = (pl.to - pl.from).normalized()
 		if d == Vector2.ZERO: d = Vector2.RIGHT

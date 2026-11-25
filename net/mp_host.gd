@@ -312,7 +312,7 @@ func on_tick() -> void:
 			send.call(peer, _pack_raw(S_DELTA, NetRepC.encode_tiles(g, tiles, my)))
 		if _ntick % 3 == 0:
 			send.call(peer, _pack_raw(S_NATIONS, NetRepC.encode_nations(g, my)))
-		var names := ["boats", "traders", "warships", "missiles"]
+		var names := ["boats", "traders", "warships", "missiles", "planes"]
 		if _ntick % 5 == 0:
 			names.append("attacks")  # 400+ light entries (~14 KB): twice a second is enough for the attack rows
 		if sv_changed:
