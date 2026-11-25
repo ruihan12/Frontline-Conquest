@@ -1,0 +1,33 @@
+extends RefCounted
+## Render-owned territory and fallout mirror. Packed arrays from the simulation
+## are copied on reset. Incremental packets carry only changed tile values.
+
+var _owners := PackedInt32Array()
+var _fallout := PackedByteArray()
+
+func reset(owners: PackedInt32Array, fallout: PackedByteArray) -> void:
+	_owners = owners.duplicate()
+	_fallout = fallout.duplicate()
+
+static func capture(tiles: PackedInt32Array, owners: PackedInt32Array, fallout: PackedByteArray) -> PackedInt32Array:
+	var changes := PackedInt32Array()
+	changes.resize(tiles.size() * 3)
+	var offset := 0
+	for tile: int in tiles:
+		changes[offset] = tile
+		changes[offset + 1] = owners[tile]
+		changes[offset + 2] = fallout[tile]
+		offset += 3
+	return changes
+
+func apply(changes: PackedInt32Array) -> void:
+	for offset in range(0, changes.size(), 3):
+		var tile := changes[offset]
+		_owners[tile] = changes[offset + 1]
+		_fallout[tile] = changes[offset + 2]
+
+func owner(tile: int) -> int:
+	return _owners[tile] if tile >= 0 and tile < _owners.size() else 0
+
+func has_fallout(tile: int) -> bool:
+	return tile >= 0 and tile < _fallout.size() and _fallout[tile] != 0

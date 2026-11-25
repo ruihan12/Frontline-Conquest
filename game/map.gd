@@ -42,6 +42,8 @@ func _fit_scale() -> void:
 	w.content_scale_factor = (minf(px.x, px.y) / target) / base
 
 func _ready() -> void:
+	if "--sim-snapshot" in OS.get_cmdline_user_args():
+		tile_snapshot = TileSnapshot.new()
 	_fit_viewport()
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	autoshot = "--autoshot" in OS.get_cmdline_user_args()
@@ -305,6 +307,7 @@ func _gt(lbl: String) -> void:
 	_gt_t = t
 
 func gen_map() -> void:
+	_reset_tile_snapshot()
 	_gt_t = Time.get_ticks_usec()
 	var mid := _upstream_id_for(map_tab, map_i)
 	var msz := UpstreamMaps.size_of(mid)
@@ -898,6 +901,7 @@ func _set_owner(i: int, o: int) -> void:
 		if o > 0: nations[o].pop += tp
 	om[i] = o
 	if net_rec: net_dirty.append(i)
+	if _tile_snapshot_valid: _tile_snapshot_dirty.append(i)
 	if old > 0 and o > 0: nations[old]["last_by"] = o
 	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]

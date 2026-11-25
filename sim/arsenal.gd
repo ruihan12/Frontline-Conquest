@@ -318,8 +318,9 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 			lost[ow] += 1
 			g._set_owner(tt, g.NEUTRAL)
 		g.fallout[tt] = 1; g.fallout_list[tt] = true
+		g._record_tile_snapshot(tt)
 		g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
-		if g.fallout_glow != null: g.fallout_glow.on_fallout(tt)
+		g._map_effect("fallout", [tt])
 		fallout_n += 1
 		g._repaint(tt)
 	for ow in lost:
@@ -568,9 +569,7 @@ func sam_resolve(ms) -> bool:
 	var f := clampf(float(int(ms.get("sam_k", 0))) / float(flight_ticks(ms)), 0.0, 1.0)
 	var ip: Vector2 = g._missile_world_pos(ms, f) / g.TS
 	g._viewer_event({"type": "sam", "actor": st.o, "target": ms.o, "point": ip}, [st.o, ms.o])
-	if g.fx_layer != null:
-		g.fx_layer.pop(int(floor(ip.y)) * g.W + int(floor(ip.x)), Color(1, 0.85, 0.5))
-		g.fx_layer.burst("sam", ip.x, ip.y)
+	g._map_effect("sam", [ip, int(floor(ip.y)) * g.W + int(floor(ip.x))])
 	if st.o == g.PLAYER or ms.o == g.PLAYER:
 		g.sfx("sam_hit", 0.0, 0.04, g.PLAYER)
 	if int(ms.get("nk", 0)) != SimRules.N_WARHEAD:

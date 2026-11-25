@@ -331,8 +331,7 @@ func g_randi() -> int:
 func detonate(o: int, c: Vector2, r: float, _eff_mult := 1.0, nk := SimRules.N_ATOM) -> void:
 	sim_ars.nuke_blast(o, c, r, nk)
 	var tile := clampi(int(c.y), 0, H - 1) * W + clampi(int(c.x), 0, W - 1)
-	if fx_layer != null: fx_layer.nuke(nk, tile, r)
-	_fx_shake_at(c, 0.9 if nk in [SimRules.N_HYDROGEN, SimRules.N_MEGA] else 0.5)
+	_map_effect("nuke", [nk, tile, r, c, 0.9 if nk in [SimRules.N_HYDROGEN, SimRules.N_MEGA] else 0.5])
 
 # MapCamera.add_shake(strength) when the tile is within 200 px of the screen: +-strength x 10 px.
 func _fx_shake_at(c: Vector2, strength: float) -> void:

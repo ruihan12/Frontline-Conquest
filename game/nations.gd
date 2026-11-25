@@ -133,6 +133,7 @@ func _start_game_ui() -> void:
 	if client != null: client.set_loading(false)
 
 func _start_game() -> void:
+	_reset_tile_snapshot()
 	supply_on = false; drops.clear(); _supply_next = 0
 	_ema_init = false
 	mirvs_launched = 0

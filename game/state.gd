@@ -55,6 +55,30 @@ const NAVY := Color(0.07, 0.09, 0.16, 0.94)
 const ORANGE := Color(0.95, 0.52, 0.12)
 
 var owner_map := PackedInt32Array()
+const TileSnapshot = preload("res://sim/tile_snapshot.gd")
+var tile_snapshot: TileSnapshot
+var _tile_snapshot_valid := false
+var _tile_snapshot_dirty := PackedInt32Array()
+
+func _reset_tile_snapshot() -> void:
+	_tile_snapshot_valid = false
+	_tile_snapshot_dirty = PackedInt32Array()
+
+func _record_tile_snapshot(tile: int) -> void:
+	if tile_snapshot != null and _tile_snapshot_valid:
+		_tile_snapshot_dirty.append(tile)
+
+func _publish_tile_snapshot() -> void:
+	if tile_snapshot == null or owner_map.size() != fallout.size():
+		return
+	if not _tile_snapshot_valid:
+		tile_snapshot.reset(owner_map, fallout)
+		_tile_snapshot_valid = true
+	elif not _tile_snapshot_dirty.is_empty():
+		var delta := TileSnapshot.capture(_tile_snapshot_dirty, owner_map, fallout)
+		_tile_snapshot_dirty = PackedInt32Array()
+		tile_snapshot.apply(delta)
+
 var net_rec := false  # multiplayer host: record owner changes in net_dirty (net/rep.gd)
 var net_dirty := PackedInt32Array()
 var net_host = null  # MPHost while this process runs a multiplayer match (server or player host)
@@ -780,6 +804,9 @@ func add_float(world_pos: Vector2, text: String, col: Color = GOLD_C) -> void:
 
 func notify(text: String, kind := "info") -> void:
 	pass  # forward declaration; implemented in game/economy.gd
+
+func _fx_shake_at(_point: Vector2, _strength: float) -> void:
+	pass  # implemented in game/nukes.gd
 
 func _nname(id: int) -> String:
 	return ""  # forward declaration; implemented in game/economy.gd

@@ -766,16 +766,13 @@ func _upgrade_struct(st) -> void:
 
 # The local player conquered `victim` outright and took `gold`: a victory flag where its name was.
 func _on_conquest(victim: int, by: int, gold: float) -> void:
-	if by != PLAYER or fx_layer == null: return
-	var loc = names.name_location(victim) if names != null else null
-	var n = nations[victim]
+	if by != PLAYER: return
+	var n: Dictionary = nations[victim]
 	var land := maxf(1.0, float(n.land))
-	var u: float = loc[0] if loc != null else float(n.sx) / land
-	var v: float = loc[1] if loc != null else float(n.sy) / land
-	fx_layer.conquest(u, v, gold)
+	_map_effect("conquest", [victim, float(n.sx) / land, float(n.sy) / land, gold])
 
 func _struct_remove(st) -> void:
-	if fx_layer != null: fx_layer.on_structure_removed(RWGameState.S_OF.get(int(st.k), -1), int(st.tile))
+	_map_effect("structure_removed", [RWGameState.S_OF.get(int(st.k), -1), int(st.tile)])
 	structs.erase(st); struct_at.erase(st.tile); _sv += 1; _own_sv[st.o] = _own_sv.get(st.o, 0) + 1
 
 # Collect value-only presentation messages while a simulation slice runs. Input,
@@ -792,10 +789,35 @@ func _flush_presentation_batch() -> void:
 	var events := _presentation_events
 	_presentation_events = []
 	for event: Array in events:
-		if event[0] == "notice":
-			_present_notice(event[1], event[2])
-		else:
-			_present_float(event[1], event[2], event[3])
+		match event[0]:
+			"notice": _present_notice(event[1], event[2])
+			"float": _present_float(event[1], event[2], event[3])
+			"map": _present_map_effect(event[1], event[2])
+
+func _map_effect(kind: String, values: Array) -> void:
+	if _collect_presentation:
+		_presentation_events.append(["map", kind, values])
+	else:
+		_present_map_effect(kind, values)
+
+func _present_map_effect(kind: String, v: Array) -> void:
+	match kind:
+		"fallout":
+			if fallout_glow != null: fallout_glow.on_fallout(v[0])
+		"nuke":
+			if fx_layer != null: fx_layer.nuke(v[0], v[1], v[2])
+			_fx_shake_at(v[3], v[4])
+		"structure_removed":
+			if fx_layer != null: fx_layer.on_structure_removed(v[0], v[1])
+		"sam":
+			if fx_layer != null:
+				var point: Vector2 = v[0]
+				fx_layer.pop(v[1], Color(1, 0.85, 0.5))
+				fx_layer.burst("sam", point.x, point.y)
+		"conquest":
+			if fx_layer != null:
+				var loc = names.name_location(v[0]) if names != null else null
+				fx_layer.conquest(loc[0] if loc != null else v[1], loc[1] if loc != null else v[2], v[3])
 
 func add_float(world_pos: Vector2, text: String, col: Color = GOLD_C) -> void:
 	if _collect_presentation:

@@ -215,7 +215,7 @@ func _update_hot() -> void:
 		return
 	var local_id: int = st.local_owner
 	var cur := int(st.tick)
-	var tg: int = st.tile_owner(_aim_tile) if mirv else 0
+	var tg: int = st.render_tile_owner(_aim_tile) if mirv else 0
 	var spread: float = ViewRules.nuke_radii(Defs.N_MIRV).y
 	var w: int = st.map.W
 	var h: int = st.map.H
@@ -262,7 +262,7 @@ func _rebuild() -> void:
 	var nuke_aim := (aiming_nuke and mode != "none") or mode == "nuke_aim"
 	var atk := 0
 	if _aim_kind == "boat" and _aim_tile >= 0:
-		atk = st.tile_owner(_aim_tile)
+		atk = st.render_tile_owner(_aim_tile)
 	elif mode == "attack_aim":
 		atk = _range_owner if _range_owner != 0 else _hover_owner
 	if atk == local_id:
