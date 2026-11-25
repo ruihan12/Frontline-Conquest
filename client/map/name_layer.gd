@@ -30,7 +30,7 @@ const SHADE_NATION := 0.3
 const SHADE_BOT := 0.4
 ## outline px per text px
 const OUTLINE_K := 0.085
-const REPLACE_PLAY_S := 1.0     # custom (owner): upstream every 30 ticks; in a match a new placement pass starts every second (real time)
+const REPLACE_PLAY_S := 0.1     # custom (owner 2026-11-25): in a match a new placement pass starts every 0.1 s (real time); was 1 s, upstream every 30 ticks
 const REPLACE_SPAWN_S := 0.001  # custom (owner): before the match (spawn phase) a new pass starts every millisecond, i.e. as soon as the last one is through
 ## full-size tiles
 const SPAWN_DIAMETER := 8
