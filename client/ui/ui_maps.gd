@@ -9,7 +9,7 @@ extends RefCounted
 const UpstreamMaps := preload("res://sim/upstream_maps.gd")
 
 const DEFAULT_ID := "world"
-const TAB_NAMES := ["Featured", "World", "Europe", "Asia", "Americas", "Africa · Oceania", "All"]
+const TAB_NAMES := ["Featured", "World", "Europe", "Asia", "Americas", "Africa · Oceania", "Others", "All"]
 # Union of category keys, or empty = all. Matches MapPicker.TABS in MapPicker.luau.
 const TAB_CATS := [
 	["featured"],
@@ -18,6 +18,7 @@ const TAB_CATS := [
 	["asia"],
 	["north_america", "south_america"],
 	["africa", "oceania", "antarctica"],
+	["others"],
 	[],
 ]
 
@@ -95,7 +96,7 @@ static func valid(g, id: String) -> String:
 	if id.contains(":"):
 		var k := index_of(id)
 		return UpstreamMaps.id_at(k) if k < UpstreamMaps.count() else DEFAULT_ID
-	return id if id in UpstreamMaps.ORDER else DEFAULT_ID
+	return id if id in UpstreamMaps.ids() else DEFAULT_ID
 
 
 static func name_of(g, id: String = "") -> String:

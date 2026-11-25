@@ -50,20 +50,28 @@ static func index() -> Dictionary:
 	return _index
 
 
+# ORDER, then the imported OpenFront maps (index.json "others", tools/import_openfront.py)
+static var _all := []
 static func ids() -> Array:
-	return ORDER.duplicate()
+	if _all.is_empty():
+		_all = ORDER.duplicate()
+		for o in index().get("others", []): _all.append(str(o))
+	return _all.duplicate()
 
 
 static func count() -> int:
-	return ORDER.size()
+	ids()
+	return _all.size()
 
 
 static func id_at(k: int) -> String:
-	return ORDER[clampi(k, 0, ORDER.size() - 1)]
+	ids()
+	return _all[clampi(k, 0, _all.size() - 1)]
 
 
 static func index_of(id: String) -> int:
-	var i := ORDER.find(id)
+	ids()
+	var i := _all.find(id)
 	return i if i >= 0 else 0
 
 
@@ -148,8 +156,8 @@ static func real_map_at(k: int) -> Dictionary:
 # Menu rows shaped like main.gd MAPS entries: [name, seed, 0.0, 200].
 static func menu_entries() -> Array:
 	var out := []
-	for k in ORDER.size():
-		out.append([str(meta(ORDER[k]).get("name", ORDER[k])), 12001 + k * 97, 0.0, 200])
+	for k in count():
+		out.append([str(meta(id_at(k)).get("name", id_at(k))), 12001 + k * 97, 0.0, 200])
 	return out
 
 

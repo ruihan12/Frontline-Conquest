@@ -9,7 +9,7 @@ func _init() -> void:
 	var idx := UM.index()
 	print("index maps=%d nation_table=%d tribes=%d" % [idx.get("maps", []).size(), UM.nation_colors().size(), UM.tribe_names().size()])
 	if idx.get("maps", []).size() != 10: fails += 1
-	if UM.count() != 10 or UM.id_at(0) != "world": fails += 1
+	if UM.count() < 10 or UM.id_at(0) != "world": fails += 1
 	if UM.nation_colors().size() < 80 or UM.tribe_names().size() < 400: fails += 1
 	DirAccess.make_dir_recursive_absolute("user://upstream_test")
 	for k in UM.count():
@@ -30,9 +30,9 @@ func _init() -> void:
 			else: hist[v] += 1
 			if (v > 0) != (tb[i] >= 128 and tb[i] != 0x9F): mismatch += 1
 		var land: int = hist[1] + hist[2] + hist[3]
-		var ok := c.size() == mw * mh and tb.size() == mw * mh and mw == int(m.get("src_width", 0)) and mh == int(m.get("src_height", 0)) and bad == 0 and mismatch == 0 and land == int(m.land_tiles)
+		var ok := c.size() == mw * mh and tb.size() == mw * mh and (id.begins_with("of_") or (mw == int(m.get("src_width", 0)) and mh == int(m.get("src_height", 0)))) and bad == 0 and mismatch == 0 and land == int(m.land_tiles)
 		ok = ok and is_equal_approx(float(m.get("scale", 0)), 1.0) and is_equal_approx(float(m.k_lin), 1.0)
-		ok = ok and int(m.get("default_tribes", 0)) == 400
+		ok = ok and (id.begins_with("of_") or int(m.get("default_tribes", 0)) == 400)
 		var off := 0
 		for n in UM.nations(id):
 			var x: int = n[2]; var y: int = n[3]
