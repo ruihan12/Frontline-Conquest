@@ -25,7 +25,7 @@ CREATE TABLE mc_links (account_id INTEGER PRIMARY KEY, mc_uuid TEXT UNIQUE);
 CREATE TABLE link_codes (code TEXT PRIMARY KEY, account_id INTEGER, kind TEXT, expires_at DATETIME, used INTEGER DEFAULT 0, consumed INTEGER DEFAULT 0);
 CREATE TABLE guest_counter (id INTEGER PRIMARY KEY AUTOINCREMENT, issued_at DATETIME);
 CREATE TABLE matches (id INTEGER PRIMARY KEY, ranked INTEGER, map TEXT, started_at DATETIME, ended_at DATETIME);
-CREATE TABLE match_players (match_id INTEGER, account_id INTEGER, placement INTEGER, survival_secs INTEGER, tile_share REAL, left_early INTEGER, elo_before INTEGER, elo_after INTEGER);
+CREATE TABLE match_players (match_id INTEGER, account_id INTEGER, placement INTEGER, survival_secs INTEGER, tile_share REAL, left_early INTEGER, elo_before INTEGER, elo_after INTEGER, team INTEGER);
 """
 
 
@@ -257,3 +257,25 @@ def test_team_match_needs_teams(service):
         pl["team"] = i
     result = call(service, "POST", "/internal/match-result", body, key=KEY)
     assert [x["elo_after"] for x in result["changes"]] == [1016, 984]
+
+
+def test_match_history_contains_team(service):
+    first = signup(service)
+    second = signup(service, "Player_2")
+    players = [
+        {"account_id": a["account_id"], "placement": i, "team": i,
+         "survival_secs": 7, "tile_share": 0.5, "left_early": False}
+        for i, a in enumerate((first, second), 1)
+    ]
+    body = {"ranked": True, "map": "World", "started_at": "2026-11-24T12:00:00Z",
+            "ended_at": "2026-11-24T12:30:00Z", "team_mode": True, "players": players}
+    call(service, "POST", "/internal/match-result", body, key=KEY)
+    body["ranked"] = False
+    body["team_mode"] = False
+    call(service, "POST", "/internal/match-result", body, key=KEY)
+    history = call(service, "GET", "/history", token=second["token"])["matches"]
+    assert [(row["team"], row["ranked"], row["placement"]) for row in history] == [
+        (None, False, 2), (2, True, 2),
+    ]
+    assert history[1]["ended_at"] == "2026-11-24T12:30:00Z"
+    error(401, "invalid_session", call, service, "GET", "/history")

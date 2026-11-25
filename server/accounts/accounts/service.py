@@ -201,6 +201,7 @@ class Service:
             ("POST", "/recover/complete"): self.recover_complete,
             ("GET", "/leaderboard"): self.leaderboard,
             ("GET", "/rating"): self.rating,
+            ("GET", "/history"): self.history,
             ("POST", "/internal/verify-session"): self.verify_session,
             ("POST", "/internal/mc-confirm"): self.mc_confirm,
             ("POST", "/internal/match-result"): self.match_result,
@@ -433,6 +434,22 @@ class Service:
             return {"players": db.all("SELECT a.username,r.elo,r.matches FROM ratings r "
                                       "JOIN accounts a ON a.id=r.account_id ORDER BY r.elo DESC,a.id LIMIT %s", limit)}
 
+    def history(self, body, query, token, ip):
+        try:
+            limit = max(1, min(100, int(query.get("limit", "20"))))
+        except ValueError:
+            raise bad_request() from None
+        with self.store.transaction() as db:
+            aid = self._account(db, token)["account_id"]
+            matches = db.all(
+                "SELECT m.id AS match_id,m.map,m.ranked,m.ended_at,p.placement,p.team,"
+                "p.elo_before,p.elo_after FROM match_players p JOIN matches m ON m.id=p.match_id "
+                "WHERE p.account_id=%s ORDER BY m.ended_at DESC,m.id DESC LIMIT %s", aid, limit)
+        for match in matches:
+            match["ended_at"] = iso(match["ended_at"])
+            match["ranked"] = bool(match["ranked"])
+        return {"matches": matches}
+
     def rating(self, body, query, token, ip):
         with self.store.transaction() as db:
             aid = self._account(db, token)["account_id"]
@@ -531,9 +548,10 @@ class Service:
             for player, change in zip(players, changes):
                 aid = player["account_id"]
                 db.execute("INSERT INTO match_players (match_id,account_id,placement,survival_secs,tile_share,"
-                           "left_early,elo_before,elo_after) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                           "left_early,elo_before,elo_after,team) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                            mid, aid, player["placement"], player["survival_secs"], player["tile_share"],
-                           player["left_early"], change["elo_before"], change["elo_after"])
+                           player["left_early"], change["elo_before"], change["elo_after"],
+                           player["team"] if team_mode else None)
                 if ranked:
                     db.execute("UPDATE ratings SET elo=%s,matches=matches+1,wins=wins+%s WHERE account_id=%s",
                                change["elo_after"], int(player["placement"] == 1), aid)

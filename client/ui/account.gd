@@ -165,6 +165,7 @@ func _render(mode: String) -> void:
 					_button("Unlink Minecraft", _unlink)
 				else:
 					_button("Link Minecraft", _begin_link, true)
+			_button("Match history", _history)
 			_button("Log out", _logout)
 		"register", "login", "recover", "reset":
 			_build_form(mode)
@@ -294,6 +295,26 @@ func _finish_auth(result: Dictionary) -> void:
 		await _home()
 	else:
 		_notice.text = result.message
+
+
+func _history() -> void:
+	_render("history")
+	_button("Back", _render.bind("profile"))
+	_start_request()
+	var response: Dictionary = await api.history()
+	_end_request()
+	if not response.ok:
+		_notice.text = response.message
+		return
+	var matches: Array = response.data.get("matches", [])
+	if matches.is_empty():
+		_notice.text = "No matches yet."
+		return
+	for row: Dictionary in matches:
+		var team := " · Team %d" % int(row.team) if row.get("team") != null else ""
+		_label("%s · #%d%s" % [row.get("map", "World"), int(row.get("placement", 0)), team])
+		if row.get("ranked", false):
+			_label("Elo %d → %d" % [int(row.elo_before), int(row.elo_after)])
 
 
 func _logout() -> void:

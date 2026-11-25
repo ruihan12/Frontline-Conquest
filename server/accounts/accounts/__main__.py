@@ -110,10 +110,10 @@ def main():
     try:
         with store.transaction() as db:
             version = db.one("SELECT version FROM schema_version")
-            if not version or version["version"] != 4:
+            if not version or version["version"] != 5:
                 raise ValueError()
     except Exception:
-        raise SystemExit("Cannot open account database at schema version 4.") from None
+        raise SystemExit("Cannot open account database at schema version 5.") from None
     with Server(("127.0.0.1", 8071), Handler) as server:
         server.service = Service(store, os.environ["INTERNAL_KEY"], os.environ["GUEST_SECRET"])
         server.serve_forever()

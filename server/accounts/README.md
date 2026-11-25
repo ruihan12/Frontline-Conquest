@@ -4,7 +4,7 @@ Use Python 3.11 or later and MariaDB. Apply `schema.sql` once using a database a
 Give the service account SELECT, INSERT, UPDATE and DELETE on the accounts database. Use
 a case-insensitive collation for the database so usernames are unique regardless of case.
 From this directory, install requirements with `python -m pip install -r requirements.txt`
-and run `python -m accounts`. The service checks schema version 4 before listening on
+and run `python -m accounts`. The service checks schema version 5 before listening on
 `127.0.0.1:8071` and handles the full `/api/v1/` path.
 
 Set all of these environment variables:
@@ -70,3 +70,7 @@ Run tests with `python -m pip install pytest` and `python -m pytest` from this d
 The suite uses SQLite by default. To test MariaDB, set the DB variables for a disposable
 empty database, apply `schema.sql`, then set `TEST_MARIADB=1`. The suite clears test
 database tables between cases. Only enable this on a disposable database.
+
+Reapply `schema.sql` to migrate a version 4 database. The migration keeps prior
+match history; `GET /api/v1/history?limit=20` returns the authenticated player's
+latest matches with a nullable team number. Older rows have no recorded team.

@@ -115,6 +115,10 @@ func leaderboard(limit := 50) -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/leaderboard?limit=%d" % limit)
 
 
+func history(limit := 20) -> Dictionary:
+	return await _request(HTTPClient.METHOD_GET, "/history?limit=%d" % limit, true)
+
+
 func rating() -> Dictionary:
 	return await _request(HTTPClient.METHOD_GET, "/rating", true)
 

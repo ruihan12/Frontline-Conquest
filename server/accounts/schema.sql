@@ -9,3 +9,7 @@ CREATE TABLE IF NOT EXISTS mc_links (account_id BIGINT UNSIGNED PRIMARY KEY, mc_
 CREATE TABLE IF NOT EXISTS link_codes (code VARCHAR(16) PRIMARY KEY, account_id BIGINT UNSIGNED NOT NULL, kind ENUM('link','recover') NOT NULL, expires_at DATETIME NOT NULL, used TINYINT(1) NOT NULL DEFAULT 0, consumed TINYINT(1) NOT NULL DEFAULT 0, FOREIGN KEY (account_id) REFERENCES accounts(id) ON DELETE CASCADE) ENGINE=InnoDB;
 CREATE TABLE IF NOT EXISTS guest_counter (id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB;
 INSERT INTO schema_version SELECT 4 WHERE NOT EXISTS (SELECT 1 FROM schema_version);
+
+-- Version 5 preserves existing free-for-all rows with a NULL team.
+ALTER TABLE match_players ADD COLUMN IF NOT EXISTS team INT NULL;
+UPDATE schema_version SET version = 5 WHERE version = 4;
