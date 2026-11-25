@@ -471,7 +471,11 @@ func ready_missiles() -> int:
 ## Total gold for `amount` more of `kind` in a row (upgrades: each level at the next price).
 func bulk_cost(kind: String, amount: int) -> float:
 	if is_nuke(kind):
-		return cost(kind) * amount
+		# a MIRV costs MIRV_COST_STEP more with each one launched, so a batch is an arithmetic series
+		var per := cost(kind)
+		if kind == "mirv":
+			return per * amount + SimRules.MIRV_COST_STEP * (1.0 + (0.1 if ctx.state != null and bool(ctx.state.g.icbm_mode) else 0.0)) * amount * (amount - 1) / 2.0
+		return per * amount
 	var count := owned(kind) if ctx.state != null else 0
 	var total := 0.0
 	for i in amount:
