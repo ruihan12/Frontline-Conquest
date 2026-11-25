@@ -23,6 +23,7 @@ const TROOP_SIZE_MULT := 0.6
 const LERP_SPEED := 18.0  # custom (owner): upstream 10, plates follow their territory faster
 const CULL_VW := 0.004
 const CULL_MIN_PX := 6.0
+const CULL_HYSTERESIS_PX := 0.5
 ## smallest name size drawn (px); names are no longer culled below the old CULL_MIN_PX
 const MIN_LABEL_PX := 7.0
 const SHADE_NATION := 0.3
@@ -513,13 +514,15 @@ func _draw_body() -> void:
 		var m := line_px * 4.0
 		# A name shows when upstream would show it, or when it fits inside its own territory on screen
 		# (so a territory big enough to hold its name always has it, without every tiny tribe cluttering the map).
+		var hysteresis := CULL_HYSTERESIS_PX if p.shown else 0.0
+		var cutoff := cull_px - hysteresis
 		var fits := false
-		if not (line_px >= cull_px or hovered):
+		if not (line_px >= cutoff or hovered):
 			var bbn: Rect2i = g.nations[id].bb
 			var eff := maxf(line_px, MIN_LABEL_PX)
-			fits = bbn.size != Vector2i.ZERO and float(bbn.size.x) * scale_px * 0.8 >= float(_label_name(id).length()) * eff * 0.55
+			fits = bbn.size != Vector2i.ZERO and float(bbn.size.x) * scale_px * 0.8 >= float(_label_name(id).length()) * eff * 0.55 - hysteresis
 			if fits: line_px = eff
-		var vis := (line_px >= cull_px or hovered or fits) and sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
+		var vis := (line_px >= cutoff or hovered or fits) and sp.x >= -m and sp.y >= -m and sp.x <= vp.x + m and sp.y <= vp.y + m
 		p.shown = vis
 		if not vis:
 			continue

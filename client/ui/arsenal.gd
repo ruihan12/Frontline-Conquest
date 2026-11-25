@@ -60,7 +60,9 @@ var _list: VBoxContainer
 var _detail_host: Control
 var _detail: Control = null
 var _cta: VBoxContainer = null
-var _flash: ColorRect = null
+var _flash: ColorRect
+var _render_kick: Tween
+var _close_tween: Tween
 var _quiet := false
 
 
@@ -199,6 +201,7 @@ func pick(focus = null) -> String:
 # --- the list ---------------------------------------------------------------------------------
 func _build_list() -> void:
 	for ch in _list.get_children():
+		_list.remove_child(ch)
 		ch.queue_free()
 	_rows.clear()
 	var compact := ctx.compact
@@ -304,6 +307,7 @@ func _chip(text: String, color: Color) -> PanelContainer:
 
 func _build_detail() -> void:
 	if _detail != null:
+		_detail_host.remove_child(_detail)
 		_detail.queue_free()
 		_detail = null
 	var it = ArsenalData.item(_sel)
@@ -413,9 +417,6 @@ func _animate_item(root: Control, ground: Panel, sticker: TextureRect, pv: Vecto
 	var t_bob := sticker.create_tween().set_loops()
 	t_bob.tween_property(sticker, "position:y", base_y - 5.0, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t_bob.tween_property(sticker, "position:y", base_y + 3.0, 1.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	var t_rot := sticker.create_tween().set_loops()
-	t_rot.tween_property(sticker, "rotation_degrees", 1.4, 2.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	t_rot.tween_property(sticker, "rotation_degrees", -1.4, 2.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	# light sweep
 	var shine := ColorRect.new()
 	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -520,15 +521,14 @@ func _build_cta() -> void:
 func _select(key: String, by_player: bool = false) -> void:
 	if ArsenalData.item(key) == null:
 		return
-	var changed := key != _sel
-	_sel = key
-	_confirm = ""
-	if changed:
+	if key != _sel:
+		_sel = key
+		_confirm = ""
 		_note = ""
-	if by_player:
-		ctx.sfx("click", -6.0)
+		_build_detail()
+		if by_player:
+			ctx.sfx("tab", -4.0)
 	_refresh_list()
-	_build_detail()
 
 
 func _refresh() -> void:
@@ -570,12 +570,19 @@ func _stars_pressed(it: Dictionary) -> void:
 
 func _on_unlocked(key: String) -> void:
 	ctx.sfx("unlock")
-	_note = ""
+	_say(str(ArsenalData.item(key).title).to_upper() + " UNLOCKED!", GOLD)
 	_refresh()
 	if key == _sel and _flash != null and is_instance_valid(_flash):
 		_flash.color.a = 0.85
 		var t := _flash.create_tween()
-		t.tween_property(_flash, "color:a", 0.0, 0.6).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(_flash, "color:a", 0.0, 0.7).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		var sticker := _detail.get_node("Preview/Render") as TextureRect
+		if _render_kick != null and _render_kick.is_valid():
+			_render_kick.kill()
+		_render_kick = sticker.create_tween()
+		_render_kick.tween_method(func(k: float) -> void:
+			sticker.rotation_degrees = -14.0 * pow(1.0 - k, 2.0) * cos(k * PI * 2.5)
+		, 0.0, 1.0, 0.6)
 	if ctx.rules != null:
 		ctx.rules.recount()
 
@@ -605,6 +612,8 @@ func open(focus = null, from: String = "title") -> void:
 	_from = from
 	_confirm = ""
 	_note = ""
+	if _close_tween != null and _close_tween.is_valid():
+		_close_tween.kill()
 	move_to_front()  # above the Victory / next-match screens (next_match.gd moves itself to the front)
 	if not is_open:
 		is_open = true
@@ -627,10 +636,10 @@ func close() -> void:
 	is_open = false
 	set_process(false)
 	ctx.sfx("close")
-	var t := create_tween().set_parallel(true)
-	t.tween_property(_dim, "modulate:a", 0.0, 0.15)
-	t.tween_property(_panel, "modulate:a", 0.0, 0.15)
-	t.chain().tween_callback(func() -> void:
+	_close_tween = create_tween().set_parallel(true)
+	_close_tween.tween_property(_dim, "modulate:a", 0.0, 0.15)
+	_close_tween.tween_property(_panel, "modulate:a", 0.0, 0.15)
+	_close_tween.chain().tween_callback(func() -> void:
 		if not is_open:
 			_quiet = true
 			visible = false

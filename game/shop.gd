@@ -60,22 +60,26 @@ func _build_settings() -> void:
 func _input(e: InputEvent) -> void:
 	_try_unlock_web_audio(e)
 	if e is InputEventKey and e.pressed and not e.echo:
-		if e.keycode == KEY_TAB:
+		if e.keycode == KEY_TAB and (state == "play" or state == "pick"):
 			toggle_console()
 			get_viewport().set_input_as_handled()
 		elif console_panel != null and console_panel.visible:
 			if e.keycode == KEY_ESCAPE:
 				toggle_console()
 				get_viewport().set_input_as_handled()
-			elif console_unlocked and e.keycode == KEY_UP and not console_hist.is_empty():
+			elif console_unlocked and console_in.has_focus() and e.keycode == KEY_UP and not console_hist.is_empty():
 				console_hist_i = maxi(0, console_hist_i - 1)
 				console_in.text = console_hist[console_hist_i]
 				console_in.caret_column = console_in.text.length()
 				get_viewport().set_input_as_handled()
-			elif console_unlocked and e.keycode == KEY_DOWN and not console_hist.is_empty():
+			elif console_unlocked and console_in.has_focus() and e.keycode == KEY_DOWN and not console_hist.is_empty():
 				console_hist_i = mini(console_hist.size(), console_hist_i + 1)
 				console_in.text = console_hist[console_hist_i] if console_hist_i < console_hist.size() else ""
 				console_in.caret_column = console_in.text.length()
+				get_viewport().set_input_as_handled()
+			elif console_unlocked and e.keycode in [KEY_PAGEUP, KEY_PAGEDOWN]:
+				var scroll := console_log.get_v_scroll_bar()
+				scroll.value += -scroll.page if e.keycode == KEY_PAGEUP else scroll.page
 				get_viewport().set_input_as_handled()
 
 ## Console numbers: no NaN or infinity (they overflowed counters and labels), and a ceiling far above play.
@@ -84,48 +88,75 @@ func _cons_sane(v: float) -> float:
 	return clampf(v, -1.0e15, 1.0e15)
 
 func _build_console() -> void:
-	console_panel = _P(ui, Rect2(220, 70, 1160, 540), Color(0.04, 0.055, 0.11, 0.96), 8, ORANGE_Y, 2)
-	console_panel.visible = false
-	_head(console_panel, "TAB MENU  ·  PERFORMANCE & DEVELOPER CONSOLE", Vector2(20, 14), 16, ORANGE_Y)
-	_T(console_panel, "Live FPS telemetry & password-protected developer command console.", Vector2(20, 38), 13, MUTED)
-	# Prominent Live FPS Counter badge in the Tab Menu header
-	var fps_pill := _P(console_panel, Rect2(620, 10, 470, 40), Color(0.08, 0.14, 0.12, 0.95), 8, GREEN, 1, false)
-	console_fps_lbl = _T(fps_pill, "FPS: 180 / 180   ·   5.5 ms", Vector2(0, 9), 15, GREEN, f_bold, 470, HORIZONTAL_ALIGNMENT_CENTER)
-	var x := _card_btn(console_panel, Rect2(1104, 12, 40, 36)); _close_x(x)
-	x.pressed.connect(func(): toggle_console())
-	# 1. Password Lock Gate ("5516")
-	console_lock_box = Control.new()
-	console_lock_box.position = Vector2(0, 60); console_lock_box.size = Vector2(1160, 480)
-	console_lock_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	console_panel.add_child(console_lock_box)
-	var lock_card := _P(console_lock_box, Rect2(310, 76, 540, 310), Color(0.07, 0.09, 0.17, 0.98), 8, Color(1, 0.72, 0.25, 0.45), 1, false)
-	_draw_ctl(lock_card, Rect2(246, 24, 48, 52), func(cc: Control):
-		cc.draw_rect(Rect2(8, 22, 32, 26), GOLD_C)
-		cc.draw_arc(Vector2(24, 22), 11, PI, TAU, 16, GOLD_C, 4.0)
-		cc.draw_circle(Vector2(24, 35), 4.0, Color(0.07, 0.09, 0.17)))
-	_head(lock_card, "CONSOLE LOCKED", Vector2(0, 88), 22, TEXT, 540, HORIZONTAL_ALIGNMENT_CENTER)
-	_T(lock_card, "Enter the 4-digit access password to unlock live game editing:", Vector2(0, 120), 14, MUTED, f_reg, 540, HORIZONTAL_ALIGNMENT_CENTER)
-	console_pass_in = LineEdit.new()
-	console_pass_in.position = Vector2(90, 162); console_pass_in.size = Vector2(230, 44)
-	console_pass_in.placeholder_text = "Password..."
-	console_pass_in.alignment = HORIZONTAL_ALIGNMENT_CENTER
-	console_pass_in.add_theme_font_override("font", f_bold)
-	console_pass_in.add_theme_font_size_override("font_size", 18)
-	console_pass_in.add_theme_stylebox_override("normal", _flat(Color(0.04, 0.06, 0.12), 5, Color(1, 0.72, 0.25, 0.6), 1))
-	console_pass_in.add_theme_stylebox_override("focus", _flat(Color(0.08, 0.11, 0.20), 5, ORANGE_Y, 2))
-	console_pass_in.text_submitted.connect(func(txt: String): unlock_console(txt))
-	lock_card.add_child(console_pass_in)
-	var ul_btn := _big_btn(lock_card, Rect2(332, 162, 118, 44), "UNLOCK", ORANGE_Y, 15)
-	ul_btn.pressed.connect(func(): unlock_console(console_pass_in.text))
-	console_lock_msg = _T(lock_card, "Protected access · Enter password to continue", Vector2(0, 224), 13, MUTED, f_bold, 540, HORIZONTAL_ALIGNMENT_CENTER)
-	# 2. Unlocked Console Body
-	console_body = Control.new()
-	console_body.position = Vector2(0, 0); console_body.size = Vector2(1160, 540)
-	console_body.visible = false
-	console_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	console_panel.add_child(console_body)
-	x.move_to_front.call_deferred()
-	var qbtns := [
+	var theme := UITheme.theme()
+	console_panel = Panel.new()
+	console_panel.name = "TabConsole"
+	console_panel.theme = theme
+	console_panel.add_theme_stylebox_override("panel", UITheme.flat(UITheme.rgba(0.045, 0.065, 0.13, 0.97), 18, UITheme.LINE, 1))
+	ui.add_child(console_panel)
+	console_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	console_panel.offset_left = -580.0
+	console_panel.offset_right = 580.0
+	console_panel.offset_top = -270.0
+	console_panel.offset_bottom = 270.0
+	console_panel.hide()
+	var margin := MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 18)
+	console_panel.add_child(margin)
+	var column := UITheme.vbox(12)
+	margin.add_child(column)
+	var header := UITheme.hbox(12)
+	column.add_child(header)
+	var title := UITheme.label("DEVELOPER CONSOLE", 18, 800, UITheme.TEXT, 2)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(title)
+	console_fps_lbl = UITheme.label("", 14, 600, UITheme.GREEN)
+	console_fps_lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	header.add_child(console_fps_lbl)
+	var close := UITheme.button("Close", "GhostButton", "", 36)
+	close.pressed.connect(toggle_console)
+	header.add_child(close)
+	column.add_child(UITheme.hdivider())
+
+	var lock_center := CenterContainer.new()
+	lock_center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(lock_center)
+	console_lock_box = lock_center
+	var lock_card := GlassPanel.new(24, 20)
+	lock_center.add_child(lock_card)
+	var lock := UITheme.vbox(12)
+	lock_card.add_child(lock)
+	var heading := UITheme.label("CONSOLE LOCKED", 18, 800, UITheme.TEXT)
+	heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lock.add_child(heading)
+	console_lock_msg = UITheme.label("Enter the four-digit access password.", 14, 500, UITheme.TEXT_2)
+	console_lock_msg.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lock.add_child(console_lock_msg)
+	var unlock_row := UITheme.hbox(8)
+	lock.add_child(unlock_row)
+	console_pass_in = _console_field("Password", 14)
+	console_pass_in.custom_minimum_size.x = 180.0
+	console_pass_in.secret = true
+	console_pass_in.max_length = 4
+	console_pass_in.text_submitted.connect(unlock_console)
+	unlock_row.add_child(console_pass_in)
+	var unlock := UITheme.button("Unlock", "PrimaryButton", "", 40)
+	unlock.pressed.connect(func() -> void: unlock_console(console_pass_in.text))
+	unlock_row.add_child(unlock)
+
+	var body := UITheme.vbox(10)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(body)
+	console_body = body
+	console_body.hide()
+	var actions := HFlowContainer.new()
+	actions.add_theme_constant_override("h_separation", 6)
+	actions.add_theme_constant_override("v_separation", 6)
+	body.add_child(actions)
+	var shortcuts := [
 		["+10M Gold", "gold +10000000"],
 		["+100K Troops", "troops +100000"],
 		["+10K Stars", "stars +10000"],
@@ -135,51 +166,63 @@ func _build_console() -> void:
 		["Peace = 0", "peace 0"],
 		["Toggle MIRV", "mirv"],
 		["Speed 20x", "speed 20"],
-		["Inspect Vars", "vars"]
+		["Inspect Vars", "vars"],
 	]
-	for k in qbtns.size():
-		var qb := _card_btn(console_body, Rect2(20 + k * 112, 64, 108, 28))
-		qb.text = qbtns[k][0]
-		qb.add_theme_font_override("font", f_bold); qb.add_theme_font_size_override("font_size", 11)
-		var cmd_str: String = qbtns[k][1]
-		qb.pressed.connect(func(): run_console_cmd(cmd_str))
-	var log_bg := _P(console_body, Rect2(20, 100, 1120, 372), Color(0.02, 0.03, 0.06, 0.95), 5, Color(1, 1, 1, 0.08), 1, false)
+	for entry in shortcuts:
+		var button := UITheme.button(entry[0], "GlassButton", "", 32)
+		button.add_theme_font_size_override("font_size", 12)
+		var command: String = entry[1]
+		button.pressed.connect(func() -> void: run_console_cmd(command))
+		actions.add_child(button)
+	var log_panel := PanelContainer.new()
+	log_panel.add_theme_stylebox_override("panel", UITheme.flat(UITheme.GLASS, 8, UITheme.LINE, 1, 12, 8))
+	log_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(log_panel)
 	console_log = RichTextLabel.new()
-	console_log.position = Vector2(12, 8); console_log.size = Vector2(1096, 356)
 	console_log.bbcode_enabled = true
 	console_log.scroll_following = true
-	console_log.add_theme_font_override("normal_font", f_reg)
-	console_log.add_theme_font_override("bold_font", f_bold)
+	console_log.selection_enabled = true
+	console_log.add_theme_font_override("normal_font", UITheme.font(500))
+	console_log.add_theme_font_override("bold_font", UITheme.font(700))
 	console_log.add_theme_font_size_override("normal_font_size", 14)
 	console_log.add_theme_font_size_override("bold_font_size", 14)
-	log_bg.add_child(console_log)
-	console_in = LineEdit.new()
-	console_in.position = Vector2(20, 484); console_in.size = Vector2(990, 40)
-	console_in.placeholder_text = "Enter command or assignment (e.g. gold 5000000, boat_speed = 6.0, NUKE_R[7] = 7, unlock all, spawn city 3, help)..."
-	console_in.add_theme_font_override("font", f_bold)
-	console_in.add_theme_font_size_override("font_size", 15)
-	console_in.add_theme_stylebox_override("normal", _flat(Color(0.08, 0.10, 0.18), 5, Color(1, 0.72, 0.25, 0.6), 1))
-	console_in.add_theme_stylebox_override("focus", _flat(Color(0.10, 0.13, 0.22), 5, ORANGE_Y, 2))
-	console_in.text_submitted.connect(func(txt: String):
-		if txt.strip_edges() != "":
-			run_console_cmd(txt)
-			console_in.clear()
-		console_in.grab_focus())
-	console_body.add_child(console_in)
-	var run_b := _big_btn(console_body, Rect2(1020, 484, 120, 40), "EXECUTE", ORANGE_Y, 14)
-	run_b.pressed.connect(func():
-		if console_in.text.strip_edges() != "":
-			run_console_cmd(console_in.text)
-			console_in.clear()
-		console_in.grab_focus())
-	_clog("[color=#ffbe42][b]Frontline Conquest Developer Console Ready.[/b][/color] Type [b]help[/b] or [b]vars[/b], or edit any property (e.g. [b]gold 5000000[/b], [b]boat_speed = 6.0[/b], [b]NUKE_R[7] = 7[/b]).")
+	log_panel.add_child(console_log)
+	var input_row := UITheme.hbox(8)
+	body.add_child(input_row)
+	console_in = _console_field("Enter a command or type help", 15)
+	console_in.text_submitted.connect(_submit_console)
+	input_row.add_child(console_in)
+	var run := UITheme.button("Execute", "PrimaryButton", "", 40)
+	run.pressed.connect(func() -> void: _submit_console(console_in.text))
+	input_row.add_child(run)
+	_clog("[b]Developer console ready.[/b] Type [b]help[/b] for commands.")
+
+
+func _console_field(placeholder: String, font_size: int) -> LineEdit:
+	var field := LineEdit.new()
+	field.placeholder_text = placeholder
+	field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	field.add_theme_font_override("font", UITheme.font(600))
+	field.add_theme_font_size_override("font_size", font_size)
+	field.add_theme_stylebox_override("normal", UITheme.flat(UITheme.GLASS, 8, UITheme.LINE, 1, 12, 8))
+	field.add_theme_stylebox_override("focus", UITheme.flat(UITheme.CLEAR, 8, UITheme.AMBER, 1))
+	return field
+
+
+func _submit_console(text: String) -> void:
+	if not text.strip_edges().is_empty():
+		run_console_cmd(text)
+		console_in.clear()
+	console_in.grab_focus()
+
 
 func unlock_console(code: String) -> bool:
 	if code.strip_edges() == CONSOLE_PASS:
 		console_unlocked = true
+		console_pass_in.clear()
 		console_lock_box.visible = false
 		console_body.visible = true
-		_clog("[color=#66e08c][b]Access granted (code 5516). Developer Console unlocked.[/b][/color]")
+		_clog("[color=#66e08c][b]Developer console unlocked.[/b][/color]")
 		if console_panel and console_panel.visible:
 			console_in.grab_focus()
 		return true
@@ -198,6 +241,9 @@ func _update_console_fps(dt: float) -> void:
 			_fps_hitch_ms = lerpf(_fps_hitch_ms, _fps_ema_ms, 0.35)
 			_fps_hitch_t = 0.0
 	if console_panel == null or not console_panel.visible or console_fps_lbl == null:
+		return
+	if state != "play" and state != "pick":
+		toggle_console()
 		return
 	var fps_now := int(Engine.get_frames_per_second())
 	if fps_now <= 0: fps_now = int(round(1000.0 / maxf(0.5, _fps_ema_ms)))
@@ -223,6 +269,7 @@ func toggle_console() -> void:
 	else:
 		console_in.release_focus()
 		console_pass_in.release_focus()
+		console_pass_in.clear()
 
 func _clog(msg: String) -> void:
 	if console_log:

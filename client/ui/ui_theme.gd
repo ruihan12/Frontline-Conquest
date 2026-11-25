@@ -660,6 +660,8 @@ static func _format_troops(value: float) -> String:
 	var v := absf(value)
 	var s: String
 	if is_nan(v): return "0"
+	if v >= 1.0e9:
+		return ("-" if value < 0.0 else "") + render_number(v)
 	if v >= 1000000.0:
 		s = ("%.2fM" % (v / 1000000.0)) if v < 10000000.0 else ("%.1fM" % (v / 1000000.0))
 	elif v >= 1000.0:
