@@ -78,8 +78,20 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Team games (online only, 2026-11-25): upstream Teams rules, random team size, no bot players; see docs/MULTIPLAYER.md.
 - Known gaps: see the last Status entry in docs/MULTIPLAYER.md (attack list replication, interpolation, host events, VM deploy).
 
-## Optimization started on 2026-11-25 (branch perf-world)
+## Optimization pass on 2026-11-25 (branch perf-world)
 - Name placement reuses the histogram stack across rows and preserves the chosen rectangle, ties and refresh cadence. A 16,000-row seeded benchmark matched every rectangle and took a median 372.82 ms before and 285.29 ms after (five runs, Godot 4.3 native headless). The 3,000-tick World owner and weighted troop/gold checksums matched at all five checkpoints.
+- Typed hot sim records reduced mean native tick time from 15.55 to 14.61 ms in the paired runs (the commit subject cites incorrect totals). The paged front bitset and the capacity-retaining heap matched all checkpoints but regressed attack time from 9.41 to 10.59 and 9.50 ms/tick respectively, so both were discarded. Bucket priorities alone cannot reproduce the binary heap's existing equal-key order.
+- One palette lookup per owner per paint flush cut the median full paint of 23,357 World tiles from 77.0 to 55.0 ms with identical chunk pixels. Texture updates still coalesce by dirty chunk and use the existing round-robin budget.
+- Deployment uses the existing placement budget and holds the spawn targets while replacing them. Median peak placement fell from 27.9 to 4.0 ms and the cold peak from 68.1 to 28.7 ms. A frozen World snapshot produced exactly the same final positions. The 0.1 s match cadence is unchanged.
+- Economy reuses a packed city-level buffer and computes troop growth once (1.23 to 0.97 ms/tick in the paired stages). Incremental naval line-of-sight took 190.0 to 137.6 ms for 24,000 routes with identical decisions. The full naval pass had no measurable mean improvement.
+- Range rings reuse their draw commands while the view is static (40 to 1 draws over 40 frames, 6.02 to 0.13 ms in the draw callback); adding and clearing a selected warship's rings still redraws.
+- The isolated histogram worker returned the same results but took a median 467 µs per copied batch, versus 406 µs inline. It was left out.
+- All five owner and weighted troop/gold checkpoints in the seed 12345 World run matched in every trial. Final native mean was 14.69 ms/tick versus 15.55 ms/tick in the same-session baseline, with run-to-run timing variance. Upstream parity passed 463 with zero failures and 5 intentional skips.
+- Threaded Chromium/SwiftShader seed 12345 at 1280×577 (ten early World samples per build): median process 43.0 to 39.1 ms/frame and paint 11.0 to 6.0 ms/frame. Median reported FPS was 6.5 in both builds. Hardware Chrome/Edge and phone FPS remain unmeasured.
+- The standalone nuke-flight test still reports the existing flight and Scattershot expectation failures. The seven other handoff regression scripts passed, including zero stale pixels out of 98,110 checked.
+
+
+
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
