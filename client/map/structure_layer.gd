@@ -180,7 +180,7 @@ func _draw_inner(ci: CanvasItem) -> void:
 	var vp: Vector2 = g.get_viewport_rect().size
 	var W: int = g.W
 	var me: int = g.PLAYER
-	var tick := int(g.ticks_done)
+	var tick: int = int(g.sim_atk.tick) if g.sim_atk != null else 0
 	for st: Dictionary in g.structs:
 		var col: int = g.ST_COL.get(int(st.k), -1)
 		if col < 0:
