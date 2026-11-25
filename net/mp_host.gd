@@ -24,6 +24,7 @@ const S_LISTS := 5
 const S_STATE := 6
 const S_EVENT := 7
 const S_END := 8
+const S_NATION_INFO := 9  # var [[id, name, #color, alive, human], ...] in the receiver's id space
 const C_JOIN := 1
 const C_INTENT := 2
 
@@ -37,7 +38,7 @@ var send: Callable
 var peers := {}  # peer -> {nid, name, tokens, t}
 var ended := false
 var max_humans := 8
-var _claimed_first := false
+var slots: Array = []  # nation ids reserved for people (1 = PLAYER), in join order
 var _sv_sent := -1
 var _ntick := 0
 var log_fn: Callable = Callable()
@@ -60,9 +61,15 @@ func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 	g.net_rec = true
 	g.net_dirty = PackedInt32Array()
 	ended = false
-	_claimed_first = false
 	_sv_sent = -1
 	peers.clear()
+	# reserve a nation slot for every person that may join, so every viewer's nation list is complete from the start
+	slots = [int(g.PLAYER)]
+	for _i in range(1, max_humans):
+		var sid: int = g._new_nation("(open)", Color(0.5, 0.5, 0.5), false)
+		g.nations[sid].alive = false
+		slots.append(sid)
+	g._rebuild_kind_cache()
 
 
 func human_count() -> int:
@@ -81,22 +88,39 @@ func join(peer: int, pname: String) -> int:
 	if ended or peers.size() >= max_humans or peers.has(peer):
 		return -1
 	var nm := _clean_name(pname)
+	var taken := {}
+	for p in peers.values():
+		taken[int(p.nid)] = true
 	var nid := -1
-	if not _claimed_first:
-		_claimed_first = true
-		nid = int(g.PLAYER)
-		g.nations[nid].name = nm
-	else:
-		var col := Color.from_hsv(g.rng.randf(), g.rng.randf_range(0.6, 0.85), g.rng.randf_range(0.85, 0.97))
-		nid = g._new_nation(nm, col, false)
-		g.nations[nid].alive = true
+	for sid in slots:
+		if not taken.has(int(sid)):
+			nid = int(sid)
+			break
+	if nid < 0:
+		return -1
+	g.nations[nid].name = nm
+	g.nations[nid].alive = true
+	if nid != int(g.PLAYER):
+		g.nations[nid].color = Color.from_hsv(g.rng.randf(), g.rng.randf_range(0.6, 0.85), g.rng.randf_range(0.85, 0.97))
 	g.nations[nid]["human"] = true
 	g.nations[nid].ai = false
 	g._rebuild_kind_cache()
 	peers[peer] = {"nid": nid, "name": nm, "tokens": BURST, "t": Time.get_ticks_msec()}
 	_send_hello(peer)
 	_send_full(peer)
+	_broadcast_nation_info(peer)
 	return nid
+
+
+## Tells every other viewer about the nation that `new_peer` now plays.
+func _broadcast_nation_info(new_peer: int) -> void:
+	var nid: int = peers[new_peer].nid
+	var n: Dictionary = g.nations[nid]
+	for peer in peers:
+		if peer == new_peer:
+			continue
+		var my: int = peers[peer].nid
+		send.call(peer, _pack(S_NATION_INFO, [[NetRepC.swap_id(nid, my), str(n.name), "#" + Color(n.color).to_html(false), bool(n.alive), true]]))
 
 
 func leave(peer: int) -> void:

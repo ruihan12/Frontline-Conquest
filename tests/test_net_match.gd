@@ -30,14 +30,16 @@ func _init() -> void:
 	_ok(ca.started and cb.started, "both viewers started their round from HELLO")
 	_ok(ha.m.nations.size() == hs.m.nations.size() and hb.m.nations.size() == hs.m.nations.size(), "nation counts match the host (%d)" % hs.m.nations.size())
 	_ok(ha.m.nations[1].name == "Alice" and hb.m.nations[1].name == "Bob", "each viewer is nation 1 under its own name")
-	_ok(hb.m.nations[2].name == "Alice", "Bob sees Alice as nation 2 (ids swapped)")
+	var nb: int = host.peers[2].nid
+	_ok(nb > 1 and hs.m.nations[nb].name == "Bob", "Bob has nation %d on the host" % nb)
+	_ok(hb.m.nations[nb].name == "Alice" and ha.m.nations[nb].name == "Bob", "each viewer sees the other under the host id (swap 1 and own)")
 	# spawn phase: both pick a spot
 	_ok(hs.m.state == "pick", "host is in the spawn phase")
 	var ta: int = hs.m._find_spawn_tile(hs.m.W / 2, hs.m.H / 2)
 	var tb: int = hs.m._find_spawn_tile(hs.m.W / 4, hs.m.H / 2)
 	ca.send_intent({"type": "spawn", "tile": ta})
 	cb.send_intent({"type": "spawn", "tile": tb})
-	_ok(hs.m.nations[1].land > 0 and hs.m.nations[2].land > 0, "spawn intents took effect (%d, %d tiles)" % [hs.m.nations[1].land, hs.m.nations[2].land])
+	_ok(hs.m.nations[1].land > 0 and hs.m.nations[nb].land > 0, "spawn intents took effect (%d, %d tiles)" % [hs.m.nations[1].land, hs.m.nations[nb].land])
 	# illegal intents are ignored
 	var before: int = hs.m.nations[1].land
 	_ok(not host.apply_intent(1, {"type": "format_disk"}), "unknown intent type refused")
@@ -67,14 +69,14 @@ func _init() -> void:
 	for i in hs.m.owner_map.size():
 		var o: int = hs.m.owner_map[i]
 		var want_a: int = NetRep.swap_id(o, 1) if o > 0 else (o if o < 0 else 0)
-		var want_b: int = NetRep.swap_id(o, 2) if o > 0 else (o if o < 0 else 0)
+		var want_b: int = NetRep.swap_id(o, nb) if o > 0 else (o if o < 0 else 0)
 		var ga: int = ha.m.owner_map[i]; var gb: int = hb.m.owner_map[i]
 		if (ga if ga > 0 else (ga if ga < 0 else 0)) != want_a: diff_a += 1
 		if (gb if gb > 0 else (gb if gb < 0 else 0)) != want_b: diff_b += 1
 	_ok(diff_a == 0, "Alice's view equals the host's world (%d differing tiles)" % diff_a)
 	_ok(diff_b == 0, "Bob's view equals the host's world (%d differing tiles)" % diff_b)
 	_ok(ha.m.nations[1].land == hs.m.nations[1].land, "Alice's land count matches")
-	_ok(hb.m.nations[2].land == hs.m.nations[1].land, "Bob sees Alice's land as nation 2")
+	_ok(hb.m.nations[nb].land == hs.m.nations[1].land, "Bob sees Alice's land under host id %d" % nb)
 	# rate limit: a flood is dropped
 	var applied := 0
 	for _k in 200:

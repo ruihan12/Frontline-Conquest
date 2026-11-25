@@ -69,6 +69,15 @@ func on_message(pkt: PackedByteArray) -> void:
 				g.shield_until[int(id)] = int(s.shields[id])
 			if str(s.state) != g.state:
 				g.state = str(s.state)
+		HostC.S_NATION_INFO:
+			for e in bytes_to_var(body):
+				var id := int(e[0])
+				if id > 0 and id < g.nations.size():
+					g.nations[id].name = str(e[1])
+					g.nations[id].color = Color.html(str(e[2]))
+					g.nations[id].alive = bool(e[3])
+					if bool(e[4]): g.nations[id]["human"] = true
+			g._rebuild_kind_cache()
 		HostC.S_EVENT:
 			last_event = bytes_to_var(body)
 			g.notify(str(last_event.get("text", "")), str(last_event.get("kind", "info")))
