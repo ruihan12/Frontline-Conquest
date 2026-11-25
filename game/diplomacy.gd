@@ -133,6 +133,7 @@ func propose_alliance(a: int, b: int) -> bool:
 		if a == PLAYER: notify("You can ask %s again in %d s" % [_nname(b), ceili(wait / 10.0)], "info")
 		return false
 	ally_requests[a * 1024 + b] = sim_atk.tick
+	_viewer_event({"type": "alliance_request", "actor": a, "target": b}, [b])
 	if b == PLAYER:
 		sfx("ally_suggest"); _show_ally_card("propose", a)
 	else:

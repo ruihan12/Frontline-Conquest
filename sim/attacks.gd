@@ -213,6 +213,7 @@ func start(at: int, tg: int, troops: float, beachhead := -1):
 	a.tgt = wp; a.disp = wp
 	g.attacks.append(a)
 	if tg > 0:
+		g._viewer_event({"type": "attack", "actor": at, "target": tg}, [tg])
 		g.nations[tg]["attacked_tick"] = tick
 		var gk: String = "grudge_" + str(at)
 		g.nations[tg][gk] = maxi(int(g.nations[tg].get(gk, 0)), tick + R.HOSTILE_TICKS)  # add_grudge keeps the later expiry

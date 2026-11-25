@@ -59,6 +59,11 @@ var net_rec := false  # multiplayer host: record owner changes in net_dirty (net
 var net_dirty := PackedInt32Array()
 var net_host = null  # MPHost while this process runs a multiplayer match (server or player host)
 var net_client = null  # MPClient while this process is a remote viewer of someone else's match
+func _viewer_event(data: Dictionary, recipients := []) -> void:
+	if net_host != null and not net_remote:
+		net_host.emit_event(data, recipients)
+
+
 var net_remote := false  # remote viewer: the sim never ticks here, replicated state is written into the sim arrays
 var team_mode := false  # a team game (online only): nations[id].team is 0 for tribes, 1..n for players
 var team_names := []

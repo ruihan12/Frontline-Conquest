@@ -208,6 +208,7 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 		for ow in sim_ars.break_nuked_alliances(o, tp, float(ms.r), nk):
 			if ow == PLAYER or o == PLAYER: notify("The %s launch ended the alliance between %s and %s" % [nm, _nname(o), _nname(ow)], "bad")
 	var lk := "mirv_launch" if k == 9 else ("hydrogen_launch" if k in [8, 11] else "atom_launch")
+	_viewer_event({"type": "nuke_launch", "actor": o, "target": victim, "kind": k}, [o, victim])
 	sfx(lk, 0.0 if o == PLAYER else -8.0, 0.04, o)
 	if victim == PLAYER and o != PLAYER: sfx("nuke_warning")
 	return true
@@ -247,6 +248,7 @@ func _detonate_missile(ms) -> void:
 	if tile < 0 or tile >= W * H: return
 	var victim: int = int(ms.get("tgt_o", owner_map[tile]))
 	detonate(ms.o, to, float(ms.r), 1.0, nk)
+	_viewer_event({"type": "nuke_hit", "actor": ms.o, "target": victim, "kind": ms.k, "nk": nk, "tile": tile, "radius": ms.r})
 	var mine: bool = ms.o == PLAYER or owner_map[tile] == PLAYER or victim == PLAYER
 	# UIAdvisor.on_nuke_detonated: explosion SFX only when on screen or yours.
 	sfx("hydrogen_hit" if ms.k in [8, 11] and nk != SimRules.N_WARHEAD else "atom_hit", 0.0 if mine else -8.0, 0.04, PLAYER if mine else ms.o, to * TS)

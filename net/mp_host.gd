@@ -206,6 +206,29 @@ func _broadcast_nation_info(new_peer: int) -> void:
 		send.call(peer, _pack(S_NATION_INFO, [[NetRepC.swap_id(nid, my), str(n.name), "#" + Color(n.color).to_html(false), bool(n.alive), true]]))
 
 
+## Events are small, server-originated and capped independently per recipient.
+func emit_event(data: Dictionary, recipients := []) -> void:
+	var now := Time.get_ticks_msec()
+	for peer in peers:
+		var player: Dictionary = peers[peer]
+		var my := int(player.nid)
+		if not recipients.is_empty() and not recipients.has(my):
+			continue
+		var available := minf(10.0, float(player.get("event_budget", 10)) + (now - int(player.get("event_ms", now))) * 0.008)
+		player.event_ms = now
+		player.event_budget = available
+		if available < 1.0:
+			continue
+		var event := data.duplicate()
+		for field in ["actor", "target"]:
+			if event.has(field):
+				event[field] = NetRepC.swap_id(int(event[field]), my)
+		var packet := _pack(S_EVENT, event)
+		if packet.size() <= 384:
+			player.event_budget -= 1.0
+			send.call(peer, packet)
+
+
 func reject(peer: int, reason: String) -> void:
 	send.call(peer, _pack(S_REJECT, {"reason": reason}))
 

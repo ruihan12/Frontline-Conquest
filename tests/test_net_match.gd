@@ -83,6 +83,7 @@ func _init() -> void:
 	_ok(hb.m.nations[nb].land == hs.m.nations[1].land, "Bob sees Alice's land under host id %d" % nb)
 	# diplomacy: Alice asks Bob for an alliance; Bob's viewer sees the request, then accepts
 	ca.send_intent({"type": "ally_request", "target": nb})
+	_ok(cb.last_event.get("type") == "alliance_request" and cb.last_event.get("actor") == nb and cb.last_event.get("target") == 1, "viewer event is sent in the recipient’s nation space")
 	hs.step(12)
 	_ok(hs.m.ally_requests.size() > 0, "host has Alice's alliance request")
 	_ok(hb.m.ally_requests.has(nb * 1024 + 1), "Bob's viewer sees the request (from Alice = id %d in his space)" % nb)

@@ -99,8 +99,10 @@ func on_message(pkt: PackedByteArray) -> void:
 					if bool(e[4]): g.nations[id]["human"] = true
 			g._rebuild_kind_cache()
 		HostC.S_EVENT:
-			last_event = bytes_to_var(body)
-			g.notify(str(last_event.get("text", "")), str(last_event.get("kind", "info")))
+			var event = bytes_to_var(body)
+			if event is Dictionary:
+				last_event = event
+				_play_event(event)
 		HostC.S_TEAMS:
 			var td: Dictionary = bytes_to_var(body)
 			g.team_mode = true
@@ -120,3 +122,44 @@ func on_message(pkt: PackedByteArray) -> void:
 			winner = int(e.winner)
 			ranks = e.ranks
 			g._game_over(winner == 1 or (int(e.get("winner_team", 0)) != 0 and int(e.get("winner_team", 0)) == int(e.get("me_team", -1))))
+
+
+
+func _play_event(event: Dictionary) -> void:
+	var actor := int(event.get("actor", 0))
+	var target := int(event.get("target", 0))
+	var kind := int(event.get("kind", 7))
+	match event.get("type", ""):
+		"nuke_launch":
+			if actor == 1:
+				g.sfx("mirv_launch" if kind == 9 else ("hydrogen_launch" if kind in [8, 11] else "atom_launch"))
+			elif target == 1:
+				g.sfx("nuke_warning")
+				g.notify("%s launched a missile at you" % g._nname(actor), "bad")
+		"nuke_hit":
+			var tile := int(event.get("tile", -1))
+			if tile < 0 or tile >= g.W * g.H:
+				return
+			var nk := int(event.get("nk", 0))
+			if g.fx_layer != null:
+				g.fx_layer.nuke(nk, tile, clampf(float(event.get("radius", 0.0)), 0.0, 1000.0))
+			var world := Vector2(tile % int(g.W), tile / int(g.W)) * float(g.TS)
+			var my_hit := actor == 1 or target == 1
+			g.sfx("hydrogen_hit" if kind in [8, 11] and nk != SimRules.N_WARHEAD else "atom_hit",
+				0.0 if my_hit else -8.0, 0.04, 1 if my_hit else actor, world)
+		"sam":
+			var point: Vector2 = event.get("point", Vector2.ZERO)
+			if g.fx_layer != null:
+				g.fx_layer.burst("sam", point.x, point.y)
+			g.sfx("sam_hit")
+			g.notify("Your SAM intercepted a missile" if actor == 1 else "Your missile was intercepted", "info")
+		"alliance_request":
+			# The replicated request list still delivers the alliance card and its sound.
+			g.notify("%s sent you an alliance request" % g._nname(actor), "info")
+		"attack":
+			g.notify("%s is attacking you" % g._nname(actor), "bad")
+		_:
+			var text := str(event.get("text", ""))
+			var style := str(event.get("kind", "info"))
+			if not text.is_empty() and style in ["info", "good", "bad"]:
+				g.notify(text, style)

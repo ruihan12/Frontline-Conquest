@@ -567,6 +567,7 @@ func sam_resolve(ms) -> bool:
 	# MapView._on_nuke_detonated (radius 0): an airburst where the nuke was, a pop ring and the SAM burst
 	var f := clampf(float(int(ms.get("sam_k", 0))) / float(flight_ticks(ms)), 0.0, 1.0)
 	var ip: Vector2 = g._missile_world_pos(ms, f) / g.TS
+	g._viewer_event({"type": "sam", "actor": st.o, "target": ms.o, "point": ip}, [st.o, ms.o])
 	if g.fx_layer != null:
 		g.fx_layer.pop(int(floor(ip.y)) * g.W + int(floor(ip.x)), Color(1, 0.85, 0.5))
 		g.fx_layer.burst("sam", ip.x, ip.y)
