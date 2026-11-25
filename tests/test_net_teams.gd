@@ -34,8 +34,9 @@ func _init() -> void:
 		if n.get("ai", false) and not n.get("tribe", false) and n.name != "(open)":
 			pass
 	_ok(hs.m.bot_players == 0, "no bot players in a team game")
+	host.party_valid = func(k: String) -> bool: return k == "K1"
 	for i in 3:
-		cl[i].join("P%d" % i)
+		cl[i].join("P%d" % i, "", "K1" if i < 2 else "bogus")
 	_ok(not host.teams_ready, "teams wait for the roster")
 	_ok(not host.apply_intent(1, {"type": "spawn", "tile": 5}), "no intents before the teams are made")
 	cl[3].join("P3")
@@ -44,6 +45,9 @@ func _init() -> void:
 	for p in host.peers.values():
 		seen[int(hs.m.nations[p.nid].team)] = int(seen.get(int(hs.m.nations[p.nid].team), 0)) + 1
 	_ok(seen.size() == hs.m.team_names.size() and not seen.has(0), "every player is on a team: %s" % str(seen))
+	if hs.m.team_names.size() < 4:
+		_ok(int(hs.m.nations[host.peers[1].nid].team) == int(hs.m.nations[host.peers[2].nid].team), "a party stays on one team")
+	_ok(host.team_groups.has(1) and host.team_groups.has(2) and not host.team_groups.has(3), "only a valid party key groups players")
 	var a: int = host.peers[1].nid
 	var mate := -1
 	var foe := -1

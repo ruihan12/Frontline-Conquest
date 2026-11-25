@@ -23,9 +23,9 @@ func _init(main, send_cb: Callable) -> void:
 	send = send_cb
 
 
-func join(pname: String, token := "") -> void:
+func join(pname: String, token := "", party := "") -> void:
 	my_name = pname
-	send.call(HostC._pack(HostC.C_JOIN, {"name": pname, "token": token}))
+	send.call(HostC._pack(HostC.C_JOIN, {"name": pname, "token": token, "party": party}))
 
 
 func send_intent(intent: Dictionary) -> void:

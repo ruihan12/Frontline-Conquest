@@ -95,10 +95,14 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	title.show_help.connect(toggle_help)
 	title.open_arsenal.connect(func() -> void: open_arsenal(null, "title"))
 	title.open_crates.connect(func() -> void: crates.open())
-	# The party panel talks to the local preview model (stand-in players) until a party service exists.
+	# The party hub: its own connection to the game server, opened from the title screen (save.settings.party_on).
+	var party_model = null
 	if bool(main.save.get("settings", {}).get("party_on", true)):
-		title.party.bind(PartyModel.new(ctx.username()))
+		party_model = PartyNetModel.new(main, str(main.save.get("settings", {}).get("server_url", NetLobbyModel.DEFAULT_URL)), ctx.username())
+		title.party.bind(party_model)
 		title.party.notice.connect(func(t: String) -> void: main.notify(t, "bad"))
+		party_model.notice.connect(func(t: String) -> void: main.notify(t, "bad"))
+		main.add_child(PartyNet.new(party_model))
 	title.open_account.connect(func() -> void: account.open())
 	title.open_multiplayer.connect(func() -> void: lobby.open())
 
@@ -264,7 +268,10 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	root.add_child(crates)
 	account = AccountWindow.new(ctx, main)
 	root.add_child(account)
-	lobby = LobbyWindow.new(ctx, main, NetLobbyModel.new(main))
+	var net_lobby := NetLobbyModel.new(main)
+	if party_model != null:
+		net_lobby.bind_party(party_model)
+	lobby = LobbyWindow.new(ctx, main, net_lobby)
 	root.add_child(lobby)
 	map_picker = MapPicker.new(ctx, main)
 	root.add_child(map_picker)

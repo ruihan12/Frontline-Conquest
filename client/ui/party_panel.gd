@@ -32,6 +32,9 @@ var _invite_btn: Button
 var _leave_btn: Button
 var _list: GlassPanel
 var _list_note: Label
+var _code_box: VBoxContainer
+var _code_label: Label
+var _code_edit: LineEdit
 var _list_caption: Label
 var _list_empty: Label
 var _list_scroll: ScrollContainer
@@ -108,6 +111,41 @@ func _init(c: UICtx) -> void:
 	_list_note = T.label("Players on this server. Whoever accepts joins your party.", 11, 500, T.TEXT_3)
 	_list_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	lv.add_child(_list_note)
+	_code_box = T.vbox(8)
+	lv.add_child(_code_box)
+	var mine := T.hbox(8)
+	var mine_l := T.vbox(0)
+	mine_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mine_l.add_child(T.caption("YOUR CODE", 11, T.TEXT_2))
+	_code_label = T.label("", 20, 800, T.CYAN, 4)
+	mine_l.add_child(_code_label)
+	mine.add_child(mine_l)
+	var copy := _small_button("COPY", "GlassButton", "", 36.0, 12, 14)
+	copy.custom_minimum_size = Vector2(84, 36)
+	copy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	copy.pressed.connect(func() -> void:
+		DisplayServer.clipboard_set(_code_label.text)
+		copy.text = "COPIED"
+		ctx.sfx("click")
+		get_tree().create_timer(1.5).timeout.connect(func() -> void:
+			if is_instance_valid(copy): copy.text = "COPY"))
+	mine.add_child(copy)
+	_code_box.add_child(mine)
+	_code_box.add_child(T.caption("HAVE A FRIEND'S CODE?", 11, T.TEXT_2))
+	var enter := T.hbox(8)
+	_code_edit = LineEdit.new()
+	_code_edit.placeholder_text = "ABC123"
+	_code_edit.max_length = 6
+	_code_edit.custom_minimum_size = Vector2(0, 36)
+	_code_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_code_edit.add_theme_font_size_override("font_size", 14)
+	_code_edit.text_submitted.connect(func(_t: String) -> void: _submit_code())
+	enter.add_child(_code_edit)
+	var go_btn := _small_button("JOIN", "PrimaryButton", "", 36.0, 12, 14)
+	go_btn.custom_minimum_size = Vector2(84, 36)
+	go_btn.pressed.connect(_submit_code)
+	enter.add_child(go_btn)
+	_code_box.add_child(enter)
 	_list_caption = T.caption("On this server", 11, T.TEXT_2)
 	lv.add_child(_list_caption)
 	_list_empty = T.label("Nobody else is on this server yet.", 12, 500, T.TEXT_2)
@@ -159,6 +197,16 @@ func bind(m: PartyModel) -> void:
 	if model != null:
 		model.changed.connect(refresh)
 	refresh()
+
+
+func _submit_code() -> void:
+	var c := _code_edit.text.strip_edges()
+	if model == null or c.length() < 6:
+		return
+	model.join_code(c)
+	_code_edit.text = ""
+	close_list()
+	ctx.sfx("click")
 
 
 func _act(action: String, uid: int = 0) -> void:
@@ -238,8 +286,11 @@ func refresh() -> void:
 	var cap := int(st.max)
 	_count.text = "%d / %d" % [n, cap] if n >= 2 else ""
 	_leave_btn.visible = n >= 2
-	_invite_btn.disabled = n >= cap
-	if n < 2:
+	var online := model.is_online()
+	_invite_btn.disabled = n >= cap or not online
+	if not online:
+		_hint.text = "Can't reach the server. Retrying…"
+	elif n < 2:
 		_hint.text = "Play public matches with friends: in a team game you're on the same team."
 	elif leader:
 		_hint.text = "You pick the match. Your party comes with you."
@@ -275,6 +326,9 @@ func close_list() -> void:
 ## The players on this server who could be invited (not already in the party).
 func _refresh_list() -> void:
 	var T := UITheme
+	var c := model.code()
+	_code_box.visible = c != ""
+	_code_label.text = c
 	_clear(_list_rows)
 	var now := Time.get_ticks_msec()
 	var shown := 0
@@ -307,7 +361,7 @@ func _refresh_list() -> void:
 	_list_caption.visible = shown > 0
 	# as tall as the rows, never past the screen
 	var rows_h := shown * ROW_H + maxi(shown - 1, 0) * ROW_GAP
-	var room := ctx.clear_rect().end.y - _list_top - 8.0 - (LIST_CHROME_COMPACT if ctx.compact else LIST_CHROME)
+	var room := ctx.clear_rect().end.y - _list_top - 8.0 - (LIST_CHROME_COMPACT if ctx.compact else LIST_CHROME) - (124.0 if c != "" else 0.0)
 	_list_scroll.visible = shown > 0
 	_list_scroll.custom_minimum_size = Vector2(0, maxf(ROW_H, minf(rows_h, room)))
 	_list.reset_size()

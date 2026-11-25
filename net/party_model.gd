@@ -28,6 +28,20 @@ func state() -> Dictionary:
 	return party.state(me)
 
 
+## Share code of this player ("" = no codes: the local preview).
+func code() -> String:
+	return ""
+
+
+## False while the party hub can't be reached.
+func is_online() -> bool:
+	return true
+
+
+func join_code(_c: String) -> void:
+	pass
+
+
 func local_id() -> int:
 	return me
 

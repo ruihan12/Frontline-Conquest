@@ -8,6 +8,7 @@ extends Node
 const HostC = preload("res://net/mp_host.gd")
 const ClientC = preload("res://net/mp_client.gd")
 const TransportC = preload("res://net/transport.gd")
+const PartyServiceC = preload("res://net/party_service.gd")
 
 var g
 var transport
@@ -15,6 +16,8 @@ var host
 var client
 var role := ""
 var server_peers := {}
+var party_service  # server: the party hub
+var party := ""    # client: the party key named when joining a match
 var joined := false
 var player_name := "Player"
 var connected_ok := false
@@ -69,11 +72,19 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		host.on_end = _report_result
 	elif ranked:
 		push_warning("FRONTLINE_RANKED=1 without INTERNAL_KEY: results will not be reported")
+	party_service = PartyServiceC.new(func(peer: int, t: int, payload) -> void: transport.send(peer, HostC._pack(t, payload)))
+	host.party_valid = party_service.key_alive
 	transport.peer_connected.connect(func(id: int) -> void: server_peers[id] = true)
 	transport.peer_disconnected.connect(func(id: int) -> void:
 		server_peers.erase(id)
+		party_service.peer_left(id)
 		host.leave(id))
-	transport.packet.connect(func(id: int, data: PackedByteArray) -> void: host.on_message(id, data))
+	transport.packet.connect(func(id: int, data: PackedByteArray) -> void:
+		if data.size() > 1 and data[0] == HostC.C_PARTY:
+			if data.size() <= 512:
+				party_service.on_message(id, bytes_to_var(data.slice(1)))
+		else:
+			host.on_message(id, data))
 	_pending = [map_tab, map_i, bots]
 	_last_args = [map_tab, map_i, bots]
 	status = "listening on %d" % port
@@ -140,8 +151,10 @@ func _process(dt: float) -> void:
 		if _end_wait >= NEXT_MATCH_AFTER:
 			_end_wait = 0.0
 			for peer in server_peers.keys():
+				if party_service.has_peer(peer):
+					continue  # people waiting in the party hub stay connected
 				transport.disconnect_peer(peer)
-			server_peers.clear()
+				server_peers.erase(peer)
 			if OS.get_environment("FRONTLINE_MODE") == "mixed":
 				host.team_game = not host.team_game  # alternate free-for-all and team matches
 				host.team_expected = clampi(int(OS.get_environment("FRONTLINE_TEAM_PLAYERS")) if OS.has_environment("FRONTLINE_TEAM_PLAYERS") else 6, 4, 12)
@@ -169,7 +182,7 @@ func _process(dt: float) -> void:
 		connected_ok = true
 		status = "connected"
 		connected.emit()
-		client.join(player_name, token)
+		client.join(player_name, token, party)
 	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
 			and (not g.team_mode or not g.team_names.is_empty()):
 		_spawn_wait += dt

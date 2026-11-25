@@ -8,6 +8,7 @@ const DEFAULT_URL := "wss://frontline.henrymc.org/ws"
 const CONNECT_TIMEOUT := 12.0
 
 var main
+var party = null
 var token_getter := Callable()
 var _node: Node
 var _entered := false
@@ -24,20 +25,39 @@ func server_url() -> String:
 	return str(main.save.get("settings", {}).get("server_url", DEFAULT_URL))
 
 
+## The party hub (net/party_net_model.gd): its leader picks the match for everyone, and the server's go
+## starts the join on every member's PC, this one included.
+func bind_party(p) -> void:
+	party = p
+	p.go.connect(func(key: String, ranked: bool) -> void: _connect(ranked, key))
+
+
+## True when the party took over the join (a follower may not pick; a leader asks the server to send all in).
+func _party_gate(ranked: bool) -> bool:
+	if party == null or not party.in_party():
+		return false
+	if not party.is_leader():
+		main.notify("Your party leader picks the match.", "bad")
+		return true
+	party.request_go(ranked)
+	return true
+
+
 func join_casual() -> void:
-	_connect(false)
+	if not _party_gate(false):
+		_connect(false)
 
 
 func join_ranked() -> void:
-	if signed_in:
+	if signed_in and not _party_gate(true):
 		_connect(true)
 
 
-func _connect(ranked: bool) -> void:
+func _connect(ranked: bool, party_key := "") -> void:
 	leave()
 	var gen := _generation
 	var token := str(main.save.get("settings", {}).get("session_token", ""))
-	_node = main.net_join(server_url(), player_name, token)
+	_node = main.net_join(server_url(), player_name, token, false, party_key)
 	if _node == null:
 		_fail("Could not start the connection.")
 		return

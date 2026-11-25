@@ -30,6 +30,10 @@ const S_REJECT := 10  # var {reason}: the join was refused (full, ranked match n
 const S_NATION_INFO := 9  # var [[id, name, #color, alive, human], ...] in the receiver's id space
 const TeamsC = preload("res://net/teams.gd")
 const C_JOIN := 1
+const C_PARTY := 3   # var {op, ...}: the party hub (net/party_service.gd)
+const S_PARTY := 13  # var {me, code, state, players}
+const S_GO := 14     # var {key, ranked}: the party leader chose a match, everyone joins it
+const S_NOTICE := 15 # var {text}
 const C_INTENT := 2
 
 const ALLOWED := ["spawn", "move_warship", "attack", "boat", "build", "nuke", "reinforce", "retreat", "ally_request", "ally_break", "donate", "donate_gold", "ally_reply", "ally_extend"]
@@ -54,6 +58,8 @@ var team_game := false
 var team_expected := 0       # the roster size; the teams are made when this many have joined (or after TEAM_WAIT_SECS)
 var teams_ready := false
 var team_config := ""        # Duos / Trios / Quads, picked at random when the teams are made
+var pending_party := {}     # peer -> party key named in its join (checked by party_valid)
+var party_valid := Callable()
 var team_groups := {}        # peer -> party key (players who queued together stay on one team)
 var _team_wait := 0.0
 const TEAM_WAIT_SECS := 60.0
@@ -133,6 +139,8 @@ func join(peer: int, pname: String, account = 0) -> int:
 	g.nations[nid]["human"] = true
 	g.nations[nid].ai = false
 	g._rebuild_kind_cache()
+	if pending_party.has(peer):
+		team_groups[peer] = pending_party[peer]
 	peers[peer] = {"nid": nid, "name": nm, "account": account, "tokens": BURST, "t": Time.get_ticks_msec()}
 	_send_hello(peer)
 	_send_full(peer)
@@ -158,6 +166,8 @@ func reject(peer: int, reason: String) -> void:
 
 
 func leave(peer: int) -> void:
+	pending_party.erase(peer)
+	team_groups.erase(peer)
 	if peers.has(peer):
 		if not ended:
 			if g.state == "play" or (team_game and teams_ready):
@@ -330,6 +340,9 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 	var d = bytes_to_var(pkt.slice(1))  # no objects (allow_objects defaults to false in bytes_to_var)
 	if t == C_JOIN:
 		if d is Dictionary and not peers.has(peer):
+			var pk := str(d.get("party", ""))
+			if pk != "" and party_valid.is_valid() and party_valid.call(pk):
+				pending_party[peer] = pk
 			if join_gate.is_valid():
 				join_gate.call(peer, d)
 			else:
