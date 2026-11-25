@@ -256,6 +256,8 @@ func _update_console_fps(dt: float) -> void:
 
 func toggle_console() -> void:
 	if console_panel == null: return
+	# the dev console is off (owner request 2026-11-25); a local build can turn it back on with the --console user arg
+	if not ("--console" in OS.get_cmdline_user_args()): return
 	if net_host != null or net_remote: return  # no console in an online match (it would be a cheat menu)
 	if not console_panel.visible and state != "play" and state != "pick": return  # no console on the title / end screens
 	console_panel.visible = not console_panel.visible

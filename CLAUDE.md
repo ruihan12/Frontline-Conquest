@@ -5,7 +5,7 @@ Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
-- Tab console (password 5516, FPS counter, match-only)
+- Tab console (password 5516, FPS counter, match-only): DISABLED since 2026-11-25 (owner request); starts only with the `--console` user arg (godot ... -- --console)
 - Game speed slider 0.5x–10x
 - ICBM toggle (key I): +10% cost (player only); 20% seeded chance per launch to ignore SAMs, +20% flight speed, -20% silo cooldown (as of Nov 22 2026). MIRV/Scattershot warheads share the carrier's roll and speed.
 - Bulk launch ring (x1, x2, x5, most affordable) for every bomb (atom, hydrogen, MIRV, Mega, Scattershot; upstream: atom only), client/ui/ui_rules.gd (owner request 2026-11-24).
