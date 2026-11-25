@@ -79,6 +79,7 @@ var _start: Button
 var _credits: Label
 var _arsenal_btn: ArsenalButton
 var _crates_btn: CrateButton
+var party: PartyPanel
 var _building := false
 var _shown := false
 
@@ -160,6 +161,8 @@ func _init(c: UICtx, main) -> void:
 	_crates_btn = CrateButton.new(c)
 	_crates_btn.pressed.connect(func() -> void: open_crates.emit())
 	add_child(_crates_btn)
+	party = PartyPanel.new(c)
+	add_child(party)
 	visibility_changed.connect(_on_visibility)
 	apply_layout()
 
@@ -417,6 +420,8 @@ func apply_layout() -> void:
 	_credits.offset_top = -(cb + ctx.insets.w + 14.0)
 	_credits.offset_bottom = -(cb + ctx.insets.w)
 	_place_arsenal_button(compact, head_top)
+	if party != null:
+		party.apply_layout()
 
 
 ## Top right, level with the head. (Upstream's _place_crate_button: the crate takes this corner and

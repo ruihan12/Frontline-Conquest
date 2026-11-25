@@ -95,6 +95,10 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	title.show_help.connect(toggle_help)
 	title.open_arsenal.connect(func() -> void: open_arsenal(null, "title"))
 	title.open_crates.connect(func() -> void: crates.open())
+	# The party panel talks to the local preview model (stand-in players) until a party service exists.
+	if bool(main.save.get("settings", {}).get("party_on", true)):
+		title.party.bind(PartyModel.new(ctx.username()))
+		title.party.notice.connect(func(t: String) -> void: main.notify(t, "bad"))
 	title.open_account.connect(func() -> void: account.open())
 	title.open_multiplayer.connect(func() -> void: lobby.open())
 

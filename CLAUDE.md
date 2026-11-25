@@ -1,7 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
 Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
-Last updated: 2026-11-25.
+Last updated: 2026-11-25 (party menu).
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -19,6 +19,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Title-screen Multiplayer lobby preview with casual and ranked lobby screens, queue, account leaderboard, and ranked results.
 - No automatic NEXT MATCH panel over the results (owner request 2026-11-24; client_hud.gd _maybe_next_match returns early; the menu preview still opens it).
 - Player colour: 12 swatches in the pre-game (PLAY SOLO) menu, saved as save.settings.player_color, applied to your nation in game/nations.gd _start_game (owner request 2026-11-24; not used by the title attract sim).
+- Party menu (owner request 2026-11-25, upstream PartyPanel.luau): PARTY pill + panel on phones, always-visible panel on desktop, invite list, JOIN/NO, kick, LEAVE (client/ui/party_panel.gd; rules ported from server/Party.luau in net/party.gd, max 8). It runs on a local preview model with stand-in players (net/party_model.gd; save.settings.party_on=false hides it) until a party service exists; a team game does not yet read parties.
 - Supply drops (game/economy.gd _supply_tick; only in matches started from the title, supply_on): a crate lands on neutral land every 2 min after 90 s (max 3, gone after 5 min); whoever's territory covers it first gets gold, troops or (player) a free crate item. Own rng stream; tests and parity never run it.
 
 Everything else follows upstream: native 2000x1000 World (k_lin 1.0, 400 tribes, 10 maps), troops display /10,
