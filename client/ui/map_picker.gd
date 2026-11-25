@@ -196,6 +196,7 @@ func rebuild() -> void:
 	_reroll.visible = false
 	_foot.text = ATTRIBUTION
 	for b in _cards.values():
+		_grid.remove_child(b)
 		b.queue_free()
 	_cards.clear()
 	_pending.clear()

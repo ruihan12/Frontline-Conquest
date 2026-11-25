@@ -52,6 +52,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - New round: the finished round's sim lists and client layers are cleared and the world hidden while the map builds (nations.gd _clear_round_state/_set_world_visible; was: old territory, buildings and names showed through). Choosing a skin repaints only the player's territory (session.gd equip; was a whole-map recolour, ~4 s freeze).
 - Territory repaint (game/map.gd _repaint, _paint_budget_us): a captured tile queues only its owned neighbours (neutral land and water don't change look), and the per-frame paint budget scales with game speed (to 4x). In a 10x match the stale-pixel backlog (old owner colour on tiles awaiting repaint: single-pixel dots at fronts) fell from ~17k to ~3.5k queued tiles; it is not zero while the fighting is heavy.
 - UI package A aligns ranking columns, resets match-clock colours across phases, and repositions the spawn banner as its contents change.
+- UI package B matches compact Locker sizing, keeps title actions in one row, and uses the upstream fallout colour-noise formula.
 - Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
 
 ## What's left

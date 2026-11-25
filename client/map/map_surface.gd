@@ -150,7 +150,8 @@ func tile_color(i: int) -> Color:
 		# stale-nuke ground: (0.05, 0.55, 0.07) + hash noise * 0.05, opaque (the glow of fresh fallout
 		# is FalloutGlow's overlay, not the ground's)
 		var y := i / W
-		var h := fmod(absf(sin(x * 12.9898 + y * 78.233) * 43758.5453), 1.0) * 0.05
+		var hash := sin(x * 12.9898 + y * 78.233) * 43758.5453
+		var h := (hash - floorf(hash)) * 0.05
 		return Color(0.05 + h, 0.55 + h, 0.07 + h)
 	var tc: Color = g.base_col[i]
 	if o <= 0:

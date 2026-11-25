@@ -64,6 +64,7 @@ var _dock_v: VBoxContainer
 var _greet: Label
 var _solo: Button
 var _help: Button
+var _account_btn: Button
 var _map_btn: Button
 var _diff_row: HBoxContainer
 var _diff_caption: Label
@@ -261,6 +262,7 @@ func _build_dock() -> void:
 	_solo.add_theme_constant_override("icon_max_width", 18)
 	_solo.add_theme_font_size_override("font_size", 19)
 	_solo.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_solo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_solo.pressed.connect(open_solo_menu)
 	row.add_child(_solo)
 	_help = UITheme.button("", "GlassButton", "help", 62.0)
@@ -268,9 +270,10 @@ func _build_dock() -> void:
 	_help.tooltip_text = "How to play"
 	_help.pressed.connect(func() -> void: show_help.emit())
 	row.add_child(_help)
-	var account := UITheme.button("Account", "GlassButton", "", 42)
-	account.pressed.connect(func() -> void: open_account.emit())
-	v.add_child(account)
+	_account_btn = UITheme.button("Account", "GlassButton", "", 42)
+	_account_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_account_btn.pressed.connect(func() -> void: open_account.emit())
+	row.add_child(_account_btn)
 
 	# (these three live in the PLAY SOLO panel)
 	var mb := UITheme.button("", "GlassButton", "globe", 42.0)
@@ -334,6 +337,8 @@ func apply_layout() -> void:
 	_tag_l.custom_minimum_size = Vector2(40 if compact else 72, 2)
 	_tag_r.custom_minimum_size = _tag_l.custom_minimum_size
 	var head_top := (56.0 if compact else maxf(vp.y * 0.07, 40.0)) + ctx.insets.y
+	if compact and (vp.x - w_now) * 0.5 < ctx.reserved_top_left.end.x + 8.0:
+		head_top = maxf(head_top, ctx.reserved_top_left.end.y + 2.0)
 	var head := _head
 	head.anchor_left = 0.5
 	head.anchor_right = 0.5
@@ -375,6 +380,7 @@ func apply_layout() -> void:
 	_start.custom_minimum_size = Vector2(0, 48 if compact else 58)
 	_start.add_theme_font_size_override("font_size", 16 if compact else 19)
 	_help.custom_minimum_size = Vector2(56, 56) if compact else Vector2(62, 62)
+	_account_btn.custom_minimum_size.y = 44 if compact else 50
 	for ch in _chips:
 		ch.custom_minimum_size = Vector2(64 if compact else 0, 44 if ctx.touch else 34)
 		ch.add_theme_font_size_override("font_size", 12 if compact else 13)
