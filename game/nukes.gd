@@ -136,6 +136,23 @@ const ICBM_CD_X := 0.8
 static func flight_ticks(ft: int, icbm: bool) -> int:
 	return maxi(1, int(ceil(float(ft) / (NUKE_SPEED_X * (ICBM_SPEED_X if icbm else 1.0)))))
 
+## Atom and hydrogen bombs cannot target a teammate's building within the outer blast radius.
+func teammate_building_in_blast(owner: int, kind: int, tile: int) -> bool:
+	if not team_mode or kind not in [7, 8] or tile < 0 or tile >= W * H or owner <= 0 or owner >= nations.size():
+		return false
+	var team := int(nations[owner].get("team", 0))
+	if team == 0:
+		return false
+	_refresh_nuke_r()
+	var radius := nuke_outer(kind, int(SimRules.NUKE_KIND_OF[kind]))
+	var center := _tc(tile, W)
+	for building: Dictionary in structs:
+		var mate := int(building.o)
+		if mate > 0 and mate != owner and mate < nations.size() and int(nations[mate].get("team", 0)) == team and _tc(int(building.tile), W).distance_squared_to(center) <= radius * radius:
+			return true
+	return false
+
+
 # ---------------------------------------------------------------- launch (SimNukes.launch_nuke)
 func launch_nuke(o: int, k: int, tile: int) -> bool:
 	if not k in NUKES or tile < 0 or tile >= W * H: return false
@@ -148,6 +165,10 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 		return false
 	if victim > 0 and allied(o, victim):
 		if o == PLAYER: notify("You can't nuke an ally", "info")
+		return false
+	if teammate_building_in_blast(o, k, tile):
+		if o == PLAYER:
+			notify("A teammate's building is too close", "info")
 		return false
 	var cost: float = nuke_cost(k, o)
 	var nm: String = build_data[k][1]

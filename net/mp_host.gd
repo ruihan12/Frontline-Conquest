@@ -405,6 +405,9 @@ func apply_intent(nid: int, d: Dictionary) -> bool:
 			return false
 	elif g.state != "play":
 		return false
+	if ty in ["build", "nuke"] and g.teammate_building_in_blast(
+			nid, int(RWGameState.BUILD_ID.get(it.get("kind", ""), -1)), int(it.get("tile", -1))):
+		return false
 	if ty == "retreat":
 		var ok := false
 		for at in g.attacks:

@@ -67,6 +67,20 @@ func _init() -> void:
 	for i in range(1, hs.m.nations.size()):
 		if hs.m.nations[i].get("tribe", false) and int(hs.m.nations[i].get("team", 0)) != 0: tribe_team += 1
 	_ok(tribe_team == 0, "tribes are on no team")
+	# Use a pair of local fixtures even if Quads resolved to four separate teams this round.
+	var original_team: int = hs.m.nations[foe].team
+	hs.m.nations[foe].team = hs.m.nations[a].team
+	var target := 6
+	hs.m.structs.append({"o": foe, "tile": target + 1})
+	hs.m.state = "play"
+	_ok(hs.m.teammate_building_in_blast(a, 7, target) and hs.m.teammate_building_in_blast(a, 8, target), "atom and hydrogen respect teammate blast radius")
+	_ok(not hs.m.teammate_building_in_blast(a, 9, target), "MIRV keeps upstream rules")
+	_ok(not host.apply_intent(a, {"type": "nuke", "kind": "atom", "tile": target}), "host denies a teammate blast")
+	hs.m.team_mode = false
+	_ok(not hs.m.teammate_building_in_blast(a, 7, target), "free-for-all is unaffected")
+	hs.m.team_mode = true
+	hs.m.structs.pop_back()
+	hs.m.nations[foe].team = original_team
 	# a leaver is no longer a teammate
 	if mate > 0:
 		hs.m.state = "play"

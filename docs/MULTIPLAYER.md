@@ -46,3 +46,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - 2026-11-25: The team leaderboard and status bar use named teams and combined surviving land from the local or replicated match state.
 
 - 2026-11-25: Schema version 5 stores a nullable team per match player; account match history shows that player’s team, placement and ranked Elo changes.
+
+- 2026-11-25: Team matches enforce upstream’s atom and hydrogen outer-radius protection for teammate buildings at both launch and host intent validation.
