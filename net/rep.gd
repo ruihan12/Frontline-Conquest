@@ -126,6 +126,7 @@ const LISTS := {
 	"traders": {"own": ["o"]},
 	"warships": {"own": ["o"]},
 	"missiles": {"own": ["o", "tgt_o"]},
+	"attacks": {"own": ["a", "t"], "keep": ["a", "t", "troops", "aid", "started", "sent", "last", "retreat_at", "tgt"]},  # light: no front/history
 }
 
 
@@ -138,6 +139,11 @@ static func encode_lists(main, my := 1, names := []) -> PackedByteArray:
 		var arr := []
 		for e in main.get(name):
 			var d: Dictionary = e.duplicate(false)
+			if LISTS[name].has("keep"):
+				var lite := {}
+				for kk in LISTS[name].keep:
+					if d.has(kk): lite[kk] = d[kk]
+				d = lite
 			for k in own:
 				if d.has(k):
 					d[k] = swap_id(int(d[k]), my)
@@ -151,6 +157,9 @@ static func apply_lists(main, packet: PackedByteArray) -> void:
 	var got: Dictionary = bytes_to_var(raw)
 	for name in got:
 		var dst: Array = main.get(name)
+		if name == "attacks":
+			_apply_attacks(main, got[name])
+			continue
 		dst.clear()
 		dst.append_array(got[name])
 	if got.has("structs"):
@@ -158,3 +167,22 @@ static func apply_lists(main, packet: PackedByteArray) -> void:
 		for st in main.structs:
 			main.struct_at[int(st.tile)] = st
 		main._sv += 1
+
+
+## A viewer's attack list: updated in place by attack id so the label springs keep moving smoothly.
+static func _apply_attacks(main, incoming: Array) -> void:
+	var have := {}
+	for a in main.attacks:
+		have[int(a.aid)] = a
+	var out := []
+	for e in incoming:
+		var cur = have.get(int(e.aid))
+		if cur == null:
+			cur = {"front": {}, "hk": PackedInt64Array(), "ht": PackedInt32Array(), "head": -1, "chew": 0.0, "frozen_from": 0,
+				"counter": false, "vel": Vector2.ZERO, "pend": 0.0, "shown": float(e.troops)}
+			cur.disp = e.tgt
+		for k in e:
+			cur[k] = e[k]
+		out.append(cur)
+	main.attacks.clear()
+	main.attacks.append_array(out)

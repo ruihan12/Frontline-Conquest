@@ -69,6 +69,20 @@ func on_message(pkt: PackedByteArray) -> void:
 			g.shield_until.clear()
 			for id in s.shields:
 				g.shield_until[int(id)] = int(s.shields[id])
+			if s.has("allies"):
+				g.allies.clear()
+				for k in s.allies:
+					g.allies[int(k)] = int(s.allies[k])
+				g.traitor.clear()
+				for k in s.traitor:
+					g.traitor[int(k)] = int(s.traitor[k])
+				var old_reqs: Dictionary = g.ally_requests
+				g.ally_requests = {}
+				for k in s.reqs:
+					g.ally_requests[int(k)] = int(s.reqs[k])
+					if int(k) % 1024 == 1 and not old_reqs.has(int(k)):  # someone asked me
+						g.sfx("ally_suggest")
+						g._show_ally_card("propose", int(k) / 1024)
 			if str(s.state) != g.state:
 				g.state = str(s.state)
 		HostC.S_NATION_INFO:

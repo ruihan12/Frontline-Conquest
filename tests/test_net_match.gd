@@ -63,6 +63,10 @@ func _init() -> void:
 	ca.send_intent({"type": "attack", "tile": edge, "ratio": 0.5})
 	hs.step(80)
 	_ok(hs.m.nations[1].land > a0, "Alice's attack grew her territory (%d -> %d)" % [a0, hs.m.nations[1].land])
+	var mine := 0
+	for at in ha.m.attacks:
+		if int(at.a) == 1: mine += 1
+	_ok(absi(ha.m.attacks.size() - hs.m.attacks.size()) <= 40 and ha.m.attacks.size() > 0, "Alice's viewer lists the host's attacks (%d vs %d, %d hers)" % [ha.m.attacks.size(), hs.m.attacks.size(), mine])
 	# both viewers hold the same world as the host, in their own id space
 	var diff_a := 0
 	var diff_b := 0
@@ -77,6 +81,15 @@ func _init() -> void:
 	_ok(diff_b == 0, "Bob's view equals the host's world (%d differing tiles)" % diff_b)
 	_ok(ha.m.nations[1].land == hs.m.nations[1].land, "Alice's land count matches")
 	_ok(hb.m.nations[nb].land == hs.m.nations[1].land, "Bob sees Alice's land under host id %d" % nb)
+	# diplomacy: Alice asks Bob for an alliance; Bob's viewer sees the request, then accepts
+	ca.send_intent({"type": "ally_request", "target": nb})
+	hs.step(12)
+	_ok(hs.m.ally_requests.size() > 0, "host has Alice's alliance request")
+	_ok(hb.m.ally_requests.has(nb * 1024 + 1), "Bob's viewer sees the request (from Alice = id %d in his space)" % nb)
+	cb.send_intent({"type": "ally_reply", "target": nb, "accept": true})
+	hs.step(12)
+	_ok(hs.m.allied(1, nb), "alliance formed on the host")
+	_ok(ha.m.allied(1, nb) and hb.m.allied(1, nb), "both viewers see the alliance")
 	# rate limit: a flood is dropped
 	var applied := 0
 	for _k in 200:

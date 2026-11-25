@@ -186,7 +186,24 @@ func _state_dict(my: int) -> Dictionary:
 	var sh := {}
 	for id in g.shield_until:
 		sh[NetRepC.swap_id(int(id), my)] = int(g.shield_until[id])
-	return {"tick": g.sim_atk.tick, "elapsed": g.elapsed, "state": g.state, "deploy_t": g.deploy_t, "peace": g.peace, "shields": sh, "land_total": g.land_total, "fallout": g.fallout_count}
+	# diplomacy, in this viewer's id space: alliance keys are min*4096+max, request keys from*1024+to
+	var al := {}
+	for k in g.allies:
+		var a := swap_pair(int(k) / 4096, int(k) % 4096, my)
+		al[a] = int(g.allies[k])
+	var rq := {}
+	for k in g.ally_requests:
+		rq[NetRepC.swap_id(int(k) / 1024, my) * 1024 + NetRepC.swap_id(int(k) % 1024, my)] = int(g.ally_requests[k])
+	var tr := {}
+	for id in g.traitor:
+		tr[NetRepC.swap_id(int(id), my)] = int(g.traitor[id])
+	return {"tick": g.sim_atk.tick, "elapsed": g.elapsed, "state": g.state, "deploy_t": g.deploy_t, "peace": g.peace, "shields": sh, "land_total": g.land_total, "fallout": g.fallout_count, "allies": al, "reqs": rq, "traitor": tr}
+
+
+static func swap_pair(a: int, b: int, my: int) -> int:
+	var x: int = NetRepC.swap_id(a, my)
+	var y: int = NetRepC.swap_id(b, my)
+	return mini(x, y) * 4096 + maxi(x, y)
 
 
 static func _pack(t: int, d) -> PackedByteArray:
@@ -221,6 +238,8 @@ func on_tick() -> void:
 		if _ntick % 3 == 0:
 			send.call(peer, _pack_raw(S_NATIONS, NetRepC.encode_nations(g, my)))
 		var names := ["boats", "traders", "warships", "missiles"]
+		if _ntick % 5 == 0:
+			names.append("attacks")  # 400+ light entries (~14 KB): twice a second is enough for the attack rows
 		if sv_changed:
 			names.append("structs")
 		send.call(peer, _pack_raw(S_LISTS, NetRepC.encode_lists(g, my, names)))
@@ -317,6 +336,8 @@ func apply_intent(nid: int, d: Dictionary) -> bool:
 		return false
 	if it.has("target") and (int(it.target) < 0 or int(it.target) >= g.nations.size()):
 		return false
+	if it.has("target"):
+		it["target"] = NetRepC.swap_id(int(it.target), nid)  # the viewer's id space to the host's
 	if it.has("amount"):
 		it["amount"] = clampi(int(it.amount), 1, 10)
 	# phases: spawning only in the spawn phase; everything else only in play
