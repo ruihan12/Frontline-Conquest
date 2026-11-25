@@ -34,6 +34,7 @@ Steady 60 fps at 1x on the World map (400 tribes) in the web build (threads on, 
 - Upstream (Luau, lukechatton/roworld, clone at /home/claude/lukechatton/roworld if present) does its conquest with: --!native/--!strict on 31 files, buffer-backed flat state, a bucket-queue conquest ring (RING=256) instead of a binary heap, an i32 border buffer, table.create preallocation, and a MAX_TILES_PER_TICK cap. A bucket queue keyed by integer priority could replace the heap in sim/attacks.gd if it keeps the same pop order (verify with the hash; ties and RNG order matter, so match the existing order exactly or prove the hash is unchanged).
 - Hoist invariant work out of loops, cache lookups (g.* property reads in hot loops are slow: copy to locals, as _process already does).
 - Avoid per-frame allocations (Array/Dictionary/Vector2 churn, string formatting, duplicate()).
+- Isolated worker jobs are allowed: WorkerThreadPool tasks that take a copy of their input (Packed arrays, plain values) and return a result for the main thread to apply, never touching live sim state, nodes or the RNG. Candidates: name-tag placement and territory paint/texture preparation (client side only). The threads must not change any sim result, so parity and the hash stay as they are. Web threads work in our export (COOP/COEP).
 - Rendering: fewer draw calls and redraws in client layers (redraw only on change), reuse textures, avoid per-frame Image creation.
 - GDExtension/C# are not options for the web export; do not add them. Luau in Godot needs 4.5 (see tools/luau_proto), out of scope.
 
