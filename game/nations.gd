@@ -60,6 +60,10 @@ func _clear_round_state() -> void:
 	structs.clear(); struct_at.clear(); _sv += 1
 	blasts.clear(); shells.clear(); notes.clear(); cap_fx.clear(); floats.clear(); trains.clear()
 	planes.clear(); beams.clear(); allies.clear()
+	# everything the finished round cached (rails, paths, embargoes, fallout glow): a new world starts clean
+	rail_cache.clear(); _rail_nb_cache.clear(); path_cache.clear(); path_fail.clear(); embargoes.clear()
+	traitor.clear(); ally_warned.clear(); ally_ext.clear(); ally_extensions.clear()
+	if fallout_glow != null: fallout_glow.reset()
 	if sim_ars: sim_ars.reset()
 	if sim_ws: sim_ws.reset()
 	sel_ws = null; build_sel = -1

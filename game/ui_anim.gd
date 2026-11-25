@@ -122,7 +122,8 @@ func _to_menu() -> void:
 		if mpn != null: mpn.queue_free()
 		net_remote = false; net_client = null; net_hello = {}; net_host = null; net_rec = false
 	if audio_dir != null: audio_dir.end_match()
-	if state != "menu" and nations.size() > 1: _reset_menu_world()
+	# every finished match leaves through here: the world, its structures and every cache are rebuilt (owner request 2026-11-25)
+	if nations.size() > 1 or not structs.is_empty() or state != "menu": _reset_menu_world()
 	attract_on = false
 	state = "menu"
 	_stop_music()
