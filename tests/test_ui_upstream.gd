@@ -14,6 +14,11 @@ func _init() -> void:
 	if NF.fmt_pct(0.005) != "0.50%" or NF.fmt_pct(0.25) != "25.0%": fails += 1
 	if NF.fmt_rate(0.2) != "±0/s" or NF.fmt_rate(1500.0) != "+1.5K/s": fails += 1
 	if TT.AMBER.to_html(false) != "ffb547": fails += 1; print("AMBER ", TT.AMBER.to_html(false))
+	var large := {1.0e9: "1.00B", 1.234e9: "1.23B", -1.234e9: "-1.23B", 1.0e12: "1.0T"}
+	for value in large:
+		if UITheme.fmt_num(value) != large[value]:
+			fails += 1
+			print("FAIL large HUD number ", value)
 	var files := ["theme.json", "audio.json", "icons.json", "atlases.json", "catalog.json", "hotkeys.json", "number_format.json", "map_palette.json", "strings_by_screen.json"]
 	for f in files:
 		var d = JSON.parse_string(FileAccess.get_file_as_string("res://ui_upstream/" + f))

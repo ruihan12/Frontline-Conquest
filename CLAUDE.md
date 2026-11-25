@@ -13,7 +13,7 @@ As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except f
 - Range borders (with a mouse too: main.gd _feed_ranges feeds RangeLayer the aim; before 2026-11-24 only the touch ghost did, so SAM, post, artillery, airfield, factory and warship rings never showed before placing): armed Air Strike shows every airfield's reach; warship placement shows its 130-tile range; names show when they fit their territory.
 - Title screen is a live AI-only attract simulation (5x time-lapse for first 8 s, silent, restarts on a winner or 300 s; setting save.settings.attract_on)
 - No custom settings window any more (removed 2026-11-24): the gear/Settings rows open upstream's own settings page (client/ui/pause_menu.gd). FPS is uncapped (Engine.max_fps = 0) and V-Sync is off on desktop; the web follows the browser.
-- Name tags: a new placement pass every 1 s of real time in a match and every 1 ms (as soon as the last pass is through) before the match, i.e. in the spawn phase (upstream: every 30 ticks); ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz (client/map/name_layer.gd; owner request 2026-11-24).
+- Name tags: a new placement pass every 1 s of real time in a match and every 1 ms (as soon as the last pass is through) before the match, i.e. in the spawn phase (upstream: every 30 ticks); ease speed 18 (upstream 10), placement budget 3 ms, redraw 20 Hz, 0.5 px visibility hysteresis (client/map/name_layer.gd; owner request 2026-11-24).
 - Cosmetic crates (3D chest client/ui/chest_view.gd, title button client/ui/crate_button.gd, top-right corner with Arsenal to its left like upstream; window client/ui/crates.gd, game/cosmetics.gd, game/cosmetics_data.gd generated from upstream Cosmetics.luau): 3000 Stars a crate, no duplicates, skins tile over the player's territory (client/map/map_surface.gd), flags are collected only (not drawn on name plates).
 - Title-screen accounts with guest identities, optional local progress upload, and Minecraft linking and password recovery (client/ui/account.gd, net/api.gd).
 - No automatic NEXT MATCH panel over the results (owner request 2026-11-24; client_hud.gd _maybe_next_match returns early; the menu preview still opens it).
@@ -53,6 +53,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Territory repaint (game/map.gd _repaint, _paint_budget_us): a captured tile queues only its owned neighbours (neutral land and water don't change look), and the per-frame paint budget scales with game speed (to 4x). In a 10x match the stale-pixel backlog (old owner colour on tiles awaiting repaint: single-pixel dots at fronts) fell from ~17k to ~3.5k queued tiles; it is not zero while the fighting is heavy.
 - UI package A aligns ranking columns, resets match-clock colours across phases, and repositions the spawn banner as its contents change.
 - UI package B matches compact Locker sizing, keeps title actions in one row, and uses the upstream fallout colour-noise formula.
+- UI package C updates the Tab console layout and keyboard scrolling, matches the Arsenal unlock motion, and fixes large HUD suffixes and name-plate flicker near the visibility cutoff.
 - Remaining non-sliced spikes: naval up to 13 ms, economy up to 6.6 ms per tick.
 
 ## What's left
