@@ -140,6 +140,20 @@ func open_crate() -> bool:
 ## Open up to n crates in a row (stops when the Stars or the items run out). The item ids, in order.
 func open_crates(n: int) -> Array:
 	var out: Array = []
+	if n == CosmeticsRules.PACK_SIZE:
+		# the x10 pack: one price for all ten (CosmeticsRules.PACK_COST), charged up front
+		if int(g.save.stars) < CosmeticsRules.PACK_COST:
+			return out
+		var paid := CosmeticsRules.PACK_COST
+		g.save.stars = int(g.save.stars) + CosmeticsRules.CRATE_COST * n - paid  # open_crate takes 3000 each: give the discount back first
+		for _i in n:
+			if not open_crate():
+				break
+			out.append(last_crate_item)
+		if out.size() < n:  # the items ran out: only the crates opened are paid for
+			g.save.stars = int(g.save.stars) - (CosmeticsRules.CRATE_COST * n - paid)  # no pack discount for a part pack
+			g.write_save()
+		return out
 	for _i in n:
 		if not open_crate():
 			break

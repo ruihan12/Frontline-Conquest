@@ -5,6 +5,12 @@ class_name CosmeticsRules
 extends RefCounted
 
 const CRATE_COST := 3000  # Stars
+const PACK_SIZE := 10
+const PACK_COST := 27500  # Stars: Open x10 (owner request 2026-11-25; ten singles would be 30,000)
+
+## Stars for opening n crates in one go: the x10 pack has its own price, any other count is n singles.
+static func pack_cost(n: int) -> int:
+	return PACK_COST if n == PACK_SIZE else n * CRATE_COST
 
 static var _items := {}
 static var _order: Array = []

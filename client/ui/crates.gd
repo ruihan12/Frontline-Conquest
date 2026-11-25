@@ -257,7 +257,9 @@ func _crate_card(owned: Dictionary, width: float) -> Control:
 		v.add_child(ob)
 		var stars := int(g.save.stars)
 		var left := total - owned.size()
-		var many := mini(mini(10, int(stars / CosmeticsRules.CRATE_COST)), left)
+		var many := mini(CosmeticsRules.PACK_SIZE, left)
+		while many > 1 and CosmeticsRules.pack_cost(many) > stars:
+			many -= 1
 		var button_height := 40.0 if ctx.compact else 48.0
 		var openb := UITheme.button(UICtx.commas(CosmeticsRules.CRATE_COST), "PrimaryButton", "star", button_height)
 		openb.custom_minimum_size.x = width - 32.0
@@ -267,7 +269,7 @@ func _crate_card(owned: Dictionary, width: float) -> Control:
 		if left >= 2:
 			var pack := many if many >= 2 else mini(10, left)
 			var pack_height := 34.0 if ctx.compact else 42.0
-			var tenb := UITheme.button("Open ×%d  ·  %s" % [pack, UICtx.commas(CosmeticsRules.CRATE_COST * pack)], "GhostButton", "", pack_height)
+			var tenb := UITheme.button("Open ×%d  ·  %s" % [pack, UICtx.commas(CosmeticsRules.pack_cost(pack))], "GhostButton", "", pack_height)
 			tenb.custom_minimum_size.x = width - 32.0
 			tenb.add_theme_font_size_override("font_size", 12 if ctx.compact else 13)
 			tenb.disabled = many < 2
