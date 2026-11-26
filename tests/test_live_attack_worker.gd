@@ -65,10 +65,13 @@ func _run() -> void:
 	var rails_match := _check_rail_preparation(game)
 	var shore_matches := _check_shore_preparation(game)
 	var trader_matches := _check_trader_preparation(game)
+	var steering_matches := _check_warship_steering(game)
+	var posts_match := _check_post_transport_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches and trader_matches
+		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches and trader_matches \
+		and steering_matches and posts_match
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -521,3 +524,89 @@ func _check_trader_preparation(game) -> bool:
 	if not matched or not fallback:
 		print("Trade target fixture matched=", matched, " fallback=", fallback)
 	return matched and fallback
+
+func _check_warship_steering(game) -> bool:
+	var nav: SimNav = game.sim_nav
+	var width: int = game.W
+	var tile := -1
+	for candidate in range(0, nav.body.size() - 5):
+		if candidate % width >= width - 5 or nav.body[candidate] == 0: continue
+		if nav.body[candidate] == nav.body[candidate + 5]:
+			tile = candidate
+			break
+	if tile < 0: return false
+	game.traders.clear()
+	var start := SimArsenal.tpos(tile, width)
+	var target := start + Vector2(5, 0)
+	var ship := {"o": 4, "pos": start, "tgt": target,
+		"nav_r": PackedVector2Array([start, start + Vector2(0.5, 0), target]), "nav_t": target, "nav_i": 0}
+	game.sim_ws.init_ship(ship)
+	game.warships = [ship]
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var step: float = game.sim_rules.warship_tiles_per_tick(false)
+	var expected := ship.duplicate(true)
+	var search_revision := nav.search_revision
+	if not nav.steer(expected, step * game.warship_speed): return false
+	game.sim_ws._move(ship, step)
+	var used: bool = ship == expected and ship.nav_i == 2 and ship.pos == start + Vector2.RIGHT \
+		and nav.search_revision == search_revision and game.sim_ws.worker_steering_steps_used == 1
+
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	ship.tgt = target - Vector2.RIGHT
+	expected = ship.duplicate(true)
+	if not nav.steer(expected, step * game.warship_speed): return false
+	game.sim_ws._move(ship, step)
+	var stale: bool = ship == expected and game.sim_ws.worker_steering_steps_used == 1
+	if not used or not stale:
+		print("Warship steering fixture used=", used, " stale=", stale)
+	return used and stale
+
+func _check_post_transport_preparation(game) -> bool:
+	var tile: int = game.owner_map.find(2)
+	while tile >= 0 and game.struct_at.has(tile):
+		tile = game.owner_map.find(2, tile + 1)
+	if tile < 0: return false
+	game._struct_add(3, tile, 2)
+	var post: Dictionary = game.struct_at[tile]
+	post.bt = 0.0
+	game.warships.clear()
+	var point := (SimArsenal.tpos(tile, game.W) + Vector2(5.0, 0)) * float(game.TS)
+	var boat := {"a": 4, "uid": 1, "dest": tile, "d": 0.0,
+		"pts": PackedVector2Array([point, point + Vector2(2.0, 0)]), "cum": PackedFloat32Array([0.0, 2.0])}
+	var earlier := boat.duplicate(true)
+	earlier.uid = 2
+	game.boats = [earlier, boat]
+	var sim: SimWarships = game.sim_ws
+	sim._post_shelled[tile * SimWarships.POST_TRANSPORT_STRIDE + int(earlier.uid)] = true
+	game.sim_atk.tick = ceili(float(game.sim_atk.tick + 1) / 10.0) * 10 - 1
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var before := sim.shells.size()
+	sim._posts_tick(game.sim_atk.tick)
+	var used: bool = sim.worker_post_scans_used >= 1 and sim.shells.size() > before \
+		and sim.shells.any(func(shell): return is_same(shell.shooter, post) and is_same(shell.target.ref, boat))
+	if not used:
+		print("Defense post fixture count=", sim.worker_post_scans_used)
+		return false
+
+	var scans := sim.worker_post_scans_used
+	var replacement := boat.duplicate(true)
+	replacement.uid = 3
+	var alternate := boat.duplicate(true)
+	alternate.uid = 4
+	game.boats = [replacement, alternate]
+	game.sim_atk.tick += ceili(float(SimRules.DEFENSE_POST_SHELL_TICKS + 1) / 10.0) * 10 - 1
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	replacement.pts = PackedVector2Array([point + Vector2(2000, 0), point + Vector2(2002, 0)])
+	before = sim.shells.size()
+	sim._posts_tick(game.sim_atk.tick)
+	return sim.worker_post_scans_used == scans and sim.shells.slice(before).any(
+		func(shell): return is_same(shell.shooter, post) and is_same(shell.target.ref, alternate))

@@ -120,6 +120,8 @@ func _run():
 		print("WARSHIP_WORKER_SHORE_CHECKS ", m.sim_ws.worker_shore_checks_used)
 		print("WARSHIP_WORKER_TRANSPORT_SCANS ", m.sim_ws.worker_transport_scans_used)
 		print("WARSHIP_WORKER_TRADE_SCANS ", m.sim_ws.worker_trade_scans_used)
+		print("WARSHIP_WORKER_STEERING_STEPS ", m.sim_ws.worker_steering_steps_used)
+		print("DEFENSE_POST_WORKER_SCANS ", m.sim_ws.worker_post_scans_used)
 	m.queue_free()
 	await process_frame
 	quit()

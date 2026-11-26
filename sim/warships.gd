@@ -18,13 +18,18 @@ var stats := {"shots": 0, "sunk_transports": 0, "sunk_warships": 0, "captures": 
 # coastal-defense behaviour was asked for. Set false for the upstream default.
 var defense_posts_shoot := true
 var _post_last := {}     # post tile -> tick of its last shell
+const POST_TRANSPORT_STRIDE := 1 << 20
 var _post_shelled := {}  # post tile * 2^20 + transport uid -> true
+var _prepared_post_targets := {}
+var worker_post_scans_used := 0
 
 func _init(main, rules: SimRules) -> void:
 	g = main
 	R = rules
 
 func reset() -> void:
+	accept_steering_steps(-1, 0, -1, {})
+	_prepared_post_targets = {}
 	accept_transport_targets(-1, 0.0, {}, [], {})
 	accept_shore_checks(-1, -1, 0.0, [])
 	accept_trade_targets(0.0, 0.0, {}, {})
@@ -82,6 +87,8 @@ func _posts_tick(t: int) -> void:
 	var r: float = SimRules.DEFENSE_POST_TARGET_FULL / R.k_lin
 	var r2 := r * r
 	var W: int = g.W
+	var use_prepared: bool = not _prepared_post_targets.is_empty() and _transport_tick == t \
+		and not g.team_mode and _transport_allies == g.allies and _transport_inputs_match()
 	for s in g.structs:
 		if s.k != 3 or float(s.get("bt", 0.0)) > 0.0: continue
 		var pt: int = s.tile
@@ -90,11 +97,21 @@ func _posts_tick(t: int) -> void:
 		var best = null
 		var bp := 9
 		var bd := 0.0
-		for bt in g.boats:
-			if bt.a == s.o or g.allied(bt.a, s.o) or _post_shelled.has(pt * 1048576 + int(bt.get("uid", -1))): continue
-			var d: float = (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(sp)
-			if d <= r2 and (best == null or d < bd):
-				best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
+		var prepared: Array = _prepared_post_targets.get(pt, []) if use_prepared else []
+		if not prepared.is_empty() and prepared[0] == s.o and prepared[1] == r \
+				and prepared[2] == int(_post_last.get(pt, -100000)):
+			worker_post_scans_used += 1
+			if prepared[3] >= 0:
+				best = {"kind": "boat", "ref": g.boats[prepared[3]]}
+				bp = 0
+		else:
+			for bt in g.boats:
+				if bt.a == s.o or g.allied(bt.a, s.o) \
+						or _post_shelled.has(pt * POST_TRANSPORT_STRIDE + int(bt.get("uid", -1))):
+					continue
+				var d: float = (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(sp)
+				if d <= r2 and (best == null or d < bd):
+					best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
 		if bp != 0:
 			for w in g.warships:
 				if w.o == s.o or g.allied(w.o, s.o): continue
@@ -109,7 +126,7 @@ func _posts_tick(t: int) -> void:
 		stats.post_shots += 1
 		if s.o == g.PLAYER or (best.kind == "boat" and best.ref.a == g.PLAYER) or (best.kind == "ws" and best.ref.o == g.PLAYER):
 			g.sfx("warship_shot", -4.0, 0.06, g.PLAYER)
-		if best.kind == "boat": _post_shelled[pt * 1048576 + int(best.ref.get("uid", -1))] = true
+		if best.kind == "boat": _post_shelled[pt * POST_TRANSPORT_STRIDE + int(best.ref.get("uid", -1))] = true
 
 func _ship_tick(ws: Dictionary, t: int) -> void:
 	var hp_before: float = ws.hp
@@ -228,20 +245,55 @@ const STALE_TARGET_SCAN := -2
 # A valid scan with no target returns -1.
 func _prepared_transport_target(ws: Dictionary, scan_range: float) -> int:
 	if not _transport_targets.has(ws.uid) or _transport_tick != now() or _transport_range != scan_range \
-			or g.team_mode or _transport_allies != g.allies or _transport_inputs.size() != g.boats.size():
+			or g.team_mode or _transport_allies != g.allies:
 		return STALE_TARGET_SCAN
 	var result: Array = _transport_targets[ws.uid]
 	var ship: Dictionary = result[0]
 	if ship.o != ws.o or ship.pos != ws.pos or ship.shelled != ws.shelled:
 		return STALE_TARGET_SCAN
+	if not _transport_inputs_match():
+		return STALE_TARGET_SCAN
+	worker_transport_scans_used += 1
+	return result[1]
+
+func _transport_inputs_match() -> bool:
+	if _transport_inputs.size() != g.boats.size():
+		return false
 	for i in _transport_inputs.size():
 		var saved: Dictionary = _transport_inputs[i]
 		var boat: Dictionary = g.boats[i]
 		if saved.a != boat.a or saved.uid != int(boat.get("uid", -1)) or saved.d != boat.d \
 				or saved.pts != boat.pts or saved.cum != boat.cum:
-			return STALE_TARGET_SCAN
-	worker_transport_scans_used += 1
-	return result[1]
+			return false
+	return true
+
+func capture_post_transport_scans(tick: int) -> Array:
+	var posts := []
+	if not defense_posts_shoot or tick % 10 != 0 or g.boats.is_empty():
+		return posts
+	# With IDs inside this range, a shot at one post cannot modify another post's exclusions.
+	for boat: Dictionary in g.boats:
+		var uid := int(boat.get("uid", -1))
+		if uid < 0 or uid >= POST_TRANSPORT_STRIDE:
+			return posts
+	for post: Dictionary in g.structs:
+		if post.k != 3 or float(post.get("bt", 0.0)) > 0.1:
+			continue
+		var tile: int = post.tile
+		var last := int(_post_last.get(tile, -100000))
+		if tick - last <= SimRules.DEFENSE_POST_SHELL_TICKS:
+			continue
+		var shelled := {}
+		for boat: Dictionary in g.boats:
+			var uid := int(boat.get("uid", -1))
+			if _post_shelled.has(tile * POST_TRANSPORT_STRIDE + uid):
+				shelled[uid] = true
+		posts.append({"tile": tile, "last": last, "shelled": shelled, "o": post.o,
+			"pos": SimArsenal.tpos(tile, g.W)})
+	return posts
+
+func accept_post_transport_targets(targets: Dictionary) -> void:
+	_prepared_post_targets = targets
 
 static func nearest_transport(ship: Dictionary, boats: Array, allies: Dictionary, scan_range: float, tile_size: float) -> int:
 	var best := -1
@@ -249,7 +301,7 @@ static func nearest_transport(ship: Dictionary, boats: Array, allies: Dictionary
 	for i in boats.size():
 		var boat: Dictionary = boats[i]
 		if boat.a == ship.o or ship.shelled.has(boat.uid) \
-				or allies.has(mini(boat.a, ship.o) * 4096 + maxi(boat.a, ship.o)):
+				or (boat.a > 0 and ship.o > 0 and allies.has(mini(boat.a, ship.o) * 4096 + maxi(boat.a, ship.o))):
 			continue
 		var point: Vector2 = boat.pos / tile_size
 		var distance := point.distance_squared_to(ship.pos)
@@ -508,10 +560,38 @@ func _patrol(ws: Dictionary) -> void:
 		if not found: return
 	_move(ws, R.warship_tiles_per_tick(false))
 
+var _steering_tick := -1
+var _steering_graph_id := 0
+var _steering_graph_revision := -1
+var _steering_steps := {}
+var worker_steering_steps_used := 0
+
+func accept_steering_steps(tick: int, graph_id: int, revision: int, steps: Dictionary) -> void:
+	_steering_tick = tick
+	_steering_graph_id = graph_id
+	_steering_graph_revision = revision
+	_steering_steps = steps
+
+func _apply_prepared_steering(ship: Dictionary, step: float, nav: SimNav) -> bool:
+	if _steering_tick != now() or _steering_graph_id != nav.get_instance_id() \
+			or _steering_graph_revision != nav.graph_revision:
+		return false
+	var prepared: Dictionary = _steering_steps.get(ship.get("uid", -1), {})
+	if prepared.is_empty() or not prepared.moves.has(step) or prepared.pos != ship.pos or prepared.tgt != ship.tgt \
+			or prepared.index != ship.get("nav_i", 0) or prepared.route_target != ship.get("nav_t", Vector2(-1e9, -1e9)) \
+			or prepared.route != ship.get("nav_r"):
+		return false
+	_steering_steps.erase(ship.uid)
+	SimNav.apply_route_step(ship, prepared.moves[step])
+	worker_steering_steps_used += 1
+	return true
+
 func _move(ws: Dictionary, step: float) -> void:
 	step *= float(g.get("warship_speed")) if g.get("warship_speed") != null else 1.0
 	# SimNav: follow a water route around land; falls back to the straight step when no route this tick
-	if g.sim_nav != null and g.sim_nav.ready and g.sim_nav.steer(ws, step): return
+	var nav: SimNav = g.sim_nav
+	if nav != null and nav.ready:
+		if _apply_prepared_steering(ws, step, nav) or nav.steer(ws, step): return
 	var d: Vector2 = ws.tgt - ws.pos
 	if d.length() <= step:
 		if g._is_water(ws.tgt): ws.pos = ws.tgt

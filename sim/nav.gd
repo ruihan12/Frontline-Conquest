@@ -1041,7 +1041,7 @@ func steer(ws: Dictionary, step: float) -> bool:
 	var route: PackedVector2Array = ws.get("nav_r", PackedVector2Array())
 	var rt: Vector2 = ws.get("nav_t", Vector2(-1e9, -1e9))
 	var ri: int = ws.get("nav_i", 0)
-	if route.is_empty() or rt.distance_to(tgt) > 3.0 or (ri >= route.size() and pos.distance_to(tgt) > 0.01):
+	if not can_follow_route(pos, tgt, route, rt, ri):
 		var tt := clampi(int(tgt.y), 0, H - 1) * W + clampi(int(tgt.x), 0, W - 1)
 		if body[tt] != b:
 			var alt := water_next_to(tt, b)
@@ -1053,18 +1053,34 @@ func steer(ws: Dictionary, step: float) -> bool:
 		for m in corners.size(): route.append(Vector2(corners[m] % W + 0.5, corners[m] / W + 0.5))
 		route.append(tgt)
 		ws["nav_r"] = route; ws["nav_t"] = tgt; ws["nav_i"] = 0
-	var i: int = ws.get("nav_i", 0)
-	var left := step
-	while left > 0.0 and i < route.size():
-		var wp: Vector2 = tgt if i == route.size() - 1 else route[i]
-		var d := pos.distance_to(wp)
-		if d <= left:
-			if body[clampi(int(wp.y), 0, H - 1) * W + clampi(int(wp.x), 0, W - 1)] != b: break
-			pos = wp; left -= d; i += 1
-		else:
-			var np := pos + (wp - pos) / d * left
-			if body[clampi(int(np.y), 0, H - 1) * W + clampi(int(np.x), 0, W - 1)] != b:
-				ws.erase("nav_r"); break
-			pos = np; left = 0.0
-	ws.pos = pos; ws["nav_i"] = i
+	var result := follow_route(pos, tgt, route, int(ws.get("nav_i", 0)), step, body, W, H, b)
+	apply_route_step(ws, result)
 	return true
+
+static func can_follow_route(pos: Vector2, target: Vector2, route: PackedVector2Array,
+		route_target: Vector2, index: int) -> bool:
+	return not (route.is_empty() or route_target.distance_to(target) > 3.0
+		or (index >= route.size() and pos.distance_to(target) > 0.01))
+
+# The graph's water-body map is immutable for the lifetime of a graph revision.
+static func follow_route(pos: Vector2, target: Vector2, route: PackedVector2Array, index: int,
+		step: float, bodies: PackedInt32Array, width: int, height: int, water_body: int) -> Array:
+	var discard_route := false
+	while step > 0.0 and index < route.size():
+		var waypoint := target if index == route.size() - 1 else route[index]
+		var distance := pos.distance_to(waypoint)
+		var next := waypoint if distance <= step else pos + (waypoint - pos) / distance * step
+		var tile := clampi(int(next.y), 0, height - 1) * width + clampi(int(next.x), 0, width - 1)
+		if bodies[tile] != water_body:
+			discard_route = distance > step
+			break
+		pos = next
+		if distance > step: break
+		step -= distance
+		index += 1
+	return [pos, index, discard_route]
+
+static func apply_route_step(ship: Dictionary, result: Array) -> void:
+	ship.pos = result[0]
+	ship.nav_i = result[1]
+	if result[2]: ship.erase("nav_r")

@@ -298,3 +298,15 @@ Three sequential 300-frame native headless samples ran World at 1× with seed 12
 | Workers and render snapshots | 27.55 ms | 66.83 ms | 6.69 |
 
 Workers applied 56 attack passes in the second sample and 64 with snapshots. The median frame interval improved, while slower frames took longer. These runs did not reach the 16.67 ms frame budget or the 10 ticks/s target. The flags remain opt-in. The software Chromium fixtures verify worker execution. Hardware browser and phone timing remain unmeasured.
+
+## Warship steering and defense-post target selection
+
+The warship flag prepares movement along existing navigation routes for patrol and pursuit. The scene applies the worker step when the navigation graph, starting position, route, route cursor, destination and movement speed match. Fresh searches and their budgets stay in the ordered live tick. The focused regression compares worker and inline route traversal and changes the destination before applying another step.
+
+Defense posts share the worker's transport positions. The scene checks that the post ownership, last shot, range, alliances and transport routes match before using the selection. Post firing order, damage rolls, and the decision to target a warship when no transport qualifies stay in the live tick. The focused test covers previous shots excluding a transport and fallback when a transport changes route.
+
+The threaded Godot 4.3 Web export consumed a cached steering step in cross-origin-isolated Chromium.
+
+The 600-tick fixture started with 16 warships and applied 5,006 prepared steps. All four checkpoints matched the reference for ship state, territory and nation totals.
+
+The seeded 3,000-tick World run applied 3,248 prepared defense-post scans and matched all five territory and nation-total checkpoints.

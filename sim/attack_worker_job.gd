@@ -31,8 +31,15 @@ var sam_plans: Array = []
 var structure_revision := -1
 var battery_radius: float
 var _due_batteries: Array = []
+var steering_steps := {}
+var steering_graph_id := 0
+var steering_graph_revision := -1
+var steering_speed := 0.0
+var _steering_bodies := PackedInt32Array()
 var transport_inputs: Array = []
 var transport_targets := {}
+var post_targets := {}
+var _post_scans: Array = []
 var transport_range: float
 var _scanning_ships := {}
 var shore_checks: Array = []
@@ -126,6 +133,38 @@ func capture_batteries(game) -> void:
 	structure_revision = game._sv
 	battery_radius = game.sim_rules.artillery_range()
 
+func capture_warship_steering(game) -> void:
+	var nav: SimNav = game.sim_nav
+	if game.warships.is_empty() or nav == null or not nav.ready:
+		return
+	steering_graph_id = nav.get_instance_id()
+	steering_graph_revision = nav.graph_revision
+	steering_speed = game.warship_speed
+	_steering_bodies = nav.body
+	for ship: Dictionary in game.warships:
+		if not ship.has("uid") or not ship.has("nav_r"): continue
+		var route: PackedVector2Array = ship.nav_r
+		var route_target: Vector2 = ship.get("nav_t", Vector2(-1e9, -1e9))
+		var index: int = ship.get("nav_i", 0)
+		if SimNav.can_follow_route(ship.pos, ship.tgt, route, route_target, index):
+			steering_steps[ship.uid] = {"pos": ship.pos, "tgt": ship.tgt, "route": route.duplicate(),
+				"route_target": route_target, "index": index}
+
+func _prepare_warship_steering() -> void:
+	for uid in steering_steps.keys():
+		var ship: Dictionary = steering_steps[uid]
+		var position: Vector2 = ship.pos
+		var start := clampi(int(position.y), 0, H - 1) * W + clampi(int(position.x), 0, W - 1)
+		var body := _steering_bodies[start]
+		if body == 0:
+			steering_steps.erase(uid)
+			continue
+		var moves := {}
+		for hunting in [false, true]:
+			var step := _rules.warship_tiles_per_tick(hunting) * steering_speed
+			moves[step] = SimNav.follow_route(position, ship.tgt, ship.route, ship.index, step, _steering_bodies, W, H, body)
+		ship.moves = moves
+
 func capture_warship_inputs(game) -> void:
 	if game.boats.is_empty() and game.traders.is_empty():
 		return
@@ -134,13 +173,16 @@ func capture_warship_inputs(game) -> void:
 			continue
 		_scanning_ships[ship.uid] = {"o": ship.o, "pos": ship.pos, "patrol": ship.get("patrol", ship.pos),
 			"shelled": ship.get("shelled", {}).duplicate()}
-	if _scanning_ships.is_empty():
+	_post_scans = game.sim_ws.capture_post_transport_scans(tick + 1)
+	if _scanning_ships.is_empty() and _post_scans.is_empty():
 		return
 	transport_range = game.sim_rules.warship_range()
 	patrol_range = game.sim_rules.warship_patrol()
 	for boat: Dictionary in game.boats:
 		transport_inputs.append({"a": boat.a, "uid": int(boat.get("uid", -1)), "d": boat.d,
 			"pts": boat.pts.duplicate(), "cum": boat.cum.duplicate()})
+	if _scanning_ships.is_empty():
+		return
 	shore_distance = SimWarships.shore_distance_per_tick(game.sim_rules, game.boat_speed, game.TS)
 	_trade_water = game.WATER
 	for trader: Dictionary in game.traders:
@@ -204,12 +246,17 @@ func run() -> void:
 	for step: RailGeometry.TrainStep in train_steps:
 		step.calculate()
 	_prepare_rail_curves()
+	_prepare_warship_steering()
 	for boat: Dictionary in transport_inputs:
 		boat.pos = RoutePosition.sample(boat)[0]
 	if not transport_inputs.is_empty():
 		for uid in _scanning_ships:
 			var ship: Dictionary = _scanning_ships[uid]
 			transport_targets[uid] = [ship, SimWarships.nearest_transport(ship, transport_inputs, alliances, transport_range, TS)]
+	var post_range := SimRules.DEFENSE_POST_TARGET_FULL / _rules.k_lin
+	for post: Dictionary in _post_scans:
+		post_targets[post.tile] = [post.o, post_range, post.last,
+			SimWarships.nearest_transport(post, transport_inputs, alliances, post_range, TS)]
 	var valid_routes := true
 	for route: Dictionary in _trade_routes:
 		shore_checks.append([route, SimWarships.route_near_shore(route, owner_map, W, H, _trade_water, TS, shore_distance)])
