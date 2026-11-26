@@ -13,7 +13,7 @@ func _pf_line() -> String:
 		if _attack_worker.prepare_ai_scans and sim_ai != null:
 			out += " ai_worker_scans=%d" % sim_ai.worker_scan_count
 	if _naval_worker != null:
-		out += " naval_worker_ticks=%d" % _naval_worker_ticks
+		out += " naval_worker_ticks=%d naval_graph_queries=%d" % [_naval_worker_ticks, _naval_worker.graph_queries]
 	if _economy_worker != null:
 		out += " economy_worker_rows=%d" % _economy_worker_rows
 	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]

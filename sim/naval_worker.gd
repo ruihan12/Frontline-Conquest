@@ -1,12 +1,14 @@
 extends RefCounted
 class_name NavalWorker
-## Runs the ordinary port tick on detached values. A cache miss that would
-## spend navigation budget rejects the speculative result.
+## Runs the ordinary port tick and graph searches on detached values.
+## Legacy BFS and stale results fall back to the scene thread.
 
 class TradePass extends SimNaval:
 	var needs_search := false
 
 	func _trade_path(source: Dictionary, target: Dictionary) -> PackedVector2Array:
+		if g.sim_nav != null:
+			return super._trade_path(source, target)
 		var key := "%d:%d" % [source.tile, target.tile]
 		var reverse_key := "%d:%d" % [target.tile, source.tile]
 		if trade_cache.has(key) or trade_cache.has(reverse_key):
@@ -28,8 +30,11 @@ class Job extends RefCounted:
 	var result: TradePass
 	var tick: int
 	var trader_count: int
+	var sim_nav: SimNav
+	var path_usec := 0
+	var starting_path_budget: int
 
-	func _init(game, defer_paths: bool, inputs: Array) -> void:
+	func _init(game, defer_paths: bool, inputs: Array, search: SimNav) -> void:
 		W = game.W
 		tick = game.sim_atk.tick
 		rng.state = inputs[0]
@@ -37,6 +42,7 @@ class Job extends RefCounted:
 		attacks = inputs[2]
 		structs = inputs[3]
 		allies = inputs[4]
+		sim_nav = search
 		trader_count = inputs[5]
 		# Only the count of existing ships is needed. New ships reference
 		# job-local ports, which are resolved to live records on commit.
@@ -52,6 +58,7 @@ class Job extends RefCounted:
 		# Hostility only needs the tick, which is supplied by the mirror below.
 		var graph_ready: bool = game.sim_nav != null and game.sim_nav.ready
 		result.path_budget = 0 if defer_paths else (2 if graph_ready else (1 if tick % 4 == 0 else 0))
+		starting_path_budget = result.path_budget
 
 	var sim_atk: Job:
 		get: return self
@@ -61,6 +68,10 @@ class Job extends RefCounted:
 
 	func is_embargoed(_a: int, _b: int) -> bool:
 		return false
+
+	func _pf_add(key: String, elapsed: float) -> void:
+		if key == "nv_bfs":
+			path_usec += int(elapsed)
 
 	func run() -> void:
 		result._ports_tick(tick)
@@ -85,6 +96,12 @@ var _job: Job
 var _initial: Array
 var _joined := false
 var defer_paths := false
+var graph_queries := 0
+var _source_nav: SimNav
+var _search_nav: SimNav
+var _graph_revision := -1
+var _search_revision := -1
+var _search_budget := 0
 
 func submit(game, defer: bool) -> bool:
 	assert(_task == -1)
@@ -94,7 +111,18 @@ func submit(game, defer: bool) -> bool:
 		return false
 	defer_paths = defer
 	_initial = _inputs(game)
-	_job = Job.new(game, defer_paths, _initial.duplicate(true))
+	var detached_search: SimNav
+	var nav: SimNav = game.sim_nav
+	if nav != null and nav.ready and not defer_paths:
+		if nav != _source_nav or nav.graph_revision != _graph_revision:
+			_source_nav = nav
+			_graph_revision = nav.graph_revision
+			_search_nav = nav.fork_search()
+		_search_nav.prepare_search(nav)
+		_search_revision = nav.search_revision
+		_search_budget = nav.budget_us
+		detached_search = _search_nav
+	_job = Job.new(game, defer_paths, _initial.duplicate(true), detached_search)
 	_task = WorkerThreadPool.add_task(_job.run)
 	if _task < 0:
 		_job.result.g = null
@@ -118,6 +146,10 @@ func take(game) -> bool:
 	_job = null
 	var unchanged: bool = not job.result.needs_search and game.state == "play" and game.net_host == null \
 		and not game.net_remote and not game.team_mode and game.sim_atk.tick == job.tick and _initial == _inputs(game)
+	if unchanged and job.sim_nav != null:
+		var nav: SimNav = game.sim_nav
+		unchanged = nav == _source_nav and nav.graph_revision == _graph_revision \
+			and nav.search_revision == _search_revision and nav.budget_us == _search_budget
 	_initial = []
 	if not unchanged:
 		return false
@@ -137,7 +169,11 @@ func take(game) -> bool:
 	game.sim_naval.path_budget = job.result.path_budget
 	if job.tick % 10 == 0:
 		game.sim_naval.tokens.clear()
-	if game.sim_nav != null:
+	if job.sim_nav != null:
+		game.sim_nav.commit_search(job.sim_nav)
+		game._pf_add("nv_bfs", job.path_usec)
+		graph_queries += job.starting_path_budget - job.result.path_budget
+	elif game.sim_nav != null:
 		game.sim_nav.begin_tick()
 	game.rng.state = job.rng.state
 	return true
@@ -147,6 +183,8 @@ func stop() -> void:
 		_join()
 	_job = null
 	_initial = []
+	_source_nav = null
+	_search_nav = null
 
 func _join() -> void:
 	wait()

@@ -22,6 +22,11 @@ var standings: Array = []
 var pressure: Variant = null
 var _prepare_standings: bool
 var economy: EconomyWorker.Job
+var structs: Array = []
+var battery_targets := {}
+var structure_revision := -1
+var battery_radius: float
+var _due_batteries: Array = []
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
@@ -30,7 +35,7 @@ var counters := {}
 var tick: int
 var next_aid: int
 var player_conquests: Array[Array] = []
-var _allies: Dictionary
+var alliances: Dictionary
 var _traitors: Dictionary
 var _kinds := PackedInt32Array()
 var _rules: SimRules
@@ -76,7 +81,7 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 	next_aid = game.sim_atk.next_aid
 	_prepare_standings = (tick + 1) % 50 == 0 or game.sim_ai.rank.is_empty()
 	transport_orders = SimAI.transport_orders(game.boats)
-	_allies = game.allies.duplicate()
+	alliances = game.allies.duplicate()
 	_traitors = game.traitor.duplicate()
 	for id in nations.size():
 		_kinds.append(game.kind_of(id))
@@ -88,6 +93,18 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 	_rules.defense_range = source.defense_range
 	_rules.log_mid = source.log_mid
 	_rules.priority_f4 = source.priority_f4.duplicate()
+
+func capture_batteries(game) -> void:
+	for building: Dictionary in game.structs:
+		if building.k == 10 and float(building.get("bt", 0.0)) <= 0.0 \
+				and int(building.get("next_fire", tick + 2)) <= tick + 1:
+			_due_batteries.append({"tile": building.tile, "o": building.o})
+	if _due_batteries.is_empty():
+		return
+	for building: Dictionary in game.structs:
+		structs.append({"tile": building.tile, "o": building.o})
+	structure_revision = game._sv
+	battery_radius = game.sim_rules.artillery_range()
 
 func run() -> void:
 	var conquest := SimAttacks.new(self, _rules)
@@ -106,6 +123,8 @@ func run() -> void:
 	if economy != null:
 		economy.update_after_attacks(nations)
 		economy.run()
+	for battery: Dictionary in _due_batteries:
+		battery_targets[battery.tile] = SimArsenal.battery_structure_target(self, battery, battery_radius * battery_radius)
 
 func _set_owner(tile: int, owner: int) -> void:
 	var old := owner_map[tile]
@@ -136,7 +155,7 @@ func _set_owner(tile: int, owner: int) -> void:
 		player_capture_tiles.append(tile)
 
 func allied(a: int, b: int) -> bool:
-	return a > 0 and b > 0 and _allies.has(mini(a, b) * 4096 + maxi(a, b))
+	return a > 0 and b > 0 and alliances.has(mini(a, b) * 4096 + maxi(a, b))
 
 func kind_of(id: int) -> int:
 	return _kinds[id]

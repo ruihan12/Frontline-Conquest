@@ -90,6 +90,8 @@ const ROUTE_CACHE_MAX := 2048
 # per-tick budget (microseconds of search time); begin_tick() resets it
 var budget_us := 3000
 var _spent_us := 0
+var search_revision := 0
+var graph_revision := 0
 
 # stats
 var build_ms := 0.0
@@ -110,6 +112,8 @@ var usec_smooth := 0
 # ------------------------------------------------------------------------------------------------
 func build(water_body: PackedInt32Array, w: int, h: int) -> void:
 	var t0 := Time.get_ticks_usec()
+	graph_revision += 1
+	search_revision += 1
 	ready = false
 	W = w; H = h; N = w * h
 	body = water_body
@@ -353,14 +357,58 @@ func build(water_body: PackedInt32Array, w: int, h: int) -> void:
 		var ib: int = adj_off[b] + fill[b]; fill[b] += 1
 		adj_to[ib] = a; adj_cost[ib] = cost; adj_pa[ib] = gpb[q]; adj_pb[ib] = gpa[q]
 	_build_clusters()
-	# scratch
-	var n1 := maxi(rc, 1)
-	_g.resize(n1); _came.resize(n1); _seen.resize(n1); _seen.fill(0); _closed.resize(n1); _closed.fill(0)
-	_stamp = 0
-	_lpar.resize(CELL * CELL); _lseen.resize(CELL * CELL); _lseen.fill(0); _lstamp = 0
+	_reset_search_scratch()
 	searches = 0; expanded = 0; usec = 0; usec_max = 0; fails = 0; cache_hits = 0; deferred = 0
 	build_ms = (Time.get_ticks_usec() - t0) / 1000.0
 	ready = true
+
+func _reset_search_scratch() -> void:
+	var n1 := maxi(reg_count, 1)
+	_g.resize(n1); _came.resize(n1); _seen.resize(n1); _seen.fill(0); _closed.resize(n1); _closed.fill(0)
+	_stamp = 0
+	_lpar.resize(CELL * CELL); _lseen.resize(CELL * CELL); _lseen.fill(0); _lstamp = 0
+	_cg.resize(maxi(clu_count, 1)); _ccame.resize(_cg.size())
+	_cseen.resize(_cg.size()); _cseen.fill(0); _cclosed.resize(_cg.size()); _cclosed.fill(0)
+	_cmark.resize(_cg.size()); _cmark.fill(0); _cstamp = 0
+
+# Graph buffers are read-only after build. Each search instance owns its
+# scratch arrays and cache dictionaries. Cached paths are read-only values.
+func fork_search() -> SimNav:
+	var search := SimNav.new()
+	for field in [&"W", &"H", &"N", &"CW", &"CH", &"body", &"cell_reg", &"region", &"reg_count",
+			&"reg_body", &"reg_tile", &"reg_x", &"reg_y", &"reg_full", &"reg_n", &"adj_off",
+			&"adj_to", &"adj_cost", &"adj_pa", &"adj_pb", &"reg_clu", &"clu_count", &"clu_x", &"clu_y",
+			&"cadj_off", &"cadj_to", &"cadj_cost", &"coast_off", &"coast_tiles"]:
+		search.set(field, get(field))
+	search.ready = ready
+	search._reset_search_scratch()
+	return search
+
+func prepare_search(source: SimNav) -> void:
+	_reg_cache = source._reg_cache.duplicate()
+	_route_cache = source._route_cache.duplicate()
+	budget_us = source.budget_us
+	last_deferred = source.last_deferred
+	searches = 0; expanded = 0; usec = 0; usec_max = 0; fails = 0; cache_hits = 0; deferred = 0
+	usec_astar = 0; usec_stitch = 0; usec_smooth = 0
+	begin_tick()
+
+func commit_search(search: SimNav) -> void:
+	_reg_cache = search._reg_cache
+	_route_cache = search._route_cache
+	_spent_us = search._spent_us
+	last_deferred = search.last_deferred
+	searches += search.searches
+	expanded += search.expanded
+	usec += search.usec
+	usec_max = maxi(usec_max, search.usec_max)
+	fails += search.fails
+	cache_hits += search.cache_hits
+	deferred += search.deferred
+	usec_astar += search.usec_astar
+	usec_stitch += search.usec_stitch
+	usec_smooth += search.usec_smooth
+	search_revision += 1
 
 func _build_clusters() -> void:
 	var rc := reg_count
@@ -426,9 +474,6 @@ func _build_clusters() -> void:
 		cadj_to[ia] = b; cadj_cost[ia] = cost
 		var ib: int = cadj_off[b] + fill[b]; fill[b] += 1
 		cadj_to[ib] = a; cadj_cost[ib] = cost
-	var n1 := maxi(cc, 1)
-	_cg.resize(n1); _ccame.resize(n1); _cseen.resize(n1); _cseen.fill(0); _cclosed.resize(n1); _cclosed.fill(0)
-	_cmark.resize(n1); _cmark.fill(0); _cstamp = 0
 
 func _cluster_path(ca: int, cb: int) -> PackedInt32Array:
 	_stamp += 1
@@ -512,6 +557,7 @@ func coast_body(t: int) -> int:
 # budget
 # ------------------------------------------------------------------------------------------------
 func begin_tick() -> void:
+	search_revision += 1
 	_spent_us = 0
 
 func budget_left() -> bool:
@@ -523,6 +569,7 @@ func budget_left() -> bool:
 # Corner tiles (string-pulled) of a water route src -> dst (both water, same body); [] if none.
 # Consecutive corners are joined by straight water lines (see raster()). urgent ignores the budget.
 func find_route(src: int, dst: int, urgent := true) -> PackedInt32Array:
+	search_revision += 1
 	last_deferred = false
 	if not ready or src < 0 or dst < 0 or src >= N or dst >= N: return PackedInt32Array()
 	var b: int = body[src]
@@ -881,6 +928,7 @@ func nearest_own_coast(owner_map: PackedInt32Array, a: int, wd: int, max_tiles :
 # AI transports (12000 nodes) stay as local as before.
 func boat_route(owner_map: PackedInt32Array, a: int, dest: int, max_tiles := 1 << 30) -> PackedInt32Array:
 	if not ready or dest < 0 or dest >= N: return PackedInt32Array()
+	search_revision += 1
 	var t0 := Time.get_ticks_usec()
 	var out := PackedInt32Array()
 	var tried := []

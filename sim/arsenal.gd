@@ -51,6 +51,8 @@ func _blast_tiles(center: int, radius: float) -> PackedInt32Array:
 
 func reset() -> void:
 	_join_blast_tasks()
+	_battery_targets.clear()
+	_battery_allies = {}
 	munitions.clear(); sam_shots.clear()
 	for k in stats: stats[k] = 0
 
@@ -161,17 +163,43 @@ func _battery_gap(st) -> int:
 	if st.o == g.PLAYER and g.reload_mult() < 1.0: gap = maxi(1, ceili(gap * SimRules.RAPID_RELOAD_MULT))
 	return gap
 
+static func battery_structure_target(world, st: Dictionary, radius_squared: float) -> int:
+	var width: int = world.W
+	var best := -1
+	var bd := 0.0
+	for target: Dictionary in world.structs:
+		if target.o <= 0 or target.o == st.o or world.allied(st.o, target.o):
+			continue
+		var d := _d2(st.tile, target.tile, width)
+		if d <= radius_squared and (best < 0 or d < bd or (d == bd and target.tile < best)):
+			best = target.tile; bd = d
+	return best
+
+var _battery_tick_prepared := -1
+var _battery_structure_revision := -1
+var _battery_allies := {}
+var _battery_radius: float
+var _battery_targets := {}
+var worker_battery_count := 0
+
+func accept_battery_targets(tick: int, revision: int, alliances: Dictionary, radius: float, targets: Dictionary) -> void:
+	_battery_tick_prepared = tick
+	_battery_structure_revision = revision
+	_battery_allies = alliances
+	_battery_radius = radius
+	_battery_targets = targets
+
 func battery_target(st) -> int:
 	var W: int = g.W
 	var rng_ := R.artillery_range()
-	var r2 := rng_ * rng_
-	var best := -1
-	var bd := 0.0
-	for s2 in g.structs:
-		if not _strike_enemy(st.o, s2.o): continue
-		var d := _d2(st.tile, s2.tile, W)
-		if d <= r2 and (best < 0 or d < bd or (d == bd and s2.tile < best)):
-			best = s2.tile; bd = d
+	var best: int
+	if _battery_targets.has(st.tile) and _battery_tick_prepared == now() \
+			and _battery_structure_revision == g._sv and _battery_radius == rng_ \
+			and _battery_allies == g.allies and not g.team_mode:
+		best = _battery_targets[st.tile]
+		worker_battery_count += 1
+	else:
+		best = battery_structure_target(g, st, rng_ * rng_)
 	if best >= 0: return best
 	var cx: int = st.tile % W; var cy: int = st.tile / W
 	for _k in SimRules.ARTILLERY_SAMPLES:

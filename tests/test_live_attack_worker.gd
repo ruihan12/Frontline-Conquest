@@ -59,9 +59,11 @@ func _run() -> void:
 	var merge_restarted := _check_ended_merge(game)
 	var preparation_matches := _check_ai_preparation(game)
 	var scans_match := _check_ai_border_scan(game)
+	var battery_matches := _check_battery_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
-		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match
+		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
+		and battery_matches
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -235,3 +237,28 @@ func _check_ai_border_scan(game) -> bool:
 	game._set_owner(neutral_tile, 0)
 	game.sim_ai.scan_border(id)
 	return game.sim_ai._prepared_border_scans.has(id)
+
+func _check_battery_preparation(game) -> bool:
+	var tile: int = game.owner_map.find(2)
+	if tile < 0:
+		return false
+	var target := tile + 1
+	var alternate: int = tile + game.W
+	game._struct_add(10, tile, 2)
+	game._struct_add(0, target, 3)
+	game._struct_add(0, alternate, 4)
+	var battery: Dictionary = game.struct_at[tile]
+	battery.bt = 0.0
+	battery.next_fire = game.sim_atk.tick + 1
+	game._attack_worker.prepare_batteries = true
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game):
+		return false
+	game.sim_ars._battery_tick(game.sim_atk.tick)
+	var used: bool = not game.sim_ars.munitions.is_empty() and game.sim_ars.munitions.back().tile == target \
+		and game.sim_ars.worker_battery_count == 1
+	game._struct_remove(game.struct_at[target])
+	var recalculated: bool = game.sim_ars.battery_target(battery) == alternate and game.sim_ars.worker_battery_count == 1
+	return used and recalculated

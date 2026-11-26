@@ -119,7 +119,7 @@ func _check_economy_worker() -> bool:
 	game._advance_fixed_ticks(0.0)
 	var finished := game._tick_stage == 0 and game.events.count("economy_begin") == 1 \
 		and game.events.count("arsenal") == 1 and game.ticks_done == 1
-	var matches := game._economy_worker_rows == 1 and game.nations == reference.nations
+	var matches: bool = game._economy_worker_rows == 1 and game.nations == reference.nations
 	reference.free()
 	var gold: float = game.nations[1].gold
 	var pending := worker.submit(game, 0.1)
@@ -160,7 +160,7 @@ func _check_naval_worker() -> bool:
 	while not worker.ready() and Time.get_ticks_msec() < deadline:
 		OS.delay_usec(100)
 	var finished := game._advance_naval(false) and game._naval_worker_ticks == 1
-	var matches := game.traders.size() == 1 and game.traders == reference.traders \
+	var matches: bool = game.traders.size() == 1 and game.traders == reference.traders \
 		and game.structs == reference.structs and game.rng.state == reference.rng.state \
 		and game.sim_naval.tokens == reference.sim_naval.tokens \
 		and is_same(game.traders[0].dst, game.struct_at[7])
@@ -171,7 +171,7 @@ func _check_naval_worker() -> bool:
 	deadline = Time.get_ticks_msec() + 2000
 	while submitted_miss and not worker.ready() and Time.get_ticks_msec() < deadline:
 		OS.delay_usec(100)
-	var rejected := submitted_miss and worker.ready() and not worker.take(game) \
+	var rejected: bool = submitted_miss and worker.ready() and not worker.take(game) \
 		and game.rng.state == before and game.traders.size() == 1
 	var submitted_stale := worker.submit(game, true)
 	game.rng.randi()
@@ -183,6 +183,69 @@ func _check_naval_worker() -> bool:
 	game.free()
 	reference.free()
 	return submitted and finished and matches and rejected and stale
+
+func _route_fixture() -> GameProbe:
+	var game := _trade_fixture()
+	game.W = 18
+	game.H = 6
+	var body := PackedInt32Array()
+	body.resize(game.W * game.H)
+	body.fill(1)
+	for row in 4:
+		body[row * game.W + 8] = 0
+	body[18] = 0
+	body[35] = 0
+	game.sim_nav = SimNav.new()
+	game.sim_nav.build(body, game.W, game.H)
+	game.sim_nav.budget_us = 1000000
+	game.sim_naval.body = body
+	game.sim_naval.trade_cache.clear()
+	game.structs[0].tile = 18
+	game.structs[0].water = 19
+	game.structs[0].partners = [35]
+	game.structs[1].tile = 35
+	game.structs[1].water = 34
+	game.structs[1].partners = [18]
+	game.struct_at = {18: game.structs[0], 35: game.structs[1]}
+	return game
+
+func _check_naval_graph_search() -> bool:
+	var game := _route_fixture()
+	var reference := _route_fixture()
+	reference.sim_naval.tick()
+	var worker := NavalWorker.new()
+	game._naval_worker = worker
+	var started := worker.submit(game, false)
+	worker.wait()
+	var isolated: bool = game.sim_nav.searches == 0 and game.sim_naval.trade_cache.is_empty()
+	var committed := started and worker.take(game)
+	var matches: bool = game.traders.size() == 1 and game.traders == reference.traders \
+		and game.rng.state == reference.rng.state and game.sim_nav.searches > 0 \
+		and game.sim_nav.searches == reference.sim_nav.searches
+	game.sim_naval.trade_cache.clear()
+	game.structs[0].rej = 1000
+	var submitted := worker.submit(game, false)
+	game.sim_nav.find_route(0, 1)
+	var live_revision: int = game.sim_nav.search_revision
+	worker.wait()
+	var rejected: bool = submitted and not worker.take(game) and game.sim_nav.search_revision == live_revision \
+		and game.traders.size() == 1
+	game._stop_sim_workers()
+	game.free()
+	reference.free()
+	return isolated and committed and matches and rejected and _check_naval_graph_budget()
+
+func _check_naval_graph_budget() -> bool:
+	var game := _route_fixture()
+	game.sim_nav.budget_us = 0
+	var worker := NavalWorker.new()
+	var started := worker.submit(game, false)
+	worker.wait()
+	var deferred: bool = started and worker.take(game) and game.sim_nav.deferred == 1 \
+		and game.sim_nav.last_deferred and game.traders.is_empty() and game.sim_naval.trade_cache.is_empty()
+	worker.stop()
+	game.free()
+	return deferred
 
 func _initialize() -> void:
 	var game := GameProbe.new()
@@ -205,7 +268,7 @@ func _initialize() -> void:
 	expected.append_array(["economy", "arsenal", "missiles", "requests", "warships", "trains", "replicate"])
 	var passed := attack_paused and ai_paused and complete and game.events == expected \
 		and _check_held_frames(game) and _check_economy_worker() \
-		and (OS.has_environment("NO_TRADE") or _check_naval_worker())
+		and (OS.has_environment("NO_TRADE") or (_check_naval_worker() and _check_naval_graph_search()))
 	print("FIXED_TICK_SCHEDULE ", "PASS" if passed else "FAIL")
 	if not passed: print(game.events)
 	game.free()

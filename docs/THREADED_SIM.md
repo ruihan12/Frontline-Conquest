@@ -227,6 +227,14 @@ With the attack, AI scan, economy and naval flags combined, all five seeded Worl
 
 With the same 24-port fixture in a 300-frame native headless run, the 95th-percentile frame interval was 48.4 ms inline and 47.6 ms with the naval worker. Tick throughput fell from 6.25 to 5.17 ticks/s. The worker completed 44 port ticks in that sample.
 
+## Fresh trade routes and artillery preparation
+
+The naval worker now uses the map's read-only navigation graph with a separate search instance. Its scratch arrays and cache dictionaries stay private while it searches. Successful commits carry over the cache and time-budget use, so later navigation in the same tick sees the remaining budget. An intervening live search invalidates the result. Maps without a graph retain the legacy BFS fallback on the main thread.
+
+With attack, AI scan, economy and naval workers enabled, the seeded 3,000-tick run matched all five World checkpoints and applied 2,361 naval worker ticks, including 311 graph queries. The focused scheduler test covers an uncached route around an obstacle, the same RNG state and path as inline, a spent search budget, and rejection after a live search changes the cache. A software Chromium smoke test seeded two finished ports and recorded a fresh graph query by tick five.
+
+With `--sim-worker-attacks --sim-worker-arsenal`, the conquest job finds the nearest hostile structure for artillery due to fire. The arsenal uses the result if the structure revision, alliances and range still match. The inline arsenal owns firing order and random terrain sampling. A focused test fires at the worker's selected target and then removes it to verify the inline fallback.
+
 ## Conquest commit
 
 The main thread applies worker-computed nation totals once per attack pass. Tile replay still updates ownership, borders, structures, fallout and repaint order. The worker records the pre-annexation location and gold amount for player conquest effects. Player-facing structure captures still use inline simulation because their sounds can consume gameplay RNG.
