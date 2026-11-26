@@ -126,3 +126,9 @@ The snapshot experiment also queues audio director playback. Each event retains 
 Alliance request cards can also be queued in snapshot mode. The frame-time simulation now has a dedicated entry point covering trade, FX aging, air updates, donation cooldowns, alliance warnings and transport movement, in their original order. It still runs synchronously and uses two different clocks, both supplied by the frame loop.
 
 Legacy playback now also uses queued presentation in snapshot mode. The simulation still chooses the stream and pitch and applies the original throttle before enqueuing playback, which preserves the draw order of the RNG. Playback no longer advances it. Camera visibility still affects which legacy events consume RNG.
+
+## Map navigation worker
+
+`--sim-worker-nav` moves the water-body census and navigation graph build to a worker during interactive map loading. The worker receives a private copy of the map and constructs its own graph. The scene thread keeps advancing the loading screen and takes ownership of the result after joining. It also joins on teardown. Startup, cached loads, and the default path keep their existing behavior.
+
+In a seeded native Europe loading smoke test, the worker and inline path produced the same ownership, water-body, coastline and navigation-region hash. The longest loading-frame interval fell from 855 ms to 485 ms in that run. Total load time was 2.41 s inline and 2.59 s with the worker. This is a loading result. It does not test the live match tick loop or hardware browser frame rate.

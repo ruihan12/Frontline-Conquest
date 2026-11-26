@@ -432,13 +432,45 @@ func gen_map() -> void:
 	_gt("coast")
 	if _async_gen: _load_progress(0.45); await get_tree().process_frame
 	if sim_naval == null: sim_naval = SimNaval.new(self, sim_rules)
-	sim_naval.compute_bodies()
-	sim_nav = SimNavS.new()  # new object per map: the gen cache keeps the previous one
-	sim_nav.build(sim_naval.body, W, H)
+	if _async_gen and "--sim-worker-nav" in OS.get_cmdline_user_args():
+		await _prepare_navigation_async()
+	else:
+		_prepare_navigation()
 	_gt("bodies")
 	if _async_gen: _load_progress(0.65); await get_tree().process_frame
 	sim_naval.trade_cache.clear()
 	_recompute_base_colors()
+
+const NavigationJob = preload("res://sim/navigation_job.gd")
+var _navigation_thread: Thread
+
+func _prepare_navigation() -> void:
+	sim_naval.compute_bodies()
+	sim_nav = SimNavS.new()
+	sim_nav.build(sim_naval.body, W, H)
+
+func _prepare_navigation_async() -> void:
+	var thread := Thread.new()
+	# Ownership transfers with the job. The worker gets no game node or live array.
+	var job := NavigationJob.new(owner_map.duplicate(), W, H, WATER)
+	if thread.start(job.build) != OK:
+		_prepare_navigation()
+		return
+	_navigation_thread = thread
+	while thread.is_alive():
+		await get_tree().process_frame
+		if _navigation_thread != thread:
+			return
+	var result: Array = thread.wait_to_finish()
+	_navigation_thread = null
+	sim_naval.body = result[0]
+	sim_naval.coast_list = result[1]
+	sim_nav = result[2]
+
+func _exit_tree() -> void:
+	if _navigation_thread != null:
+		_navigation_thread.wait_to_finish()
+		_navigation_thread = null
 
 func _recompute_base_colors() -> void:
 	if owner_map.size() != W * H or elev_map.size() != W * H: return

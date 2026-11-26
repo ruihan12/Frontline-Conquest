@@ -26,10 +26,12 @@ func own_coast_tile(id: int) -> int:
 	return -1
 
 func compute_bodies() -> void:
-	var W: int = g.W
-	var om: PackedInt32Array = g.owner_map
+	var census := scan_water(g.owner_map, g.W, g.WATER)
+	body = census[0]
+	coast_list = census[1]
+
+static func scan_water(om: PackedInt32Array, W: int, WT: int) -> Array:
 	var N: int = om.size()
-	var WT: int = g.WATER
 	var bd := PackedInt32Array(); bd.resize(N); bd.fill(0)
 	var q := PackedInt32Array(); q.resize(N)
 	var next := 1
@@ -52,14 +54,13 @@ func compute_bodies() -> void:
 				j = i + 1
 				if bd[j] == 0 and om[j] == WT: bd[j] = next; q[qn] = j; qn += 1
 		next += 1
-	body = bd
 	var cl := PackedInt32Array(); cl.resize(N); var cn := 0
 	for i in N:
 		if om[i] == WT: continue
 		if (i >= 1 and om[i - 1] == WT) or (i + 1 < N and om[i + 1] == WT) or (i >= W and om[i - W] == WT) or (i + W < N and om[i + W] == WT):
 			cl[cn] = i; cn += 1
 	cl.resize(cn)
-	coast_list = cl
+	return [bd, cl]
 
 # water body a coastal land tile touches (first of west, east, north, south), 0 if none
 func coast_body(t: int) -> int:
