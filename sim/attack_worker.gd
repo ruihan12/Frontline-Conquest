@@ -2,6 +2,7 @@ extends RefCounted
 ## One in-flight conquest pass. The scene thread owns capture and replay.
 
 const Job = preload("res://sim/attack_worker_job.gd")
+var prepare_ai_scans := false
 var _task := -1
 var _joined := false
 var _job: Job
@@ -22,7 +23,8 @@ func ready() -> bool:
 	return pending() and (_joined or WorkerThreadPool.is_task_completed(_task))
 
 func submit(game) -> bool:
-	if pending() or game.attacks.is_empty() or game.team_mode or not game.tile_pop.is_empty():
+	if pending() or game.attacks.is_empty() or game.team_mode or game.net_host != null or game.net_remote \
+			or not game.tile_pop.is_empty() or game.border.size() != game.nations.size():
 		return false
 	_signature = _state_signature(game)
 	if _mirror_owners.size() == game.owner_map.size():
@@ -30,7 +32,7 @@ func submit(game) -> bool:
 			_mirror_owners[tile] = game.owner_map[tile]
 			_mirror_fallout[tile] = game.fallout[tile]
 	_dirty_tiles = PackedInt32Array()
-	_job = Job.new(game, _mirror_owners, _mirror_fallout)
+	_job = Job.new(game, _mirror_owners, _mirror_fallout, prepare_ai_scans)
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
 	_task = WorkerThreadPool.add_task(_job.run)
@@ -52,7 +54,8 @@ func take(game) -> bool:
 	var job := _job
 	var signature := _signature
 	_clear()
-	if job.tick != game.sim_atk.tick + 1 or job.player_conquest or signature != _state_signature(game):
+	if game.net_host != null or game.net_remote or job.tick != game.sim_atk.tick + 1 \
+			or job.player_conquest or signature != _state_signature(game):
 		return _reject(job)
 	# Player-facing structure capture audio can consume the gameplay RNG.
 	# Other captures can replay their ownership changes in the original order.
@@ -67,11 +70,13 @@ func take(game) -> bool:
 	game.attacks.assign(job.attacks)
 	game.rng.state = job.rng.state
 	game.sim_atk.tick = job.tick
-	# Merge orders reseed the frontier from the live border after all captures.
-	# Keep the same attack dictionaries even for attacks that ended this tick.
-	if not job.pending_merges.is_empty():
-		game.sim_atk.merges = job.pending_merges
-		game.sim_atk._apply_merges()
+	game.sim_atk.next_aid = job.next_aid
+	game.sim_atk.merges.clear()
+	var pressure: Variant = null
+	if job.pressure != null and job.transport_orders == SimAI.transport_orders(game.boats):
+		pressure = job.pressure
+	game.sim_ai.accept_tick_preparation(job.tick, job.standings, pressure)
+	game.sim_ai.accept_border_scans(job.tick, game._attack_map_revision, job.border_scans)
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()
@@ -103,7 +108,7 @@ func _clear() -> void:
 
 static func _state_signature(game) -> Array:
 	var rules: SimRules = game.sim_rules
-	return [game.W, game.H, game.rng.state, game.sim_atk.tick, game.fallout_count, game.land_total,
+	return [game.W, game.H, game.rng.state, game.sim_atk.tick, game.sim_atk.next_aid, game.fallout_count, game.land_total,
 		game._attack_map_revision, hash(game.nations), hash(game.attacks),
 		hash(game.allies), hash(game.traitor), hash(game.def_posts), hash(game._kind_cache),
 		hash(game.sim_atk.merges), game.team_mode, game.tile_pop.size(),

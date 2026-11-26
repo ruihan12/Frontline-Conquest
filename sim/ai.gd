@@ -101,6 +101,8 @@ func _init(main, rules: SimRules) -> void:
 
 func setup() -> void:
 	st.clear(); rank.clear(); nuke_cool.clear(); doomed.clear()
+	accept_tick_preparation(-1, [], null)
+	accept_border_scans(-1, -1, {})
 	leader = 0; leader_share = 0.0; runaway_human = 0; last_capitulation = -100000
 	_crowded = null; _body_src_size = -1
 	if g.sim_naval != null: _body_size(0)  # the water-body census (~100 ms) is paid at match setup, not inside the first AI think
@@ -132,7 +134,7 @@ func _diff(id := -1) -> int: return int(g.ai_difficulty(id)) if id > 0 else clam
 # Novice bot players wait this many times longer before attacking a real player.
 const NOVICE_GRACE_MULT := 2
 # An AI commander that counts as a nation for war bookkeeping: nations and bot players.
-func _ai_nation(id: int) -> bool: return g.kind_of(id) == SimRules.KIND_NATION or g.is_bot(id)
+func _ai_nation(id: int) -> bool: return _is_ai_nation(g, id)
 func _L() -> float: return R.legacy_lin
 func _LA() -> float: return R.legacy_lin * R.legacy_lin
 
@@ -151,25 +153,80 @@ func tick() -> void:
 # changes when the work happens, never what it does (tick() runs it whole for tests and the headless sim).
 var pass_open := false
 var _cursor := 2
+var _prepared_tick := -1
+var _prepared_leader: Array = []
+var _prepared_pressure: Variant = null
+var _border_scan_tick := -1
+var _border_scan_revision := -1
+var _prepared_border_scans := {}
+
+func scheduled_border_scans(t: int) -> PackedInt32Array:
+	var ids := PackedInt32Array()
+	for id in range(2, g.nations.size()):
+		if not st.has(id) or not g.nations[id].alive or g.nations[id].land <= 0:
+			continue
+		var state: Dictionary = st[id]
+		if g.kind_of(id) == SimRules.KIND_TRIBE:
+			if t % int(state.attack_rate) != int(state.attack_tick):
+				continue
+		elif state.next_think > t:
+			continue
+		ids.append(id)
+	return ids
+
+func accept_border_scans(t: int, revision: int, scans: Dictionary) -> void:
+	_border_scan_tick = t
+	_border_scan_revision = revision
+	_prepared_border_scans = scans
+
+func accept_tick_preparation(t: int, leader_result: Array, pressure: Variant) -> void:
+	_prepared_tick = t
+	_prepared_leader = leader_result
+	_prepared_pressure = pressure
 
 func begin_tick() -> void:
 	var t: int = g.sim_atk.tick
-	if t % 50 == 0 or rank.is_empty(): _update_leader()
-	# AI nations at war with each owner: live non-counter attacks plus transports under way to a human
-	attackers_on.clear()
-	var pairs := {}
-	for a in g.attacks:
-		if not a.get("counter", false) and a.t > 0 and _ai_nation(a.a):
-			pairs[a.a * 4096 + a.t] = true
-	for bt in g.boats:
-		var tg: int = g.owner_map[bt.dest]
-		if tg > 0 and g.kind_of(tg) == SimRules.KIND_HUMAN and _ai_nation(bt.a):
-			pairs[bt.a * 4096 + tg] = true
-	for k in pairs:
-		attackers_on[k % 4096] = attackers_on.get(k % 4096, 0) + 1
+	if t % 50 == 0 or rank.is_empty():
+		var standings := _prepared_leader if _prepared_tick == t and not _prepared_leader.is_empty() else collect_standings(g)
+		leader = standings[0]
+		leader_share = standings[1]
+		runaway_human = standings[2]
+		rank = standings[3]
+	if _prepared_tick == t and _prepared_pressure != null:
+		attackers_on = _prepared_pressure
+	else:
+		attackers_on = collect_pressure(g, transport_orders(g.boats))
+	accept_tick_preparation(-1, [], null)
 	if not doomed.is_empty(): _delete_doomed()
 	_cursor = 2
 	pass_open = true
+
+static func transport_orders(boats: Array) -> PackedInt32Array:
+	var orders := PackedInt32Array()
+	orders.resize(boats.size() * 2)
+	for i in boats.size():
+		orders[2 * i] = boats[i].a
+		orders[2 * i + 1] = boats[i].dest
+	return orders
+
+static func collect_pressure(world, orders: PackedInt32Array) -> Dictionary:
+	# AI nations at war with each owner: live non-counter attacks plus transports under way to a human
+	var pairs := {}
+	for a in world.attacks:
+		if not a.get("counter", false) and a.t > 0 and _is_ai_nation(world, a.a):
+			pairs[a.a * 4096 + a.t] = true
+	for i in range(0, orders.size(), 2):
+		var attacker := orders[i]
+		var target: int = world.owner_map[orders[i + 1]]
+		if target > 0 and world.kind_of(target) == SimRules.KIND_HUMAN and _is_ai_nation(world, attacker):
+			pairs[attacker * 4096 + target] = true
+	var pressure := {}
+	for k in pairs:
+		pressure[k % 4096] = pressure.get(k % 4096, 0) + 1
+	return pressure
+
+static func _is_ai_nation(world, id: int) -> bool:
+	return world.kind_of(id) == SimRules.KIND_NATION or world.is_bot(id)
 
 ## Think for the nations from the cursor on; false when `deadline_us` (ticks_usec, 0 = none) ran out first.
 func run_slice(deadline_us: int) -> bool:
@@ -202,13 +259,15 @@ func run_slice(deadline_us: int) -> bool:
 		s.next_think = t + NATION_THINK + g.rng.randi_range(-3, 3)
 		_think_nation(cur)
 	pass_open = false
+	_prepared_border_scans.clear()
 	return true
 
-func _update_leader() -> void:
+static func collect_standings(world) -> Array:
 	var best := 0; var bt := 0; var second := 0
 	var ids := []
-	for id in range(1, g.nations.size()):
-		var n = g.nations[id]
+	var nations: Array = world.nations
+	for id in range(1, nations.size()):
+		var n: Dictionary = nations[id]
 		if not n.alive: continue
 		var land: int = n.land
 		if land > bt:
@@ -216,18 +275,19 @@ func _update_leader() -> void:
 		elif land > second:
 			second = land
 		if land > 0: ids.append(id)
-	leader = best
-	leader_share = _land_share(best) if best > 0 else 0.0
-	ids.sort_custom(func(p, q): return g.nations[p].land > g.nations[q].land)
-	rank.clear()
-	for k in ids.size(): rank[ids[k]] = k + 1
-	runaway_human = 0
-	if best > 0 and g.kind_of(best) == SimRules.KIND_HUMAN and leader_share >= 0.15 and bt >= 1.3 * second:
-		runaway_human = best
+	var share := SimRules.land_share(bt, world.land_total) if best > 0 else 0.0
+	ids.sort_custom(func(p, q): return nations[p].land > nations[q].land)
+	var ranks := {}
+	for k in ids.size(): ranks[ids[k]] = k + 1
+	var runaway := 0
+	if best > 0 and world.kind_of(best) == SimRules.KIND_HUMAN and share >= 0.15 and bt >= 1.3 * second:
+		runaway = best
+	return [best, share, runaway, ranks]
 
 # ---------------- perception ----------------
 var scan_us := 0
 var scan_n := 0
+var worker_scan_count := 0
 func scan_border(id: int) -> void:
 	var _t0 := Time.get_ticks_usec()
 	_scan_border(id)
@@ -237,16 +297,45 @@ func scan_border(id: int) -> void:
 # Source Sim.scan_border: a walk over the owner's border list (nations: at most 400 legacy tiles,
 # tribes: the whole border), recording the owners of the land next to it.
 func _scan_border(id: int) -> void:
-	sc_list.clear(); sc_count.clear(); sc_tile.clear()
-	sc_neutral = 0; sc_neutral_tile = -1; sc_fallout_tile = -1
-	if id >= g.border.size(): return
-	var bset: Dictionary = g.border[id]
-	var cap: int = bset.size() if g.kind_of(id) == SimRules.KIND_TRIBE else ceili(400 * R.legacy_lin)
-	var om: PackedInt32Array = g.owner_map
-	var fo: PackedByteArray = g.fallout
-	var W: int = g.W
+	var scan: Array
+	if _prepared_border_scans.has(id) and _border_scan_tick == g.sim_atk.tick \
+			and _border_scan_revision == g._attack_map_revision:
+		scan = _prepared_border_scans[id]
+		var neutral_tiles: PackedInt32Array = scan[6]
+		if not neutral_tiles.is_empty():
+			scan[4] = neutral_tiles[0]
+			for i in range(1, neutral_tiles.size()):
+				if g.rng.randi() % (i + 1) == 0:
+					scan[4] = neutral_tiles[i]
+		_prepared_border_scans.erase(id)
+		worker_scan_count += 1
+	else:
+		scan = collect_border(g, id, R.legacy_lin, g.rng)
+	sc_list = scan[0]
+	sc_count = scan[1]
+	sc_tile = scan[2]
+	sc_neutral = scan[3]
+	sc_neutral_tile = scan[4]
+	sc_fallout_tile = scan[5]
+
+# Speculative scans collect neutral candidates in the same order so the
+# calling AI can consume its gameplay RNG at the original point in the tick.
+static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberGenerator = null) -> Array:
+	var owners := []
+	var counts := {}
+	var contacts := {}
+	var neutral := 0
+	var neutral_tile := -1
+	var fallout_tile := -1
+	var neutral_tiles := PackedInt32Array()
+	if id >= world.border.size():
+		return [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
+	var bset: Dictionary = world.border[id]
+	var cap: int = bset.size() if world.kind_of(id) == SimRules.KIND_TRIBE else ceili(400 * legacy_lin)
+	var om: PackedInt32Array = world.owner_map
+	var fo: PackedByteArray = world.fallout
+	var W: int = world.W
 	var N := om.size()
-	var rng: RandomNumberGenerator = g.rng
 	var seen := 0
 	for t in bset:
 		if seen >= cap: break
@@ -271,14 +360,18 @@ func _scan_border(id: int) -> void:
 			if o < 0 or o == id: continue
 			if o == 0:
 				if fo[n] == 1:
-					if sc_fallout_tile < 0: sc_fallout_tile = n
+					if fallout_tile < 0: fallout_tile = n
 				else:
-					sc_neutral += 1
-					if sc_neutral_tile < 0 or rng.randi() % sc_neutral == 0: sc_neutral_tile = n
+					neutral += 1
+					if rng == null:
+						neutral_tiles.append(n)
+					elif neutral_tile < 0 or rng.randi() % neutral == 0:
+						neutral_tile = n
 				continue
-			if not sc_count.has(o):
-				sc_list.append(o); sc_count[o] = 0; sc_tile[o] = n
-			sc_count[o] += 1
+			if not counts.has(o):
+				owners.append(o); counts[o] = 0; contacts[o] = n
+			counts[o] += 1
+	return [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
 
 func _above(id: int, keep: float) -> float:
 	var troops := _troops(id)

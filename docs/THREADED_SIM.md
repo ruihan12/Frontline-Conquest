@@ -192,3 +192,13 @@ The attack HUD reads detached, immutable attack rows in snapshot mode. The frame
 The final merge-worker Web smoke applied 22 attack passes by tick 23 and verified cross-origin isolation. Fallback nation labels now keep their animation values in render state. This removes the last render-only fields the attack worker stripped from nation records to validate its input.
 
 The broader headless checks reproduced nine `test_nuke_flight` failures at both the starting commit `a47712b` and on `thread-sim`. Eight checks expect upstream flight times despite the listed nuke speed custom. The Scattershot warhead assertion fails on both revisions as well.
+
+## AI tick preparation and frame effects
+
+The worker now completes queued attack merges with private copies of the relevant border sets. Live replay and the worker use the same border update routine to preserve tile insertion order. The worker then prepares AI nation standings and unique attacker counts. The scene thread recalculates those inputs when the attack pass falls back, and recalculates counts if transport orders change while a job is running.
+
+With `--sim-worker-attacks --sim-worker-ai-scan`, the same job scans borders for AI commanders scheduled to act this tick. When the AI uses a scan, it consumes random draws from the gameplay RNG in the original order. A map change after publication triggers an inline scan. AI decisions, naval, economy, arsenal, warships and trains continue on the scene thread.
+
+All five seeded World checkpoints matched with the AI scan flag enabled. The worker ran 2,999 of 3,000 attack passes and supplied 6,736 of the first 6,747 AI scans in a separate 600-tick coverage run. The Godot 4.3 Web export reached 20 completed worker passes in cross-origin-isolated software Chromium.
+
+The scene thread continues aging existing blast, shell, floating-text and fallout visuals while a worker task is pending. When the held simulation frames resume, effects only age for the new frame. This keeps the visual clock running and avoids advancing a new effect with earlier frame deltas.

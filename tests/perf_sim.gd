@@ -1,4 +1,4 @@
-# Headless World tick profiler. Options: --ticks=N --seed=S --navfree --worker-attacks
+# Headless World tick profiler. Options: --ticks=N --seed=S --navfree --worker-attacks --sim-worker-ai-scan
 extends SceneTree
 const AttackWorker = preload("res://sim/attack_worker.gd")
 
@@ -36,6 +36,7 @@ func _run():
 	var worker_ticks := 0
 	if worker_enabled:
 		m._attack_worker = AttackWorker.new()
+		m._attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
 	for i in ticks:
 		var ts := []
 		ts.append(Time.get_ticks_usec())
@@ -81,6 +82,7 @@ func _run():
 			tot_worst = 0
 	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
 	print("ATTACK_WORKER_TICKS ", worker_ticks)
+	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n)
 	m.queue_free()
 	await process_frame
 	quit()

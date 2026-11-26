@@ -36,6 +36,7 @@ class HostProbe extends RefCounted:
 class GameProbe extends "res://main.gd":
 	var events := []
 	var frames := []
+	var effects_frames := []
 	func _sim_frame_budget_us() -> int:
 		return 1000000
 	func _drain_sim_intents() -> void:
@@ -50,17 +51,23 @@ class GameProbe extends "res://main.gd":
 		events.append("requests")
 	func _trains_tick() -> void:
 		events.append("trains")
-	func _advance_sim_frame(dt: float, tdt: float) -> void:
+	func _advance_sim_frame(dt: float, tdt: float, advance_effects := true) -> void:
 		frames.append([dt, tdt])
+		if advance_effects:
+			_advance_frame_effects(dt, tdt)
+	func _advance_frame_effects(dt: float, tdt: float) -> void:
+		effects_frames.append([dt, tdt])
 
 func _check_held_frames(game: GameProbe) -> bool:
 	game._tick_stage = 3
 	var first := game._advance_or_hold_sim_frame(0.013, 0.026)
 	var paused := game._advance_or_hold_sim_frame(0.0, 0.0)
-	var held := not first and not paused and game.frames.is_empty()
+	var held := not first and not paused and game.frames.is_empty() \
+		and game.effects_frames == [[0.013, 0.026], [0.0, 0.0]]
 	game._tick_stage = 0
 	var resumed := game._advance_or_hold_sim_frame(0.016, 0.032)
-	var ordered := game.frames == [[0.013, 0.026], [0.0, 0.0], [0.016, 0.032]]
+	var ordered := game.frames == [[0.013, 0.026], [0.0, 0.0], [0.016, 0.032]] \
+		and game.frames == game.effects_frames
 	game.frames.clear()
 	game._tick_stage = 3
 	game._advance_or_hold_sim_frame(0.5, 1.0)

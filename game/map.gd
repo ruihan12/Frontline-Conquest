@@ -1,4 +1,6 @@
 extends "res://game/state.gd"
+
+const ConquestBorders = preload("res://sim/conquest_borders.gd")
 # Map generation, rendering data, tiles and ownership
 
 ## Phones and tablets: the window fills the whole screen (stretch aspect "expand") at a touch-friendly scale
@@ -44,6 +46,7 @@ func _fit_scale() -> void:
 func _ready() -> void:
 	if "--sim-worker-attacks" in OS.get_cmdline_user_args():
 		_attack_worker = AttackWorker.new()
+		_attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
 		sim_intents = SimIntentQueue.new()
 	if "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
@@ -949,29 +952,6 @@ func _upd_border(t: int) -> void:
 	if b: d[t] = true
 	else: d.erase(t)
 
-# _upd_border with the map passed in (same test, same Dictionary operation, so key order is unchanged)
-func _upd_border_fast(t: int, om: PackedInt32Array, Wl: int, last_row: int) -> void:
-	var o: int = om[t]
-	if o <= 0: return
-	var x := t % Wl
-	var b := false
-	var u: int
-	if x > 0:
-		u = om[t - 1]
-		if u != o and u >= 0: b = true
-	if not b and x < Wl - 1:
-		u = om[t + 1]
-		if u != o and u >= 0: b = true
-	if not b and t >= Wl:
-		u = om[t - Wl]
-		if u != o and u >= 0: b = true
-	if not b and t < last_row:
-		u = om[t + Wl]
-		if u != o and u >= 0: b = true
-	var d: Dictionary = border[o]
-	if b: d[t] = true
-	else: d.erase(t)
-
 func _set_owner(i: int, o: int) -> void:
 	var om := owner_map
 	var old: int = om[i]
@@ -1019,39 +999,7 @@ func _set_owner(i: int, o: int) -> void:
 			n.bb = bb.merge(Rect2i(x, y, 1, 1))  # (only a tile outside the box grows it)
 		n.sx += x; n.sy += y
 	if border.size() == nations.size():
-		var lr := W * (H - 1)
-		_upd_border_fast(i, om, W, lr)
-		if o >= 0:
-			# (perf) a neighbour owned by p != o now touches tile i (owner o >= 0): it is a border tile, so
-			# _upd_border would do exactly border[p][t] = true; only o's own neighbours need the full test
-			var bd: Array = border
-			var t: int
-			var p: int
-			if x > 0:
-				t = i - 1; p = om[t]
-				if p > 0:
-					if p != o: bd[p][t] = true
-					else: _upd_border_fast(t, om, W, lr)
-			if x < W - 1:
-				t = i + 1; p = om[t]
-				if p > 0:
-					if p != o: bd[p][t] = true
-					else: _upd_border_fast(t, om, W, lr)
-			if i >= W:
-				t = i - W; p = om[t]
-				if p > 0:
-					if p != o: bd[p][t] = true
-					else: _upd_border_fast(t, om, W, lr)
-			if i < lr:
-				t = i + W; p = om[t]
-				if p > 0:
-					if p != o: bd[p][t] = true
-					else: _upd_border_fast(t, om, W, lr)
-		else:
-			if x > 0: _upd_border_fast(i - 1, om, W, lr)
-			if x < W - 1: _upd_border_fast(i + 1, om, W, lr)
-			if i >= W: _upd_border_fast(i - W, om, W, lr)
-			if i < lr: _upd_border_fast(i + W, om, W, lr)
+		ConquestBorders.refresh_after_capture(border, i, o, x, om, W, W * (H - 1))
 	_repaint(i)
 
 

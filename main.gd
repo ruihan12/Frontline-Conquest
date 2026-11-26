@@ -10,6 +10,8 @@ func _pf_line() -> String:
 	out += " state=%s paused=%s tick=%d pland=%d" % [state, str(sim_paused), sim_atk.tick if sim_atk else -1, nations[PLAYER].land if nations.size() > PLAYER else -1]
 	if _attack_worker != null:
 		out += " attack_worker_passes=%d" % _attack_worker_applied
+		if _attack_worker.prepare_ai_scans and sim_ai != null:
+			out += " ai_worker_scans=%d" % sim_ai.worker_scan_count
 	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
 	for k2 in ["names", "names_place", "fronts", "fxl", "ranges", "fallout", "uploads", "flush_n", "labels_anim", "alliances", "dominates", "cam_paint", "tooltip", "anim_ui", "hud_proc", "client_proc", "notes", "pre", "c_world", "c_ranges", "c_advisor", "c_top", "c_hover", "c_feed", "c_bar_s", "c_nukes", "c_alert", "c_bar", "c_board", "c_attacks"]:
 		if _pf.has(k2): out += " %s=%.2f" % [k2, _pf[k2] / f / (1.0 if k2 in ["uploads", "flush_n"] else 1000.0)]
@@ -181,12 +183,14 @@ func _drain_sim_intents() -> void:
 
 # These updates depend on the frame clocks. Keep their sequence and RNG draw
 # timing while separating them from the fixed tick and the match-end UI.
-func _advance_sim_frame(dt: float, tdt: float) -> void:
+func _advance_sim_frame(dt: float, tdt: float, advance_effects := true) -> void:
 	var u0 := Time.get_ticks_usec()
 	_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
 	_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
 	_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
-	_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
+	if advance_effects:
+		_advance_frame_effects(dt, tdt)
+	u0 = Time.get_ticks_usec()
 	_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
 	donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
 	donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
@@ -199,14 +203,21 @@ func _advance_sim_frame(dt: float, tdt: float) -> void:
 	_pf_add("boats", Time.get_ticks_usec() - b0)
 	ai_timer += dt
 
+func _advance_frame_effects(dt: float, tdt: float) -> void:
+	var start := Time.get_ticks_usec()
+	_tick_fx(dt, tdt)
+	_fp["fx"] = Time.get_ticks_usec() - start
+	_pf_add("fx", _fp.fx)
+
 func _advance_or_hold_sim_frame(dt: float, tdt: float) -> bool:
 	if _tick_stage == 3:
+		_advance_frame_effects(dt, tdt)
 		_held_sim_frames.append(dt)
 		_held_sim_frames.append(tdt)
 		return false
 	# Movement, arrival checks and RNG draws run once per original frame.
 	for i in range(0, _held_sim_frames.size(), 2):
-		_advance_sim_frame(_held_sim_frames[i], _held_sim_frames[i + 1])
+		_advance_sim_frame(_held_sim_frames[i], _held_sim_frames[i + 1], false)
 	_held_sim_frames.clear()
 	_advance_sim_frame(dt, tdt)
 	return true

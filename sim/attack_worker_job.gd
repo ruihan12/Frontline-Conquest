@@ -3,6 +3,7 @@ extends RefCounted
 ## ordered journal for the caller to replay through the live ownership path.
 
 const TS := 2.0
+const ConquestBorders = preload("res://sim/conquest_borders.gd")
 var W: int
 var H: int
 var owner_map: PackedInt32Array
@@ -13,19 +14,27 @@ var land_total: int
 var nations: Array
 var attacks: Array
 var pending_merges: Array = []
+var border: Array = []
+var border_scans := {}
+var _scan_ids := PackedInt32Array()
+var transport_orders: PackedInt32Array
+var standings: Array = []
+var pressure: Variant = null
+var _prepare_standings: bool
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
 var player_capture_tiles := PackedInt32Array()
 var counters := {}
 var tick: int
+var next_aid: int
 var player_conquest := false
 var _allies: Dictionary
 var _traitors: Dictionary
 var _kinds := PackedInt32Array()
 var _rules: SimRules
 
-func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedByteArray()) -> void:
+func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedByteArray(), prepare_ai_scans := false) -> void:
 	W = game.W
 	H = game.H
 	owner_map = game.owner_map.duplicate() if mirror_owners.is_empty() else mirror_owners
@@ -40,11 +49,21 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 	for attack: Dictionary in attacks:
 		attack.hk = attack.hk.duplicate()
 		attack.ht = attack.ht.duplicate()
+	if prepare_ai_scans:
+		_scan_ids = game.sim_ai.scheduled_border_scans(game.sim_atk.tick + 1)
+	if not game.sim_atk.merges.is_empty() or not _scan_ids.is_empty():
+		border.resize(nations.size())
+		for id in border.size():
+			border[id] = {}
+		for id in _scan_ids:
+			border[id] = game.border[id].duplicate()
 	if not game.sim_atk.merges.is_empty():
 		var copies_by_id := {}
 		for attack: Dictionary in attacks:
 			copies_by_id[attack.aid] = attack
 		for merge: Dictionary in game.sim_atk.merges:
+			if border[merge.a].is_empty():
+				border[merge.a] = game.border[merge.a].duplicate()
 			if copies_by_id.has(merge.aid):
 				pending_merges.append(copies_by_id[merge.aid])
 			else:
@@ -53,6 +72,9 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 		def_posts[owner] = game.def_posts[owner].duplicate()
 	rng.state = game.rng.state
 	tick = game.sim_atk.tick
+	next_aid = game.sim_atk.next_aid
+	_prepare_standings = (tick + 1) % 50 == 0 or game.sim_ai.rank.is_empty()
+	transport_orders = SimAI.transport_orders(game.boats)
 	_allies = game.allies.duplicate()
 	_traitors = game.traitor.duplicate()
 	for id in nations.size():
@@ -69,21 +91,33 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 func run() -> void:
 	var conquest := SimAttacks.new(self, _rules)
 	conquest.tick = tick
+	conquest.next_aid = next_aid
+	conquest.merges = pending_merges
 	conquest.tick_all()
 	tick = conquest.tick
+	next_aid = conquest.next_aid
 	conquest.g = null
+	if _prepare_standings:
+		standings = SimAI.collect_standings(self)
+	pressure = SimAI.collect_pressure(self, transport_orders)
+	for id in _scan_ids:
+		border_scans[id] = SimAI.collect_border(self, id, _rules.legacy_lin)
 
 func _set_owner(tile: int, owner: int) -> void:
 	var old := owner_map[tile]
 	var x := tile % W
 	var y := tile / W
 	if old > 0:
+		if not border.is_empty():
+			border[old].erase(tile)
 		var lost: Dictionary = nations[old]
 		lost.land -= 1
 		lost.sx -= x
 		lost.sy -= y
 		lost.last_by = owner
 	owner_map[tile] = owner
+	if not border.is_empty():
+		ConquestBorders.refresh_after_capture(border, tile, owner, x, owner_map, W, W * (H - 1))
 	fallout[tile] = 0
 	var gained: Dictionary = nations[owner]
 	gained.land += 1
@@ -102,6 +136,13 @@ func allied(a: int, b: int) -> bool:
 
 func kind_of(id: int) -> int:
 	return _kinds[id]
+
+func is_bot(id: int) -> bool:
+	return id > 0 and id < nations.size() and bool(nations[id].get("bot", false))
+
+# Jobs are only used in solo play, where this host event has no recipients.
+func _viewer_event(_event: Dictionary, _recipients: Array) -> void:
+	pass
 
 func is_traitor(id: int) -> bool:
 	return int(_traitors.get(id, -1)) > tick + 1
