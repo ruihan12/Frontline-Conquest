@@ -110,7 +110,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 		g._start_game_ui())
 	title.show_help.connect(toggle_help)
 	title.open_arsenal.connect(func() -> void: open_arsenal(null, "title"))
-	# (loot boxes removed 2026-11-25: the title has no crate button, so open_crates never fires)
+	title.open_crates.connect(func() -> void: crates.open())
 	# The party hub: its own connection to the game server, opened from the title screen (save.settings.party_on).
 	var party_model = null
 	if bool(main.save.get("settings", {}).get("party_on", true)):
