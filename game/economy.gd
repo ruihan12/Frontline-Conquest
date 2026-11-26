@@ -614,7 +614,7 @@ const SUPPLY_LIFE_TICKS := 3000    # unclaimed after 5 min: gone
 const SUPPLY_MAX := 3
 
 func _supply_pick_tile() -> int:
-	for _i in 400:
+	for _i in 4000:
 		var t := _supply_rng.randi() % (W * H)
 		if owner_map[t] == NEUTRAL and fallout[t] != 1:
 			return t
@@ -627,8 +627,9 @@ func _supply_tick() -> void:
 	if _supply_next == 0:
 		_supply_next = tick
 	if tick >= _supply_next and drops.size() < SUPPLY_MAX:
-		_supply_next = tick + SUPPLY_GAP_TICKS
 		var t := _supply_pick_tile()
+		# (no free land found: try again in 5 s rather than skipping the whole 2-minute gap; neutral land runs out as tribes and nations grow)
+		_supply_next = tick + (SUPPLY_GAP_TICKS if t >= 0 else 50)
 		if t >= 0:
 			drops.append({"tile": t, "t0": tick})
 			notify("Supply drop landed: take the land to claim it", "info")
