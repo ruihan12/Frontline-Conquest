@@ -34,8 +34,10 @@ var _due_batteries: Array = []
 var transport_inputs: Array = []
 var transport_targets := {}
 var transport_range: float
-var _transport_hunters := {}
+var _scanning_ships := {}
 var shore_checks: Array = []
+var trade_targets := {}
+var patrol_range: float
 var shore_distance: float
 var _trade_water: int
 var _trade_routes: Array = []
@@ -130,10 +132,12 @@ func capture_warship_inputs(game) -> void:
 	for ship: Dictionary in game.warships:
 		if not ship.has("uid") or (tick + 1 + int(ship.uid)) % SimRules.SCAN_TICKS != 0:
 			continue
-		_transport_hunters[ship.uid] = {"o": ship.o, "pos": ship.pos, "shelled": ship.get("shelled", {}).duplicate()}
-	if _transport_hunters.is_empty():
+		_scanning_ships[ship.uid] = {"o": ship.o, "pos": ship.pos, "patrol": ship.get("patrol", ship.pos),
+			"shelled": ship.get("shelled", {}).duplicate()}
+	if _scanning_ships.is_empty():
 		return
 	transport_range = game.sim_rules.warship_range()
+	patrol_range = game.sim_rules.warship_patrol()
 	for boat: Dictionary in game.boats:
 		transport_inputs.append({"a": boat.a, "uid": int(boat.get("uid", -1)), "d": boat.d,
 			"pts": boat.pts.duplicate(), "cum": boat.cum.duplicate()})
@@ -142,7 +146,8 @@ func capture_warship_inputs(game) -> void:
 	for trader: Dictionary in game.traders:
 		var points: PackedVector2Array = trader.get("pts", PackedVector2Array())
 		var distances: PackedFloat32Array = trader.get("cum", PackedFloat32Array())
-		_trade_routes.append({"pts": points.duplicate(), "cum": distances.duplicate(), "d": trader.d})
+		_trade_routes.append({"pts": points.duplicate(), "cum": distances.duplicate(), "d": trader.d,
+			"o": int(trader.get("o", 0)), "dst_o": SimWarships.trader_destination_owner(trader)})
 
 func capture_rail_inputs(game) -> void:
 	for train: Dictionary in game.trains:
@@ -202,11 +207,20 @@ func run() -> void:
 	for boat: Dictionary in transport_inputs:
 		boat.pos = RoutePosition.sample(boat)[0]
 	if not transport_inputs.is_empty():
-		for uid in _transport_hunters:
-			var ship: Dictionary = _transport_hunters[uid]
+		for uid in _scanning_ships:
+			var ship: Dictionary = _scanning_ships[uid]
 			transport_targets[uid] = [ship, SimWarships.nearest_transport(ship, transport_inputs, alliances, transport_range, TS)]
+	var valid_routes := true
 	for route: Dictionary in _trade_routes:
 		shore_checks.append([route, SimWarships.route_near_shore(route, owner_map, W, H, _trade_water, TS, shore_distance)])
+		if route.pts.size() >= 2 and route.pts.size() == route.cum.size():
+			route.pos = RoutePosition.sample(route)[0] / TS
+		else:
+			valid_routes = false
+	if valid_routes and not shore_checks.is_empty():
+		for uid in _scanning_ships:
+			var ship: Dictionary = _scanning_ships[uid]
+			trade_targets[uid] = [ship, SimWarships.nearest_trader(ship, shore_checks, alliances, transport_range, patrol_range)]
 
 func _prepare_rail_curves() -> void:
 	if _rail_stations.is_empty():

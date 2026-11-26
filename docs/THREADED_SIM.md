@@ -276,3 +276,12 @@ Scheduled tribe scans collect coastal border tiles on their first pass and probe
 The threaded 3,000-tick World run used 7,744 prepared tribe scans and matched all five reference checkpoints. A separate 600-tick inline run matched the first checkpoint.
 
 A cross-origin-isolated software Chromium fixture applied a prepared tribe scan.
+
+
+## Trader targeting
+
+The warship worker checks eligible traders in route order and prepares the nearest target within patrol range that lacks shoreline protection. The live ship still checks its access to a port on the same body of water and gives transports and hostile warships priority. The focused regression checks the original order for equal-distance traders and recalculates after a destination changes hands.
+
+A cross-origin-isolated software Chromium fixture consumed a prepared trader target.
+
+All five World checkpoints matched over 3,000 ticks. The seeded run used no trader selections, so the focused native and Web fixtures provide coverage of the new path.

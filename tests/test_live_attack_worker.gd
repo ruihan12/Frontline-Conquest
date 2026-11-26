@@ -64,10 +64,11 @@ func _run() -> void:
 	var sam_matches := _check_sam_preparation(game)
 	var rails_match := _check_rail_preparation(game)
 	var shore_matches := _check_shore_preparation(game)
+	var trader_matches := _check_trader_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches
+		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches and trader_matches
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -477,3 +478,46 @@ func _check_shore_preparation(game) -> bool:
 	game.allies[game._akey(2, 3)] = game.sim_atk.tick + 100
 	var alliance_fallback: bool = game.sim_ws._find_target(ship) == null and game.sim_ws.worker_transport_scans_used == 1
 	return used and recalculated and used_transport and fallback and alliance_fallback
+
+func _check_trader_preparation(game) -> bool:
+	var port := -1
+	var open_water := -1
+	var width: int = game.W
+	for tile: int in game.sim_naval.coast_list:
+		if game.struct_at.has(tile): continue
+		var coast: int = game.sim_naval.water_next_to(tile)
+		if coast < 0: continue
+		var body: int = game.sim_naval.body[coast]
+		for step in [-width, width, -1, 1]:
+			var water: int = coast + step
+			if water < 0 or water >= game.owner_map.size() or game.sim_naval.body[water] != body \
+					or game.sim_ws._shore_water(water):
+				continue
+			port = tile
+			open_water = water
+			break
+		if port >= 0: break
+	if port < 0: return false
+	game._struct_add(1, port, 4)
+	game.struct_at[port].bt = 0.0
+	var position := SimArsenal.tpos(open_water, width)
+	var point := position * float(game.TS)
+	var trader := {"o": 2, "dst": {"o": 5}, "d": 0.0,
+		"pts": PackedVector2Array([point, point + Vector2.RIGHT]), "cum": PackedFloat32Array([0.0, 1.0])}
+	var alternate := trader.duplicate(true)
+	game.traders = [trader, alternate]
+	game.boats.clear()
+	var ship := {"uid": posmod(-game.sim_atk.tick - 1, SimRules.SCAN_TICKS),
+		"o": 4, "pos": position, "patrol": position, "shelled": {}}
+	game.warships = [ship]
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var target = game.sim_ws._find_target(ship)
+	var matched: bool = target != null and is_same(target.ref, trader) and game.sim_ws.worker_trade_scans_used == 1
+	trader.dst.o = 4
+	target = game.sim_ws._find_target(ship)
+	var fallback: bool = target != null and is_same(target.ref, alternate) and game.sim_ws.worker_trade_scans_used == 1
+	if not matched or not fallback:
+		print("Trade target fixture matched=", matched, " fallback=", fallback)
+	return matched and fallback

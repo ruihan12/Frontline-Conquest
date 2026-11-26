@@ -27,6 +27,7 @@ func _init(main, rules: SimRules) -> void:
 func reset() -> void:
 	accept_transport_targets(-1, 0.0, {}, [], {})
 	accept_shore_checks(-1, -1, 0.0, [])
+	accept_trade_targets(0.0, 0.0, {}, {})
 	shells.clear(); tref.clear(); next_uid = 1; _post_last.clear(); _post_shelled.clear()
 	for k in stats: stats[k] = 0
 
@@ -222,23 +223,23 @@ func accept_transport_targets(tick: int, scan_range: float, allies: Dictionary, 
 	_transport_inputs = inputs
 	_transport_targets = targets
 
-const STALE_TRANSPORT_SCAN := -2
+const STALE_TARGET_SCAN := -2
 
 # A valid scan with no target returns -1.
 func _prepared_transport_target(ws: Dictionary, scan_range: float) -> int:
 	if not _transport_targets.has(ws.uid) or _transport_tick != now() or _transport_range != scan_range \
 			or g.team_mode or _transport_allies != g.allies or _transport_inputs.size() != g.boats.size():
-		return STALE_TRANSPORT_SCAN
+		return STALE_TARGET_SCAN
 	var result: Array = _transport_targets[ws.uid]
 	var ship: Dictionary = result[0]
 	if ship.o != ws.o or ship.pos != ws.pos or ship.shelled != ws.shelled:
-		return STALE_TRANSPORT_SCAN
+		return STALE_TARGET_SCAN
 	for i in _transport_inputs.size():
 		var saved: Dictionary = _transport_inputs[i]
 		var boat: Dictionary = g.boats[i]
 		if saved.a != boat.a or saved.uid != int(boat.get("uid", -1)) or saved.d != boat.d \
 				or saved.pts != boat.pts or saved.cum != boat.cum:
-			return STALE_TRANSPORT_SCAN
+			return STALE_TARGET_SCAN
 	worker_transport_scans_used += 1
 	return result[1]
 
@@ -268,7 +269,7 @@ func _find_target(ws: Dictionary):
 	var prepared := _prepared_transport_target(ws, r)
 	if prepared >= 0:
 		return {"kind": "boat", "ref": g.boats[prepared]}
-	if prepared == STALE_TRANSPORT_SCAN:
+	if prepared == STALE_TARGET_SCAN:
 		for bt in g.boats:
 			if bt.a == ws.o or g.allied(bt.a, ws.o) or shelled.has(int(bt.get("uid", -1))): continue
 			var d := (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(ws.pos)
@@ -287,10 +288,13 @@ func _find_target(ws: Dictionary):
 	for p in _ports_of(ws.o):
 		if g.sim_naval.coast_body(p.tile) == body: reachable = true; break
 	if not reachable: return null
+	var prepared_trader := _prepared_trade_target(ws, r, pr)
+	if prepared_trader >= 0: return {"kind": "trade", "ref": g.traders[prepared_trader]}
+	if prepared_trader == -1: return null
 	for i in g.traders.size():
 		var tr: Dictionary = g.traders[i]
 		if tr.o == ws.o or g.allied(tr.o, ws.o): continue
-		var dst_o: int = int(tr.dst.get("o", 0)) if tr.dst is Dictionary else 0
+		var dst_o := trader_destination_owner(tr)
 		if dst_o == ws.o or (dst_o > 0 and g.allied(dst_o, ws.o)): continue
 		var tp: Vector2 = g._path_pos(tr)[0] / g.TS
 		var d3 := tp.distance_squared_to(ws.pos)
@@ -298,6 +302,61 @@ func _find_target(ws: Dictionary):
 		if best == null or d3 < bd:
 			best = {"kind": "trade", "ref": tr}; bd = d3
 	return best
+
+static func trader_destination_owner(trader: Dictionary) -> int:
+	var destination = trader.get("dst")
+	return int(destination.get("o", 0)) if destination is Dictionary else 0
+
+static func nearest_trader(ship: Dictionary, checks: Array, allies: Dictionary, scan_range: float, patrol_range: float) -> int:
+	var best := -1
+	var distance_limit := scan_range * scan_range
+	for i in checks.size():
+		var check: Array = checks[i]
+		if check[1]: continue
+		var trader: Dictionary = check[0]
+		var owner: int = trader.o
+		var destination: int = trader.dst_o
+		if owner == ship.o or destination == ship.o \
+				or (owner > 0 and allies.has(mini(owner, ship.o) * 4096 + maxi(owner, ship.o))) \
+				or (destination > 0 and allies.has(mini(destination, ship.o) * 4096 + maxi(destination, ship.o))):
+			continue
+		var position: Vector2 = trader.pos
+		var distance := position.distance_squared_to(ship.pos)
+		if distance <= distance_limit and (best < 0 or distance < distance_limit) \
+				and position.distance_squared_to(ship.patrol) <= patrol_range * patrol_range:
+			best = i
+			distance_limit = distance
+	return best
+
+var _trade_scan_range := 0.0
+var _trade_patrol_range := 0.0
+var _trade_alliances := {}
+var _trade_targets := {}
+var worker_trade_scans_used := 0
+
+func accept_trade_targets(scan_range: float, patrol_range: float, alliances: Dictionary, targets: Dictionary) -> void:
+	_trade_scan_range = scan_range
+	_trade_patrol_range = patrol_range
+	_trade_alliances = alliances
+	_trade_targets = targets
+
+func _prepared_trade_target(ship: Dictionary, scan_range: float, patrol_range: float) -> int:
+	if not _trade_targets.has(ship.uid) or _trade_scan_range != scan_range or _trade_patrol_range != patrol_range \
+			or not _shore_checks_current() or g.team_mode or _trade_alliances != g.allies \
+			or _prepared_shore_checks.size() != g.traders.size():
+		return STALE_TARGET_SCAN
+	var result: Array = _trade_targets[ship.uid]
+	var saved: Dictionary = result[0]
+	if saved.o != ship.o or saved.pos != ship.pos or saved.patrol != ship.patrol:
+		return STALE_TARGET_SCAN
+	for i in _prepared_shore_checks.size():
+		var check: Dictionary = _prepared_shore_checks[i][0]
+		var trader: Dictionary = g.traders[i]
+		if check.o != trader.o or check.dst_o != trader_destination_owner(trader) or check.d != trader.d \
+				or check.pts != trader.pts or check.cum != trader.cum:
+			return STALE_TARGET_SCAN
+	worker_trade_scans_used += 1
+	return result[1]
 
 # SimWarships._safe_from_pirates: a trade ship that sailed a shoreline tile (water 4-adjacent to land)
 # in the last SAFE_FROM_PIRATES_TICKS ticks is safe. The port's ships keep the distance sailed (tr.d,
@@ -317,15 +376,17 @@ func accept_shore_checks(tick: int, revision: int, distance_per_tick: float, che
 static func shore_distance_per_tick(rules: SimRules, boat_speed: float, tile_size: float) -> float:
 	return rules.ship_tiles_per_s() / 10.0 * boat_speed * tile_size
 
+func _shore_checks_current() -> bool:
+	return _prepared_shore_tick == now() and _prepared_shore_revision == g._attack_map_revision \
+		and _prepared_shore_distance == shore_distance_per_tick(R, g.boat_speed, g.TS)
+
 func _safe_from_pirates(tr: Dictionary, index := -1) -> bool:
-	var distance := shore_distance_per_tick(R, g.boat_speed, g.TS)
-	if index >= 0 and index < _prepared_shore_checks.size() and _prepared_shore_tick == now() \
-			and _prepared_shore_revision == g._attack_map_revision and _prepared_shore_distance == distance:
+	if index >= 0 and index < _prepared_shore_checks.size() and _shore_checks_current():
 		var check: Array = _prepared_shore_checks[index]
 		if check[0].d == tr.d and check[0].pts == tr.get("pts") and check[0].cum == tr.get("cum"):
 			worker_shore_checks_used += 1
 			return check[1]
-	return route_near_shore(tr, g.owner_map, g.W, g.H, g.WATER, g.TS, distance)
+	return route_near_shore(tr, g.owner_map, g.W, g.H, g.WATER, g.TS, shore_distance_per_tick(R, g.boat_speed, g.TS))
 
 static func route_near_shore(tr: Dictionary, owners: PackedInt32Array, width: int, height: int,
 		water: int, tile_size: float, distance_per_tick: float) -> bool:

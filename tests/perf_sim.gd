@@ -119,6 +119,7 @@ func _run():
 	if worker_enabled and m._attack_worker.prepare_warships:
 		print("WARSHIP_WORKER_SHORE_CHECKS ", m.sim_ws.worker_shore_checks_used)
 		print("WARSHIP_WORKER_TRANSPORT_SCANS ", m.sim_ws.worker_transport_scans_used)
+		print("WARSHIP_WORKER_TRADE_SCANS ", m.sim_ws.worker_trade_scans_used)
 	m.queue_free()
 	await process_frame
 	quit()

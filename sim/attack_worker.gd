@@ -105,6 +105,7 @@ func take(game) -> bool:
 	if prepare_warships:
 		game.sim_ws.accept_transport_targets(job.tick, job.transport_range, job.alliances, job.transport_inputs, job.transport_targets)
 		game.sim_ws.accept_shore_checks(job.tick, game._attack_map_revision, job.shore_distance, job.shore_checks)
+		game.sim_ws.accept_trade_targets(job.transport_range, job.patrol_range, job.alliances, job.trade_targets)
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()
