@@ -1,6 +1,8 @@
 extends "res://game/nations.gd"
 # Economy, building, attacks and combat
 
+const RoutePosition = preload("res://sim/route_position.gd")
+
 func _oc_rebuild() -> void:
 	_oc_ver = _sv
 	_oc_lvl.clear(); _oc_cnt.clear()
@@ -557,14 +559,7 @@ func _smooth_path(path: Array, dest: int) -> PackedVector2Array:
 	return pts
 
 func _boat_pos(bt) -> Array:
-	var cum: PackedFloat32Array = bt.cum
-	var pts: PackedVector2Array = bt.pts
-	var d: float = bt.d
-	var m := 1
-	while m < cum.size() - 1 and cum[m] < d: m += 1
-	var seg := maxf(0.001, cum[m] - cum[m - 1])
-	var p := pts[m - 1].lerp(pts[m], clampf((d - cum[m - 1]) / seg, 0, 1))
-	return [p, (pts[m] - pts[m - 1]).normalized(), m]
+	return RoutePosition.sample(bt)
 
 func _tick_boats(dt: float) -> void:
 	for bt in boats.duplicate():

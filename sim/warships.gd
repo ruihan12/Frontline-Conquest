@@ -25,6 +25,7 @@ func _init(main, rules: SimRules) -> void:
 	R = rules
 
 func reset() -> void:
+	accept_transport_targets(-1, 0.0, {}, [], {})
 	accept_shore_checks(-1, -1, 0.0, [])
 	shells.clear(); tref.clear(); next_uid = 1; _post_last.clear(); _post_shelled.clear()
 	for k in stats: stats[k] = 0
@@ -207,6 +208,55 @@ func _retreat_step(ws: Dictionary) -> void:
 	ws.tgt = dest
 	_move(ws, R.warship_tiles_per_tick(false))
 
+var _transport_tick := -1
+var _transport_range := 0.0
+var _transport_allies := {}
+var _transport_inputs: Array = []
+var _transport_targets := {}
+var worker_transport_scans_used := 0
+
+func accept_transport_targets(tick: int, scan_range: float, allies: Dictionary, inputs: Array, targets: Dictionary) -> void:
+	_transport_tick = tick
+	_transport_range = scan_range
+	_transport_allies = allies
+	_transport_inputs = inputs
+	_transport_targets = targets
+
+const STALE_TRANSPORT_SCAN := -2
+
+# A valid scan with no target returns -1.
+func _prepared_transport_target(ws: Dictionary, scan_range: float) -> int:
+	if not _transport_targets.has(ws.uid) or _transport_tick != now() or _transport_range != scan_range \
+			or g.team_mode or _transport_allies != g.allies or _transport_inputs.size() != g.boats.size():
+		return STALE_TRANSPORT_SCAN
+	var result: Array = _transport_targets[ws.uid]
+	var ship: Dictionary = result[0]
+	if ship.o != ws.o or ship.pos != ws.pos or ship.shelled != ws.shelled:
+		return STALE_TRANSPORT_SCAN
+	for i in _transport_inputs.size():
+		var saved: Dictionary = _transport_inputs[i]
+		var boat: Dictionary = g.boats[i]
+		if saved.a != boat.a or saved.uid != int(boat.get("uid", -1)) or saved.d != boat.d \
+				or saved.pts != boat.pts or saved.cum != boat.cum:
+			return STALE_TRANSPORT_SCAN
+	worker_transport_scans_used += 1
+	return result[1]
+
+static func nearest_transport(ship: Dictionary, boats: Array, allies: Dictionary, scan_range: float, tile_size: float) -> int:
+	var best := -1
+	var distance_limit := scan_range * scan_range
+	for i in boats.size():
+		var boat: Dictionary = boats[i]
+		if boat.a == ship.o or ship.shelled.has(boat.uid) \
+				or allies.has(mini(boat.a, ship.o) * 4096 + maxi(boat.a, ship.o)):
+			continue
+		var point: Vector2 = boat.pos / tile_size
+		var distance := point.distance_squared_to(ship.pos)
+		if distance <= distance_limit and (best < 0 or distance < distance_limit):
+			best = i
+			distance_limit = distance
+	return best
+
 func _find_target(ws: Dictionary):
 	var r := R.warship_range()
 	var r2 := r * r
@@ -215,11 +265,15 @@ func _find_target(ws: Dictionary):
 	var bp := 9
 	var bd := 0.0
 	var shelled: Dictionary = ws.shelled
-	for bt in g.boats:
-		if bt.a == ws.o or g.allied(bt.a, ws.o) or shelled.has(int(bt.get("uid", -1))): continue
-		var d := (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(ws.pos)
-		if d <= r2 and (best == null or 0 < bp or d < bd):
-			best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
+	var prepared := _prepared_transport_target(ws, r)
+	if prepared >= 0:
+		return {"kind": "boat", "ref": g.boats[prepared]}
+	if prepared == STALE_TRANSPORT_SCAN:
+		for bt in g.boats:
+			if bt.a == ws.o or g.allied(bt.a, ws.o) or shelled.has(int(bt.get("uid", -1))): continue
+			var d := (g._boat_pos(bt)[0] / g.TS as Vector2).distance_squared_to(ws.pos)
+			if d <= r2 and (best == null or 0 < bp or d < bd):
+				best = {"kind": "boat", "ref": bt}; bp = 0; bd = d
 	if bp == 0: return best
 	for o2 in g.warships:
 		if o2 == ws or o2.o == ws.o or g.allied(o2.o, ws.o) or int(o2.get("state", 0)) == 2: continue

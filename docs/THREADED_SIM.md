@@ -255,6 +255,8 @@ A 300-frame native World sample seeded 20 stations. With attack threading alone 
 
 The existing train flag also prepares elapsed time, leg advance and the possible station payouts for each train. The scene validates the current link and the train's timing before using the result, then applies arrivals and payments in their original order. A changed train or a train spawned during the current tick uses inline calculation. The 600-tick World fixture with 20 stations consumed 177 worker steps and matched the earlier checkpoint.
 
-With `--sim-worker-attacks --sim-worker-warships`, the attack job samples copied trader paths when warships are due to scan. The warship can reuse a shoreline protection result if the route, distance sailed, map revision and speed still match. Ship movement, target selection and combat remain on the scene thread.
+With `--sim-worker-attacks --sim-worker-warships`, the attack job samples copied trader paths when warships are due to scan. The warship can reuse a shoreline protection result if the route, distance sailed, map revision and speed still match.
 
 A software Chromium fixture verified that the Web export prepared both a train arrival and a trader shoreline check. The native regression also covers an arriving train that continues to the next leg and a stale timing result that is recalculated inline.
+
+The warship worker also samples transport positions once and selects the nearest eligible transport for ships due to scan. Live warships use that selection while transport inputs, alliances, range, ship position and prior shell targets still match. The native regression covers equal-distance targets and fallback after a change to the shell targets or alliances. Ship movement, other target types and combat remain on the scene thread.

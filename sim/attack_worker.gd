@@ -43,7 +43,7 @@ func submit(game) -> bool:
 	if prepare_rails:
 		_job.capture_rail_inputs(game)
 	if prepare_warships:
-		_job.capture_shore_inputs(game)
+		_job.capture_warship_inputs(game)
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
 	_task = WorkerThreadPool.add_task(_job.run)
@@ -100,6 +100,7 @@ func take(game) -> bool:
 		game._prepared_train_steps = job.train_steps
 		game._prepared_train_tick = job.tick
 	if prepare_warships:
+		game.sim_ws.accept_transport_targets(job.tick, job.transport_range, job.alliances, job.transport_inputs, job.transport_targets)
 		game.sim_ws.accept_shore_checks(job.tick, game._attack_map_revision, job.shore_distance, job.shore_checks)
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout

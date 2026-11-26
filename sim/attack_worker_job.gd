@@ -5,6 +5,7 @@ extends RefCounted
 const TS := 2.0
 const ConquestBorders = preload("res://sim/conquest_borders.gd")
 const RailGeometry = preload("res://sim/rail_geometry.gd")
+const RoutePosition = preload("res://sim/route_position.gd")
 var W: int
 var H: int
 var owner_map: PackedInt32Array
@@ -28,6 +29,10 @@ var battery_targets := {}
 var structure_revision := -1
 var battery_radius: float
 var _due_batteries: Array = []
+var transport_inputs: Array = []
+var transport_targets := {}
+var transport_range: float
+var _transport_hunters := {}
 var shore_checks: Array = []
 var shore_distance: float
 var _trade_water: int
@@ -117,13 +122,19 @@ func capture_batteries(game) -> void:
 	structure_revision = game._sv
 	battery_radius = game.sim_rules.artillery_range()
 
-func capture_shore_inputs(game) -> void:
-	if game.traders.is_empty():
+func capture_warship_inputs(game) -> void:
+	if game.boats.is_empty() and game.traders.is_empty():
 		return
-	var due: bool = game.warships.any(func(ship):
-		return (tick + 1 + int(ship.get("uid", 0))) % SimRules.SCAN_TICKS == 0)
-	if not due:
+	for ship: Dictionary in game.warships:
+		if not ship.has("uid") or (tick + 1 + int(ship.uid)) % SimRules.SCAN_TICKS != 0:
+			continue
+		_transport_hunters[ship.uid] = {"o": ship.o, "pos": ship.pos, "shelled": ship.get("shelled", {}).duplicate()}
+	if _transport_hunters.is_empty():
 		return
+	transport_range = game.sim_rules.warship_range()
+	for boat: Dictionary in game.boats:
+		transport_inputs.append({"a": boat.a, "uid": int(boat.get("uid", -1)), "d": boat.d,
+			"pts": boat.pts.duplicate(), "cum": boat.cum.duplicate()})
 	shore_distance = SimWarships.shore_distance_per_tick(game.sim_rules, game.boat_speed, game.TS)
 	_trade_water = game.WATER
 	for trader: Dictionary in game.traders:
@@ -176,6 +187,12 @@ func run() -> void:
 	for step: RailGeometry.TrainStep in train_steps:
 		step.calculate()
 	_prepare_rail_curves()
+	for boat: Dictionary in transport_inputs:
+		boat.pos = RoutePosition.sample(boat)[0]
+	if not transport_inputs.is_empty():
+		for uid in _transport_hunters:
+			var ship: Dictionary = _transport_hunters[uid]
+			transport_targets[uid] = [ship, SimWarships.nearest_transport(ship, transport_inputs, alliances, transport_range, TS)]
 	for route: Dictionary in _trade_routes:
 		shore_checks.append([route, SimWarships.route_near_shore(route, owner_map, W, H, _trade_water, TS, shore_distance)])
 

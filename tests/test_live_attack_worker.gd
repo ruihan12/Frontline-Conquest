@@ -336,7 +336,12 @@ func _check_shore_preparation(game) -> bool:
 	var trader := {"d": 0.0, "pts": PackedVector2Array([point, point + Vector2.RIGHT]),
 		"cum": PackedFloat32Array([0.0, 1.0])}
 	game.traders = [trader]
-	game.warships = [{"uid": posmod(-game.sim_atk.tick - 1, SimRules.SCAN_TICKS)}]
+	game.warships = [{"uid": posmod(-game.sim_atk.tick - 1, SimRules.SCAN_TICKS),
+		"o": 3, "pos": point / float(game.TS), "shelled": {}}]
+	game.boats = [{"a": 2, "uid": 1, "d": 0.0, "dest": shore, "pts": trader.pts.duplicate(), "cum": trader.cum.duplicate()}]
+	var second: Dictionary = game.boats[0].duplicate(true)
+	second.uid = 2
+	game.boats.append(second)
 	game._attack_worker.prepare_warships = true
 	if not game._attack_worker.submit(game):
 		return false
@@ -346,4 +351,20 @@ func _check_shore_preparation(game) -> bool:
 	var used: bool = game.sim_ws._safe_from_pirates(trader, 0) and game.sim_ws.worker_shore_checks_used == 1
 	trader.pts = PackedVector2Array()
 	var recalculated: bool = not game.sim_ws._safe_from_pirates(trader, 0) and game.sim_ws.worker_shore_checks_used == 1
-	return used and recalculated
+	var target = game.sim_ws._find_target(game.warships[0])
+	var used_transport: bool = target != null and is_same(target.ref, game.boats[0]) and game.sim_ws.worker_transport_scans_used == 1
+	game.warships[0].shelled[1] = true
+	target = game.sim_ws._find_target(game.warships[0])
+	var fallback: bool = target != null and is_same(target.ref, second) and game.sim_ws.worker_transport_scans_used == 1
+	game.warships[0].shelled.clear()
+	var ship: Dictionary = game.warships[0]
+	ship.uid = posmod(-game.sim_atk.tick - 1, SimRules.SCAN_TICKS)
+	# A live alliance changes which transports can be selected.
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game):
+		return false
+	game.allies[game._akey(2, 3)] = game.sim_atk.tick + 100
+	var alliance_fallback: bool = game.sim_ws._find_target(ship) == null and game.sim_ws.worker_transport_scans_used == 1
+	return used and recalculated and used_transport and fallback and alliance_fallback
