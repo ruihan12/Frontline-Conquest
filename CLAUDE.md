@@ -87,6 +87,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - `--sim-worker-economy` computes troop growth, gold and cooldowns off-thread. It shares the attack job when both flags are enabled and recomputes changed inputs before applying them.
 - `--sim-worker-naval` moves eligible solo port ticks and fresh graph searches to the worker. `--sim-worker-arsenal` with attack threading offloads artillery structure-target scans and SAM interception planning.
 - `--sim-worker-trains` with attack threading prepares rail geometry and train progression. `--sim-worker-warships` prepares shoreline protection checks and targeting for transports and traders.
+- Combined workers lowered the median headless World frame interval from 30.23 ms to 19.53 ms. The 95th-percentile interval rose from 39.06 ms to 45.45 ms. See [threaded simulation timings](docs/THREADED_SIM.md).
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

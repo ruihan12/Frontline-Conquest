@@ -285,3 +285,16 @@ The warship worker checks eligible traders in route order and prepares the neare
 A cross-origin-isolated software Chromium fixture consumed a prepared trader target.
 
 All five World checkpoints matched over 3,000 ticks. The seeded run used no trader selections, so the focused native and Web fixtures provide coverage of the new path.
+
+
+## Combined worker timing
+
+Three sequential 300-frame native headless samples ran World at 1× with seed 12345 and a 60 FPS cap. The worker modes enabled attack, AI scan, economy, naval, arsenal, train, warship and blast flags. Neither sample had eligible port ticks.
+
+| Mode | Median frame interval | 95th-percentile frame interval | Completed ticks/s |
+| --- | ---: | ---: | ---: |
+| Inline | 30.23 ms | 39.06 ms | 7.88 |
+| Workers | 19.53 ms | 45.45 ms | 8.02 |
+| Workers and render snapshots | 27.55 ms | 66.83 ms | 6.69 |
+
+Workers applied 56 attack passes in the second sample and 64 with snapshots. The median frame interval improved, while slower frames took longer. These runs did not reach the 16.67 ms frame budget or the 10 ticks/s target. The flags remain opt-in. The software Chromium fixtures verify worker execution. Hardware browser and phone timing remain unmeasured.
