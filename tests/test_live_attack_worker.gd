@@ -52,19 +52,20 @@ func _run() -> void:
 		await process_frame
 		yielded += 1
 	var map_invalidated: bool = map_job and game._attack_worker.ready() and not game._attack_worker.take(game)
-	var structure_replayed := _check_structure_capture(game)
+	var structure_replayed := _check_structure_capture(game, 3)
+	var player_structure_deferred := _check_structure_capture(game, game.PLAYER)
+	var merge_replayed := _check_pending_merge(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
-		and map_invalidated and mirror_updated and structure_replayed
+		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred and merge_replayed
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
 	quit(0 if passed else 1)
 
-func _check_structure_capture(game) -> bool:
-	# Put a bot city on a target adjacent to another bot, then begin the
+func _check_structure_capture(game, defender: int) -> bool:
+	# Put a city on a target adjacent to a bot, then begin the
 	# pass with the city tile already chewed so capture is guaranteed.
 	const ATTACKER := 2
-	const DEFENDER := 3
 	var tile := -1
 	for border_tile: int in game.border[ATTACKER]:
 		var right := border_tile + 1
@@ -75,11 +76,11 @@ func _check_structure_capture(game) -> bool:
 		return false
 	game.attacks.clear()
 	game.sim_atk.merges.clear()
-	game._set_owner(tile, DEFENDER)
-	game._struct_add(0, tile, DEFENDER)
+	game._set_owner(tile, defender)
+	game._struct_add(0, tile, defender)
 	var city: Dictionary = game.struct_at[tile]
 	city.hits = 2
-	var attack = game.sim_atk.start(ATTACKER, DEFENDER, 100000.0)
+	var attack = game.sim_atk.start(ATTACKER, defender, 100000.0)
 	if attack == null:
 		return false
 	attack.head = tile
@@ -90,11 +91,36 @@ func _check_structure_capture(game) -> bool:
 	var rng_before: int = game.rng.state
 	game.rng.randi()
 	game._attack_worker.wait()
-	if game._attack_worker.take(game) or game.owner_map[tile] != DEFENDER or city.o != DEFENDER:
+	if game._attack_worker.take(game) or game.owner_map[tile] != defender or city.o != defender:
 		return false
 	game.rng.state = rng_before
 	if not game._attack_worker.submit(game):
 		return false
 	game._attack_worker.wait()
-	return game._attack_worker.take(game) and game.owner_map[tile] == ATTACKER \
+	var applied: bool = game._attack_worker.take(game)
+	if defender == game.PLAYER:
+		return not applied and game.owner_map[tile] == defender and city.o == defender and city.hits == 2
+	return applied and game.owner_map[tile] == ATTACKER \
 		and city.o == ATTACKER and city.hits == 0
+
+func _check_pending_merge(game) -> bool:
+	game.attacks.clear()
+	game.sim_atk.merges.clear()
+	# Hold the frontier in place so the only troop change is the pending order.
+	game.sim_rules.max_tiles_per_tick = 0
+	var attack = game.sim_atk.start(2, 0, 100000.0)
+	if attack == null:
+		return false
+	attack.started = game.sim_atk.tick - 1
+	game.sim_atk.start(2, 0, 321.0)
+	if game.sim_atk.merges.size() != 1:
+		return false
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game):
+		return false
+	var merged = game.sim_atk.attack_between(2, 0)
+	return merged != null and merged.troops == 100321.0 and merged.pend == 0.0 \
+		and game.sim_atk.merges.is_empty()

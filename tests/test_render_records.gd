@@ -12,9 +12,15 @@ func _run() -> void:
 		"_draw_received": 100, "_draw_duration": 100}]
 	game.missiles = [{"o": 1, "nk": SimRules.N_ATOM, "from": Vector2.ZERO, "to": Vector2(10, 4),
 		"dur": 3.0, "t": 1.0, "r": 3.0}]
+	game.attacks = [{"aid": 4, "a": 1, "t": 2, "troops": 90.0, "last": 20, "front": {}}]
 	game.sim_rules = SimRules.new()
 	game.tile_snapshot = game.TileSnapshot.new()
 	game._publish_render_records()
+	game.attacks[0].troops = 70.0
+	var state := RWGameState.new(game)
+	var attack: Dictionary = state.attacks()[0]
+	var detached_attack: bool = attack.troops == 90.0 and attack.anchor_tile == 20 \
+		and attack.raw.is_read_only() and not attack.raw.has("front")
 	var owners: Array = game._render_nations()
 	var buildings: Array = game._render_structures()
 	game.nations[1].land = 11
@@ -36,10 +42,11 @@ func _run() -> void:
 	var readonly: bool = owners.is_read_only() and owners[1].is_read_only() \
 		and buildings.is_read_only() and buildings[0].is_read_only() and buildings[0].shots.is_read_only()
 	game._publish_render_records()
-	var published: bool = game._render_nations()[1].land == 11 and game._render_structures()[0].shots == [2, 5, 8]
+	var published: bool = game._render_nations()[1].land == 11 \
+		and game._render_structures()[0].shots == [2, 5, 8] and state.attacks()[0].troops == 70.0
 	game._reset_tile_snapshot()
 	var reset: bool = game._render_records == null
 	game.free()
-	var passed := detached and readonly and published and reset and unit_records and projectile
+	var passed := detached and readonly and published and reset and unit_records and projectile and detached_attack
 	print("RENDER_RECORDS ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

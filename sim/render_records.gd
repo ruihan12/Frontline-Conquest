@@ -7,6 +7,7 @@ const NATION_FIELDS := [
 const STRUCTURE_FIELDS := [
 	"k", "o", "tile", "level", "bt", "bmax", "shots", "cd", "cmax",
 ]
+const ATTACK_FIELDS := ["aid", "a", "t", "troops", "last", "retreat_at"]
 
 const BOAT_FIELDS := ["uid", "a", "pts", "cum", "d", "air", "_draw_previous", "_draw_received", "_draw_duration"]
 const WARSHIP_FIELDS := ["uid", "o", "pos", "tgt", "vet", "_draw_previous", "_draw_received", "_draw_duration"]
@@ -27,9 +28,14 @@ var boats: Array
 var warships: Array
 var nations: Array
 var structures: Array
+var attacks: Array
 
-func _init(source_nations: Array, source_structures: Array, source_boats: Array = [], source_warships: Array = [], projectiles: Dictionary = {}) -> void:
+func _init(source_nations: Array, source_structures: Array, source_boats: Array = [], source_warships: Array = [], projectiles: Dictionary = {}, source_attacks: Array = []) -> void:
 	nations = _copy_fields(source_nations, NATION_FIELDS)
+	attacks = _copy_fields(source_attacks, ATTACK_FIELDS)
+	for attack: Dictionary in attacks:
+		attack.make_read_only()
+	attacks.make_read_only()
 	boats = _copy_units(source_boats, BOAT_FIELDS)
 	warships = _copy_units(source_warships, WARSHIP_FIELDS)
 	traders = _copy_units(projectiles.get("traders", []), TRADER_FIELDS)

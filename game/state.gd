@@ -103,7 +103,7 @@ func _publish_render_records() -> void:
 			"traders": traders, "missiles": missiles, "planes": planes, "shells": render_shells,
 			"munitions": sim_ars.munitions if sim_ars != null else [],
 			"sam_shots": sim_ars.sam_shots if sim_ars != null else [],
-		})
+		}, attacks)
 
 func _render_nations() -> Array:
 	return nations if _render_records == null else _render_records.nations
@@ -116,6 +116,9 @@ func _render_warships() -> Array:
 
 func _render_structures() -> Array:
 	return structs if _render_records == null else _render_records.structures
+
+func _render_attacks() -> Array:
+	return attacks if _render_records == null else _render_records.attacks
 
 const SimIntentQueue = preload("res://sim/intent_queue.gd")
 var sim_intents: SimIntentQueue

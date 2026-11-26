@@ -414,13 +414,6 @@ func _process_inner(dt: float) -> void:
 	if autoshot: _autoshot(dt)
 
 func _animate_labels(dt: float) -> void:
-	# critically-damped springs: smooth, elastic, no jitter
-	for at in attacks:
-		if not at.has("disp"): continue
-		var acc: Vector2 = (at.tgt - at.disp) * 60.0 - at.vel * 13.0
-		at.vel += acc * dt
-		at.disp += at.vel * dt
-		at.shown = lerpf(at.shown, at.troops, 1.0 - exp(-8.0 * dt))
 	# (the nation springs only feed the fallback names in _draw_overlay_inner; NameLayer has its own)
 	if names != null: return
 	for id in range(1, nations.size()):

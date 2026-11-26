@@ -22,8 +22,7 @@ func ready() -> bool:
 	return pending() and (_joined or WorkerThreadPool.is_task_completed(_task))
 
 func submit(game) -> bool:
-	if pending() or game.attacks.is_empty() or game.team_mode or not game.tile_pop.is_empty() \
-			or not game.sim_atk.merges.is_empty():
+	if pending() or game.attacks.is_empty() or game.team_mode or not game.tile_pop.is_empty():
 		return false
 	_signature = _state_signature(game)
 	if _mirror_owners.size() == game.owner_map.size():
@@ -68,17 +67,14 @@ func take(game) -> bool:
 		for field in result:
 			if field not in ["lp", "ls"]:
 				nation[field] = result[field]
-	var visual := {}
-	for attack: Dictionary in game.attacks:
-		visual[attack.aid] = attack
-	for attack: Dictionary in job.attacks:
-		var old: Dictionary = visual.get(attack.aid, {})
-		for field in ["disp", "vel", "shown"]:
-			if old.has(field):
-				attack[field] = old[field]
 	game.attacks.assign(job.attacks)
 	game.rng.state = job.rng.state
 	game.sim_atk.tick = job.tick
+	# Merge orders reseed the frontier from the live border after all captures.
+	# Keep the same attack dictionaries even for attacks that ended this tick.
+	if not job.pending_merges.is_empty():
+		game.sim_atk.merges = job.pending_merges
+		game.sim_atk._apply_merges()
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()
@@ -115,16 +111,10 @@ static func _state_signature(game) -> Array:
 		record.erase("lp")
 		record.erase("ls")
 		nations.append(record)
-	var attacks := []
-	for attack: Dictionary in game.attacks:
-		var record := attack.duplicate()
-		for field in ["disp", "vel", "shown"]:
-			record.erase(field)
-		attacks.append(record)
 	var rules: SimRules = game.sim_rules
 	return [game.W, game.H, game.rng.state, game.sim_atk.tick, game.fallout_count, game.land_total,
-		game._attack_map_revision, hash(nations), hash(attacks),
+		game._attack_map_revision, hash(nations), hash(game.attacks),
 		hash(game.allies), hash(game.traitor), hash(game.def_posts), hash(game._kind_cache),
-		not game.sim_atk.merges.is_empty(), game.team_mode, game.tile_pop.size(),
+		hash(game.sim_atk.merges), game.team_mode, game.tile_pop.size(),
 		rules.k_lin, rules.k_area, rules.ts, rules.max_tiles_per_tick, rules.defense_range,
 		rules.log_mid, hash(rules.priority_f4)]

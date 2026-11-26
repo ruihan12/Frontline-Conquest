@@ -12,6 +12,7 @@ var fallout_count: int
 var land_total: int
 var nations: Array
 var attacks: Array
+var pending_merges: Array = []
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
@@ -39,6 +40,15 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 	for attack: Dictionary in attacks:
 		attack.hk = attack.hk.duplicate()
 		attack.ht = attack.ht.duplicate()
+	if not game.sim_atk.merges.is_empty():
+		var copies_by_id := {}
+		for attack: Dictionary in attacks:
+			copies_by_id[attack.aid] = attack
+		for merge: Dictionary in game.sim_atk.merges:
+			if copies_by_id.has(merge.aid):
+				pending_merges.append(copies_by_id[merge.aid])
+			else:
+				pending_merges.append(merge.duplicate(true))
 	for owner in game.def_posts:
 		def_posts[owner] = game.def_posts[owner].duplicate()
 	rng.state = game.rng.state

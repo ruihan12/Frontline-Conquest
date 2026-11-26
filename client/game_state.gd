@@ -31,6 +31,7 @@ var _un_tick := -1
 var _units: Array = []
 var _atk_tick := -1
 var _attacks: Array = []
+var _atk_snapshot: Array = []
 
 
 class RWMapInfo:
@@ -475,11 +476,16 @@ func unit(uid: int):
 ## [{aid, attacker, target, troops, anchor_tile, retreating, raw}]
 func attacks() -> Array:
 	var t := tick
-	if t == _atk_tick and _attacks.size() == g.attacks.size():
+	var records: Array = g._render_attacks()
+	var published := records.is_read_only()
+	if published and is_same(records, _atk_snapshot):
 		return _attacks
+	if not published and not _atk_snapshot.is_read_only() and t == _atk_tick and _attacks.size() == records.size():
+		return _attacks
+	_atk_snapshot = records if published else []
 	_atk_tick = t
 	_attacks.clear()
-	for a in g.attacks:
+	for a in records:
 		_attacks.append({
 			"aid": int(a.get("aid", 0)),
 			"attacker": int(a.a),

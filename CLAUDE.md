@@ -82,7 +82,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 
 - Notices, floating text and map effects dispatch through a main-thread queue. The `--sim-snapshot` range-overlay prototype publishes detached tile ownership and fallout in 0.234 ms/tick on seeded World, with all five 3,000-tick checkpoints unchanged in both modes. Upstream parity had zero failures, and the match, replication and team tests passed.
 - In the threaded Web export on software Chromium, bypassing the simulation branch at tick 12 lowered median processing time from 45.65 to 15.90 ms/frame and reported FPS moved from 6.5 to 7.0 across six samples per run. The probe also let territory painting drain, so it measures a frozen scene and does not predict a worker's speedup. No hardware browser or phone was available.
-- The opt-in live attack worker now replays bot-only structure captures and keeps individual frame deltas while waiting on an attack result. All five seeded World checkpoints matched the inline reference with 2,665 of 3,000 attack passes applied from the production worker.
+- The opt-in live attack worker now replays bot-only structure captures and handles ticks with pending attack merges. All five seeded World checkpoints matched the inline reference with 2,999 of 3,000 attack passes applied from the production worker.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.
