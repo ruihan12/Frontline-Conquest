@@ -49,7 +49,9 @@ func _ready() -> void:
 		_attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
 	if "--sim-worker-economy" in OS.get_cmdline_user_args():
 		_economy_worker = EconomyWorker.new()
-	if _attack_worker != null or _economy_worker != null or "--sim-queued-intents" in OS.get_cmdline_user_args():
+	if "--sim-worker-naval" in OS.get_cmdline_user_args():
+		_naval_worker = NavalWorker.new()
+	if _attack_worker != null or _economy_worker != null or _naval_worker != null or "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
 		tile_snapshot = TileSnapshot.new()

@@ -217,4 +217,10 @@ With only the economy flag, the fixed tick polls the economy job and resumes bef
 
 All five checkpoints matched in the 3,000-tick seeded World run with attack, AI scan and economy workers enabled. The scene thread accepted 626,645 per-nation economy results. The threaded Web export applied 8,761 economy results by tick 21 in software Chromium.
 
+In the 300-frame native sample, attacks plus AI scans achieved 5.66 ticks/s at a 76.8 ms 95th-percentile frame interval. The economy-only mode reached 5.99 ticks/s at 44.8 ms. Combining all three reached 6.70 ticks/s at 67.1 ms. These are short single runs. The economy worker remains opt-in.
+
+## Naval trade replay
+
+`--sim-worker-naval` runs the port tick on a worker when a finished port has work due. It preserves the port loop and RNG order and uses detached ports, owner activity, alliances and cached paths. On commit, new traders reference the original live port records. A stale result or an uncached route that would spend navigation budget falls back to the normal naval tick. The scheduler waits to advance economy until the naval result is applied.
+
 The scene thread continues aging existing blast, shell, floating-text and fallout visuals while a worker task is pending. When the held simulation frames resume, effects only age for the new frame. This keeps the visual clock running and avoids advancing a new effect with earlier frame deltas.

@@ -12,6 +12,8 @@ func _pf_line() -> String:
 		out += " attack_worker_passes=%d" % _attack_worker_applied
 		if _attack_worker.prepare_ai_scans and sim_ai != null:
 			out += " ai_worker_scans=%d" % sim_ai.worker_scan_count
+	if _naval_worker != null:
+		out += " naval_worker_ticks=%d" % _naval_worker_ticks
 	if _economy_worker != null:
 		out += " economy_worker_rows=%d" % _economy_worker_rows
 	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
@@ -212,7 +214,7 @@ func _advance_frame_effects(dt: float, tdt: float) -> void:
 	_pf_add("fx", _fp.fx)
 
 func _advance_or_hold_sim_frame(dt: float, tdt: float) -> bool:
-	if _tick_stage == 3 or _tick_stage == 4:
+	if _tick_stage >= 3:
 		_advance_frame_effects(dt, tdt)
 		_held_sim_frames.append(dt)
 		_held_sim_frames.append(tdt)
@@ -251,15 +253,10 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			_tick_stage = 1
 		var a0 := Time.get_ticks_usec()
 		if _tick_stage != 4:
-			if not _advance_attacks_and_ai(loop_t0 + sim_budget):
+			if _tick_stage != 5 and not _advance_attacks_and_ai(loop_t0 + sim_budget):
 				break
-			_tick_stage = 0
-			var naval_started := Time.get_ticks_usec()
-			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
-			if not OS.has_environment("NO_TRADE"): sim_naval.tick()
-			sim_naval.defer_paths = false
-			prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - naval_started
-			_pf_add("naval", Time.get_ticks_usec() - naval_started)
+			if not _advance_naval(Time.get_ticks_usec() - loop_t0 > sim_budget / 2):
+				break
 			ticks_done += 1
 			a0 = Time.get_ticks_usec()
 			var prepared_economy := _prepared_economy
@@ -287,9 +284,36 @@ func _advance_fixed_ticks(tdt: float) -> void:
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
-		if (_attack_worker != null or _economy_worker != null) and state == "play" and net_host == null and not net_remote: break
+		if (_attack_worker != null or _economy_worker != null or _naval_worker != null) and state == "play" and net_host == null and not net_remote: break
 	_flush_presentation_batch()
 	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+
+func _advance_naval(defer_paths: bool) -> bool:
+	if OS.has_environment("NO_TRADE") and _tick_stage != 5:
+		_tick_stage = 0
+		return true
+	var start := Time.get_ticks_usec()
+	var applied := false
+	if _tick_stage == 5:
+		if not _naval_worker.ready():
+			return false
+		defer_paths = _naval_worker.defer_paths
+		applied = _naval_worker.take(self)
+	elif _naval_worker != null and state == "play" and net_host == null and not net_remote and not team_mode:
+		if _naval_worker.submit(self, defer_paths):
+			_tick_stage = 5
+			return false
+	_tick_stage = 0
+	if applied:
+		_naval_worker_ticks += 1
+	else:
+		sim_naval.defer_paths = defer_paths
+		sim_naval.tick()
+		sim_naval.defer_paths = false
+	var took := Time.get_ticks_usec() - start
+	prof["naval"] = prof.get("naval", 0) + took
+	_pf_add("naval", took)
+	return true
 
 func _advance_attacks_and_ai(deadline: int) -> bool:
 	var a0 := Time.get_ticks_usec()

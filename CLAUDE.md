@@ -85,6 +85,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - The opt-in live attack worker now replays bot-only structure captures and handles ticks with pending attack merges. All five seeded World checkpoints matched the inline reference with 2,999 of 3,000 attack passes applied from the production worker.
 - The attack worker completes queued merges and prepares AI standings and attacker counts. `--sim-worker-ai-scan` also offloads scheduled AI border scans. Frame effects continue updating during worker execution.
 - `--sim-worker-economy` computes troop growth, gold and cooldowns off-thread. It shares the attack job when both flags are enabled and recomputes changed inputs before applying them.
+- `--sim-worker-naval` moves eligible solo port ticks to the worker and falls back to the original path for fresh route searches.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

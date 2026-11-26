@@ -1,4 +1,4 @@
-# Headless World tick profiler. Options: --ticks=N --seed=S --navfree --worker-attacks --sim-worker-ai-scan --sim-worker-economy
+# Headless World tick profiler; accepts the live worker flags and --ticks=N --seed=S --navfree --worker-attacks.
 extends SceneTree
 const AttackWorker = preload("res://sim/attack_worker.gd")
 
@@ -36,6 +36,7 @@ func _run():
 	var worker_ticks := 0
 	var economy_worker: EconomyWorker = m._economy_worker
 	var economy_rows := 0
+	var naval_job_ticks := 0
 	if worker_enabled:
 		m._attack_worker = AttackWorker.new()
 		m._attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
@@ -56,7 +57,16 @@ func _run():
 				if dn: break
 		else:
 			m._ai(0.1)
-		ts.append(Time.get_ticks_usec()); m.sim_naval.tick()
+		ts.append(Time.get_ticks_usec())
+		var naval_worker: NavalWorker = m._naval_worker
+		if naval_worker != null and naval_worker.submit(m, false):
+			naval_worker.wait()
+			if naval_worker.take(m):
+				naval_job_ticks += 1
+			else:
+				m.sim_naval.tick()
+		else:
+			m.sim_naval.tick()
 		ts.append(Time.get_ticks_usec()); m.ticks_done += 1
 		if economy_worker != null:
 			m._economy_begin()
@@ -95,6 +105,7 @@ func _run():
 	print("ATTACK_WORKER_TICKS ", worker_ticks)
 	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n)
 	print("ECONOMY_WORKER_ROWS ", economy_rows)
+	print("NAVAL_WORKER_TICKS ", naval_job_ticks)
 	m.queue_free()
 	await process_frame
 	quit()
