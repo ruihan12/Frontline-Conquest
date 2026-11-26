@@ -63,10 +63,7 @@ func take(game) -> bool:
 		game._set_owner(job.captures[i], job.captures[i + 1])
 	for i in game.nations.size():
 		var nation: Dictionary = game.nations[i]
-		var result: Dictionary = job.nations[i]
-		for field in result:
-			if field not in ["lp", "ls"]:
-				nation[field] = result[field]
+		nation.merge(job.nations[i], true)
 	game.attacks.assign(job.attacks)
 	game.rng.state = job.rng.state
 	game.sim_atk.tick = job.tick
@@ -105,15 +102,9 @@ func _clear() -> void:
 	_signature = []
 
 static func _state_signature(game) -> Array:
-	var nations := []
-	for nation: Dictionary in game.nations:
-		var record := nation.duplicate()
-		record.erase("lp")
-		record.erase("ls")
-		nations.append(record)
 	var rules: SimRules = game.sim_rules
 	return [game.W, game.H, game.rng.state, game.sim_atk.tick, game.fallout_count, game.land_total,
-		game._attack_map_revision, hash(nations), hash(game.attacks),
+		game._attack_map_revision, hash(game.nations), hash(game.attacks),
 		hash(game.allies), hash(game.traitor), hash(game.def_posts), hash(game._kind_cache),
 		hash(game.sim_atk.merges), game.team_mode, game.tile_pop.size(),
 		rules.k_lin, rules.k_area, rules.ts, rules.max_tiles_per_tick, rules.defense_range,

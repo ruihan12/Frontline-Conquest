@@ -76,6 +76,7 @@ const TileSnapshot = preload("res://sim/tile_snapshot.gd")
 var tile_snapshot: TileSnapshot
 const RenderRecords = preload("res://sim/render_records.gd")
 var _render_records: RenderRecords
+var _fallback_label_motion := {}
 var _next_missile_id := 1
 var _intercepted_missiles := {}
 
@@ -129,6 +130,7 @@ var _repaint_events := PackedInt32Array()
 
 func _reset_tile_snapshot() -> void:
 	_intercepted_missiles.clear()
+	_fallback_label_motion.clear()
 	_repaint_events = PackedInt32Array()
 	_render_records = null
 	_tile_snapshot_valid = false

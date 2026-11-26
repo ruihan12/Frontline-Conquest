@@ -5,7 +5,7 @@ func _initialize() -> void:
 
 func _run() -> void:
 	var game = load("res://main.tscn").instantiate()
-	game.nations = [{}, {"name": "Test", "color": Color.RED, "land": 10}]
+	game.nations = [{}, {"name": "Test", "color": Color.RED, "land": 10, "sx": 30.0, "sy": 20.0}]
 	game.structs = [{"k": 4, "o": 1, "tile": 2, "shots": [2, 5]}]
 	game.boats = [{"uid": 2, "pts": PackedVector2Array([Vector2.ZERO, Vector2.RIGHT]), "cum": PackedFloat32Array([0, 1]), "d": 1.0}]
 	game.warships = [{"uid": 3, "pos": Vector2.RIGHT, "_draw_previous": Vector2.ZERO,
@@ -16,6 +16,10 @@ func _run() -> void:
 	game.sim_rules = SimRules.new()
 	game.tile_snapshot = game.TileSnapshot.new()
 	game._publish_render_records()
+	game._animate_labels(0.1)
+	var label_center: Vector2 = game._fallback_label_motion[1].center
+	var detached_label: bool = label_center == Vector2(7, 5) \
+		and not game.nations[1].has("lp") and not game.nations[1].has("ls")
 	game.attacks[0].troops = 70.0
 	var state := RWGameState.new(game)
 	var attack: Dictionary = state.attacks()[0]
@@ -45,8 +49,9 @@ func _run() -> void:
 	var published: bool = game._render_nations()[1].land == 11 \
 		and game._render_structures()[0].shots == [2, 5, 8] and state.attacks()[0].troops == 70.0
 	game._reset_tile_snapshot()
-	var reset: bool = game._render_records == null
+	var reset: bool = game._render_records == null and game._fallback_label_motion.is_empty()
 	game.free()
-	var passed := detached and readonly and published and reset and unit_records and projectile and detached_attack
+	var passed := detached and readonly and published and reset and unit_records and projectile \
+		and detached_attack and detached_label
 	print("RENDER_RECORDS ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

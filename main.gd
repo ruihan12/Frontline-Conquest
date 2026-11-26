@@ -416,13 +416,18 @@ func _process_inner(dt: float) -> void:
 func _animate_labels(dt: float) -> void:
 	# (the nation springs only feed the fallback names in _draw_overlay_inner; NameLayer has its own)
 	if names != null: return
-	for id in range(1, nations.size()):
-		var n = nations[id]
+	var records := _render_nations()
+	var blend := 1.0 - exp(-4.0 * dt)
+	for id in range(1, records.size()):
+		var n: Dictionary = records[id]
 		if n.land <= 0: continue
-		var c := Vector2(n.sx / n.land + 0.5, n.sy / n.land + 0.5) * TS
-		if not n.has("lp"): n.lp = c; n.ls = sqrt(float(n.land))
-		n.lp = n.lp.lerp(c, 1.0 - exp(-4.0 * dt))
-		n.ls = lerpf(n.ls, sqrt(float(n.land)), 1.0 - exp(-4.0 * dt))
+		var center := Vector2(n.sx / n.land + 0.5, n.sy / n.land + 0.5) * TS
+		var size := sqrt(float(n.land))
+		if not _fallback_label_motion.has(id):
+			_fallback_label_motion[id] = {"center": center, "size": size}
+		var motion: Dictionary = _fallback_label_motion[id]
+		motion.center = motion.center.lerp(center, blend)
+		motion.size = lerpf(motion.size, size, blend)
 
 func set_speed(k: int) -> void:
 	set_speed_x(SPEEDS[clampi(k, 0, SPEEDS.size() - 1)])
@@ -1149,17 +1154,19 @@ func _draw_overlay() -> void:
 	if _sfx_log and dus > 40000: print("SLOW draw %.0f ms" % (dus / 1000.0))
 
 func _draw_overlay_inner() -> void:
-	if state == "menu" or nations.size() < 2: return
+	var records := _render_nations()
+	if state == "menu" or records.size() < 2: return
 	var f := ThemeDB.fallback_font
 	var z := cam.zoom.x
-	for id in range(1, nations.size()):
+	for id in range(1, records.size()):
 		if names != null: break  # (client/map/name_layer.gd draws the names)
-		var n = nations[id]
+		var n: Dictionary = records[id]
 		if not n.alive or n.land < 4: continue
-		var c: Vector2 = n.get("lp", Vector2(n.sx / n.land + 0.5, n.sy / n.land + 0.5) * TS)
+		var motion: Dictionary = _fallback_label_motion.get(id, {})
+		var c: Vector2 = motion.get("center", Vector2(n.sx / n.land + 0.5, n.sy / n.land + 0.5) * TS)
 		var sp := _screen_of(c)
 		if sp.x < -100 or sp.y < -50 or sp.x > 1700 or sp.y > 950: continue
-		var fs := int(float(n.get("ls", sqrt(float(n.land)))) * TS * z * 0.28)
+		var fs := int(float(motion.get("size", sqrt(float(n.land)))) * TS * z * 0.28)
 		if fs < 8: continue
 		fs = mini(fs, 64)
 		var nm: String = n.name if id != PLAYER else "You"
