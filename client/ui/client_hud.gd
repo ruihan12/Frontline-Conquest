@@ -64,6 +64,17 @@ var _was_play := false
 var _syncing := false
 
 
+## A phone or tablet: touch as the main pointer. Web: the browser says a coarse pointer and touch points (iPadOS
+## Safari included); ?touch=1 / --touch force it for tests.
+func _detect_touch() -> bool:
+	if "--touch" in OS.get_cmdline_user_args():
+		return true
+	if OS.has_feature("web"):
+		var v = JavaScriptBridge.eval("(String(window.location.search||'').indexOf('touch=1')>=0) || ((navigator.maxTouchPoints||0)>0 && matchMedia('(pointer:coarse)').matches)", true)
+		return bool(v)
+	return OS.has_feature("mobile")
+
+
 func setup(main, layer: Node, at_index: int = -1) -> void:
 	g = main
 	ctx = UICtx.new()
@@ -73,6 +84,11 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	ctx.world = MapView.new(main)
 	ctx.borders = RWBorders.new(ctx.state)
 	ctx.reload_settings()
+	# upstream UIRoot: touch_device = touch and no mouse; ctx.touch starts as that (select-then-confirm orders, the
+	# placement ghost with confirm buttons, bigger rows, "tap" wording). Was never set in the port until 2026-11-26.
+	ctx.touch_device = _detect_touch()
+	ctx.touch = ctx.touch_device
+	UITheme.min_font_size = 12 if ctx.touch else 0
 	root = Control.new()
 	root.name = "ClientHud"
 	# UIRoot: every button clicks when pressed and ticks under the pointer (BuildButtons and leaderboard
