@@ -52,8 +52,49 @@ func _run() -> void:
 		await process_frame
 		yielded += 1
 	var map_invalidated: bool = map_job and game._attack_worker.ready() and not game._attack_worker.take(game)
-	var passed := submitted and yielded > 0 and finished and second and recovered and map_invalidated and mirror_updated
+	var structure_replayed := _check_structure_capture(game)
+	var passed := submitted and yielded > 0 and finished and second and recovered \
+		and map_invalidated and mirror_updated and structure_replayed
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
 	quit(0 if passed else 1)
+
+func _check_structure_capture(game) -> bool:
+	# Put a bot city on a target adjacent to another bot, then begin the
+	# pass with the city tile already chewed so capture is guaranteed.
+	const ATTACKER := 2
+	const DEFENDER := 3
+	var tile := -1
+	for border_tile: int in game.border[ATTACKER]:
+		var right := border_tile + 1
+		if right % game.W != 0 and game.owner_map[right] == 0 and not game.struct_at.has(right):
+			tile = right
+			break
+	if tile < 0:
+		return false
+	game.attacks.clear()
+	game.sim_atk.merges.clear()
+	game._set_owner(tile, DEFENDER)
+	game._struct_add(0, tile, DEFENDER)
+	var city: Dictionary = game.struct_at[tile]
+	city.hits = 2
+	var attack = game.sim_atk.start(ATTACKER, DEFENDER, 100000.0)
+	if attack == null:
+		return false
+	attack.head = tile
+	attack.chew = game.sim_rules.k_area
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game):
+		return false
+	var rng_before: int = game.rng.state
+	game.rng.randi()
+	game._attack_worker.wait()
+	if game._attack_worker.take(game) or game.owner_map[tile] != DEFENDER or city.o != DEFENDER:
+		return false
+	game.rng.state = rng_before
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	return game._attack_worker.take(game) and game.owner_map[tile] == ATTACKER \
+		and city.o == ATTACKER and city.hits == 0

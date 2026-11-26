@@ -8,6 +8,8 @@ func _pf_line() -> String:
 	for k in ["process", "sim", "atk", "ai", "eco", "missiles", "fx", "boats", "paint", "draw", "wfx", "w_cap", "w_meta", "w_rail", "hud", "nv_bfs"]:
 		out += " %s=%.1f" % [k, _pf.get(k, 0.0) / f / 1000.0]
 	out += " state=%s paused=%s tick=%d pland=%d" % [state, str(sim_paused), sim_atk.tick if sim_atk else -1, nations[PLAYER].land if nations.size() > PLAYER else -1]
+	if _attack_worker != null:
+		out += " attack_worker_passes=%d" % _attack_worker_applied
 	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
 	for k2 in ["names", "names_place", "fronts", "fxl", "ranges", "fallout", "uploads", "flush_n", "labels_anim", "alliances", "dominates", "cam_paint", "tooltip", "anim_ui", "hud_proc", "client_proc", "notes", "pre", "c_world", "c_ranges", "c_advisor", "c_top", "c_hover", "c_feed", "c_bar_s", "c_nukes", "c_alert", "c_bar", "c_board", "c_attacks"]:
 		if _pf.has(k2): out += " %s=%.2f" % [k2, _pf[k2] / f / (1.0 if k2 in ["uploads", "flush_n"] else 1000.0)]
@@ -197,6 +199,18 @@ func _advance_sim_frame(dt: float, tdt: float) -> void:
 	_pf_add("boats", Time.get_ticks_usec() - b0)
 	ai_timer += dt
 
+func _advance_or_hold_sim_frame(dt: float, tdt: float) -> bool:
+	if _tick_stage == 3:
+		_held_sim_frames.append(dt)
+		_held_sim_frames.append(tdt)
+		return false
+	# Movement, arrival checks and RNG draws run once per original frame.
+	for i in range(0, _held_sim_frames.size(), 2):
+		_advance_sim_frame(_held_sim_frames[i], _held_sim_frames[i + 1])
+	_held_sim_frames.clear()
+	_advance_sim_frame(dt, tdt)
+	return true
+
 # A frame can end mid-attack or mid-AI pass. The next call resumes the same tick
 # before taking another intent or running any of the remaining subsystems.
 func _advance_fixed_ticks(tdt: float) -> void:
@@ -316,12 +330,7 @@ func _process_inner(dt: float) -> void:
 		if _at: tdt *= _attract_boost()
 		elapsed += tdt
 		_advance_fixed_ticks(tdt)
-		_held_sim_dt += dt
-		_held_sim_tdt += tdt
-		if _tick_stage != 3:
-			_advance_sim_frame(_held_sim_dt, _held_sim_tdt)
-			_held_sim_dt = 0.0
-			_held_sim_tdt = 0.0
+		if _advance_or_hold_sim_frame(dt, tdt):
 			# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 			var _q2 := Time.get_ticks_usec()
 			var pl = nations[PLAYER]

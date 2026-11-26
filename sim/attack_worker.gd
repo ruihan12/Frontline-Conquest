@@ -3,6 +3,7 @@ extends RefCounted
 
 const Job = preload("res://sim/attack_worker_job.gd")
 var _task := -1
+var _joined := false
 var _job: Job
 var _signature: Array
 var _mirror_owners := PackedInt32Array()
@@ -18,7 +19,7 @@ func pending() -> bool:
 	return _task >= 0
 
 func ready() -> bool:
-	return pending() and WorkerThreadPool.is_task_completed(_task)
+	return pending() and (_joined or WorkerThreadPool.is_task_completed(_task))
 
 func submit(game) -> bool:
 	if pending() or game.attacks.is_empty() or game.team_mode or not game.tile_pop.is_empty() \
@@ -39,17 +40,26 @@ func submit(game) -> bool:
 		_signature = []
 	return pending()
 
+## Used by benchmarks and teardown. The live scheduler polls ready() instead.
+func wait() -> void:
+	if pending() and not _joined:
+		WorkerThreadPool.wait_for_task_completion(_task)
+		_joined = true
+
 func take(game) -> bool:
 	assert(ready())
-	WorkerThreadPool.wait_for_task_completion(_task)
+	if not _joined:
+		wait()
 	var job := _job
 	var signature := _signature
 	_clear()
 	if job.tick != game.sim_atk.tick + 1 or job.player_conquest or signature != _state_signature(game):
-		return false
-	for i in range(0, job.captures.size(), 2):
-		if game.struct_at.has(job.captures[i]):
-			return false
+		return _reject(job)
+	# Player-facing structure capture audio can consume the gameplay RNG.
+	# Other captures can replay their ownership changes in the original order.
+	for tile in job.player_capture_tiles:
+		if game.struct_at.has(tile):
+			return _reject(job)
 	for i in range(0, job.captures.size(), 2):
 		game._set_owner(job.captures[i], job.captures[i + 1])
 	for i in game.nations.size():
@@ -76,9 +86,17 @@ func take(game) -> bool:
 		game._pf_add(key, job.counters[key])
 	return true
 
+func _reject(job: Job) -> bool:
+	# The worker wrote only its captured tiles. Resync those, together with
+	# scene-side mutations already in the journal, from the authoritative map.
+	_mirror_owners = job.owner_map
+	_mirror_fallout = job.fallout
+	for i in range(0, job.captures.size(), 2):
+		_dirty_tiles.append(job.captures[i])
+	return false
+
 func stop() -> void:
-	if pending():
-		WorkerThreadPool.wait_for_task_completion(_task)
+	wait()
 	_clear()
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
@@ -86,6 +104,7 @@ func stop() -> void:
 
 func _clear() -> void:
 	_task = -1
+	_joined = false
 	_job = null
 	_signature = []
 

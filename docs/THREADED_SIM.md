@@ -176,3 +176,13 @@ A seeded native headless run of 300 live World frames at 1× applied 41 worker r
 The live attack worker now retains its private ownership and fallout arrays after a successful pass. It receives intervening tile changes before the next submission. A map revision rejects results if capture or fallout changes during a pass. Rejected results rebuild the private map from current state on the next submission. Terrain stays read-only during play and map generation joins the worker before changing it.
 
 A subsequent 300-frame native smoke run measured 7.65 completed ticks/s and a 49.67 ms 95th-percentile frame interval with the worker flag. This is a single headless sample. Simulation still falls short of 10 ticks/s at 1× in that run.
+
+## Attack replay and render publication
+
+The seeded World profiler now submits and applies attacks through the production worker, joining the task before the remaining simulated tick stages. Bot-only structure captures replay in order through the normal ownership path. Captures involving the local player can fall back for presentation and sound. A rejected worker result journals its changed tiles for repair before the next submission.
+
+The live scheduler preserves each deferred frame's movement deltas and runs the frame updates in order after the attack result. They can still observe a different point in the fixed-tick timeline than in inline mode. Territory and fallout snapshots publish with the render records and before synchronous map paint. The render accessors consume the latest published tile data without publishing from inside draw calls.
+
+At seed 12345 with deterministic navigation, all five 3,000-tick World checkpoints matched the inline reference. Of the 3,000 attack passes, 2,665 used the worker. AI, naval, economy and the remaining fixed-tick subsystems still run on the scene thread.
+
+The Godot 4.3 Web export ran the live attack worker in cross-origin-isolated software Chromium. The first four sampled windows reported 4–5 FPS with the worker and 4–6 FPS inline. The worker applied 18 passes by tick 20. The two runs advanced through different ticks and shared CPU with other tests, so these figures verify browser execution and do not establish a frame-rate gain. GPU-backed browser and phone performance remain unmeasured.

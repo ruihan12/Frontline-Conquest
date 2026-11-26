@@ -1,40 +1,15 @@
-# Headless sim tick profiler: World, 400 tribes. godot --headless -s tests/perf_sim.gd -- [--ticks=N] [--seed=S] [--worker-attacks]
+# Headless World tick profiler. Options: --ticks=N --seed=S --navfree --worker-attacks
 extends SceneTree
-const AttackJob = preload("res://sim/attack_worker_job.gd")
+const AttackWorker = preload("res://sim/attack_worker.gd")
 
-class AttackTask extends RefCounted:
-	var job: AttackJob
-	func run() -> void:
-		job.run()
-
-# This harness grants the worker exclusive access to the copied attack pass.
-# The caller joins before continuing the reference sequence of simulation steps.
 func _worker_attack_pass(m) -> bool:
-	if m.attacks.is_empty() or m.team_mode or not m.tile_pop.is_empty() or not m.sim_atk.merges.is_empty():
-		return false
 	m._rebuild_def_posts()
-	var task := AttackTask.new()
-	task.job = AttackJob.new(m)
-	var id := WorkerThreadPool.add_task(task.run)
-	if id < 0:
+	if not m._attack_worker.submit(m):
 		return false
-	WorkerThreadPool.wait_for_task_completion(id)
-	var result := task.job
-	if result.player_conquest:
-		return false
-	for i in range(0, result.captures.size(), 2):
-		if m.struct_at.has(result.captures[i]):
-			return false
-	for i in range(0, result.captures.size(), 2):
-		m._set_owner(result.captures[i], result.captures[i + 1])
-	for i in m.nations.size():
-		m.nations[i].merge(result.nations[i], true)
-	m.attacks.assign(result.attacks)
-	m.rng.state = result.rng.state
-	m.sim_atk.tick = result.tick
-	for key in result.counters:
-		m._pf_add(key, result.counters[key])
-	return true
+	# This timing harness joins immediately so later stages keep the reference order.
+	# The live scheduler instead polls on subsequent frames.
+	m._attack_worker.wait()
+	return m._attack_worker.take(m)
 
 func _initialize(): _run()
 func _run():
@@ -59,6 +34,8 @@ func _run():
 	var blk := 600
 	var worker_enabled := "--worker-attacks" in OS.get_cmdline_user_args()
 	var worker_ticks := 0
+	if worker_enabled:
+		m._attack_worker = AttackWorker.new()
 	for i in ticks:
 		var ts := []
 		ts.append(Time.get_ticks_usec())
@@ -104,4 +81,6 @@ func _run():
 			tot_worst = 0
 	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
 	print("ATTACK_WORKER_TICKS ", worker_ticks)
+	m.queue_free()
+	await process_frame
 	quit()

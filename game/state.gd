@@ -58,8 +58,7 @@ const AttackWorker = preload("res://sim/attack_worker.gd")
 var _attack_worker: AttackWorker
 var _attack_worker_applied := 0
 var _attack_map_revision := 0
-var _held_sim_dt := 0.0
-var _held_sim_tdt := 0.0
+var _held_sim_frames := PackedFloat64Array()
 
 func _record_attack_tile(tile: int) -> void:
 	_attack_map_revision += 1
@@ -70,8 +69,7 @@ func _stop_attack_worker() -> void:
 		_attack_worker.stop()
 	if _tick_stage == 3:
 		_tick_stage = 0
-	_held_sim_dt = 0.0
-	_held_sim_tdt = 0.0
+	_held_sim_frames.clear()
 
 var owner_map := PackedInt32Array()
 const TileSnapshot = preload("res://sim/tile_snapshot.gd")
@@ -93,6 +91,7 @@ func _take_missile_intercepts() -> Dictionary:
 
 func _publish_render_records() -> void:
 	if tile_snapshot != null:
+		_publish_tile_snapshot()
 		var render_shells := []
 		if sim_ws != null:
 			for shell: Dictionary in sim_ws.shells:
@@ -148,15 +147,11 @@ func _publish_tile_snapshot() -> void:
 		tile_snapshot.apply(delta)
 
 func _render_owners() -> PackedInt32Array:
-	if tile_snapshot != null:
-		_publish_tile_snapshot()
-		if _tile_snapshot_valid: return tile_snapshot.owners()
+	if _tile_snapshot_valid: return tile_snapshot.owners()
 	return owner_map
 
 func _render_fallout() -> PackedByteArray:
-	if tile_snapshot != null:
-		_publish_tile_snapshot()
-		if _tile_snapshot_valid: return tile_snapshot.fallout()
+	if _tile_snapshot_valid: return tile_snapshot.fallout()
 	return fallout
 
 var net_rec := false  # multiplayer host: record owner changes in net_dirty (net/rep.gd)

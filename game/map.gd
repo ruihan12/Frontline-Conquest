@@ -752,6 +752,7 @@ func _px(x: int, y: int, c: Color) -> void:
 	chunk_dirty[k] = 1
 
 func _redraw_all() -> void:
+	_publish_tile_snapshot()
 	_pend_paint.clear(); _rp_clear()
 	_qual_c = clampi(int(save.get("settings", {}).get("qual_i", 3)), 0, 3)
 	var N := W * H
@@ -863,6 +864,7 @@ func _mark_repaint(tile: int) -> void:
 
 # Paints queued tiles until `budget_us` microseconds have passed (<= 0: all). True when some are left.
 func _flush_paint_budget(budget_us: int) -> bool:
+	_publish_tile_snapshot()
 	var deadline := Time.get_ticks_usec() + budget_us if budget_us > 0 else -1
 	var q := _qual()
 	var surf = surface if q >= 2 else null

@@ -35,6 +35,7 @@ class HostProbe extends RefCounted:
 
 class GameProbe extends "res://main.gd":
 	var events := []
+	var frames := []
 	func _sim_frame_budget_us() -> int:
 		return 1000000
 	func _drain_sim_intents() -> void:
@@ -49,6 +50,23 @@ class GameProbe extends "res://main.gd":
 		events.append("requests")
 	func _trains_tick() -> void:
 		events.append("trains")
+	func _advance_sim_frame(dt: float, tdt: float) -> void:
+		frames.append([dt, tdt])
+
+func _check_held_frames(game: GameProbe) -> bool:
+	game._tick_stage = 3
+	var first := game._advance_or_hold_sim_frame(0.013, 0.026)
+	var paused := game._advance_or_hold_sim_frame(0.0, 0.0)
+	var held := not first and not paused and game.frames.is_empty()
+	game._tick_stage = 0
+	var resumed := game._advance_or_hold_sim_frame(0.016, 0.032)
+	var ordered := game.frames == [[0.013, 0.026], [0.0, 0.0], [0.016, 0.032]]
+	game.frames.clear()
+	game._tick_stage = 3
+	game._advance_or_hold_sim_frame(0.5, 1.0)
+	game._stop_attack_worker()
+	game._advance_or_hold_sim_frame(0.01, 0.02)
+	return held and resumed and ordered and game.frames == [[0.01, 0.02]]
 
 func _initialize() -> void:
 	var game := GameProbe.new()
@@ -69,7 +87,7 @@ func _initialize() -> void:
 	if not OS.has_environment("NO_TRADE"):
 		expected.append("naval")
 	expected.append_array(["economy", "arsenal", "missiles", "requests", "warships", "trains", "replicate"])
-	var passed := attack_paused and ai_paused and complete and game.events == expected
+	var passed := attack_paused and ai_paused and complete and game.events == expected and _check_held_frames(game)
 	print("FIXED_TICK_SCHEDULE ", "PASS" if passed else "FAIL")
 	if not passed: print(game.events)
 	game.free()

@@ -234,9 +234,8 @@ func tile_owner(tile: int) -> int:
 
 ## Render-only tile lookup. Gameplay and intent validation retain their live reads.
 func render_tile_owner(tile: int) -> int:
-	if g.tile_snapshot == null:
+	if not g._tile_snapshot_valid:
 		return tile_owner(tile)
-	g._publish_tile_snapshot()
 	return maxi(g.tile_snapshot.owner(tile), 0)
 
 func are_allies(a: int, b: int) -> bool:

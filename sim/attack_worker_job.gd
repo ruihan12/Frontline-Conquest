@@ -15,6 +15,7 @@ var attacks: Array
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
+var player_capture_tiles := PackedInt32Array()
 var counters := {}
 var tick: int
 var player_conquest := false
@@ -83,6 +84,8 @@ func _set_owner(tile: int, owner: int) -> void:
 	gained.bb = pixel if box.size == Vector2i.ZERO else box.merge(pixel)
 	captures.append(tile)
 	captures.append(owner)
+	if old == 1 or owner == 1:
+		player_capture_tiles.append(tile)
 
 func allied(a: int, b: int) -> bool:
 	return a > 0 and b > 0 and _allies.has(mini(a, b) * 4096 + maxi(a, b))
