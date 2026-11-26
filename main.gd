@@ -197,6 +197,64 @@ func _advance_sim_frame(dt: float, tdt: float) -> void:
 	_pf_add("boats", Time.get_ticks_usec() - b0)
 	ai_timer += dt
 
+# A frame can end mid-attack or mid-AI pass. The next call resumes the same tick
+# before taking another intent or running any of the remaining subsystems.
+func _advance_fixed_ticks(tdt: float) -> void:
+	tick_acc += tdt
+	tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
+	var nt := 0
+	var loop_t0 := Time.get_ticks_usec()
+	var sim_budget := _sim_frame_budget_us()
+	# frame budget: the sim gets a slice of the frame; a long attacks pass is time-sliced over frames
+	# (upstream runs a local step as a Coop job spread over frames), so the window never stalls and the
+	# sim simply runs slower than the chosen speed when it can't keep up
+	_begin_presentation_batch()
+	while (tick_acc >= 0.1 or _tick_stage > 0) and nt < MAX_TICKS_PER_FRAME:
+		if Time.get_ticks_usec() - loop_t0 > sim_budget: break
+		var a0 := Time.get_ticks_usec()
+		if _tick_stage == 0:
+			tick_acc -= 0.1
+			nt += 1
+			_drain_sim_intents()
+			_rebuild_def_posts()
+			sim_atk.begin_tick()
+			_tick_stage = 1
+		if _tick_stage == 1:
+			var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
+			prof.atk += Time.get_ticks_usec() - a0
+			_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
+			if not atk_done: break
+			_tick_stage = 2
+			_ai_place_budget = 24
+			sim_ai.begin_tick()
+		# the AI pass is spread over frames too (same nations, same order)
+		a0 = Time.get_ticks_usec()
+		var ai_done := sim_ai.run_slice(loop_t0 + sim_budget)
+		var e_ai := Time.get_ticks_usec() - a0
+		_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
+		prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
+		if not ai_done: break
+		_tick_stage = 0
+		a0 = Time.get_ticks_usec()
+		sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
+		if not OS.has_environment("NO_TRADE"): sim_naval.tick()
+		sim_naval.defer_paths = false
+		prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
+		_pf_add("naval", Time.get_ticks_usec() - a0)
+		ticks_done += 1
+		a0 = Time.get_ticks_usec()
+		_economy(0.1)
+		sim_ars.tick()
+		_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
+		_requests_tick()
+		sim_ws.tick()
+		_trains_tick()
+		prof.eco += Time.get_ticks_usec() - a0
+		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
+		if net_host != null: net_host.on_tick()
+	_flush_presentation_batch()
+	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+
 func _process_inner(dt: float) -> void:
 	var _qp := Time.get_ticks_usec()
 	_pump_previews()
@@ -240,60 +298,7 @@ func _process_inner(dt: float) -> void:
 		var tdt := (0.0 if sim_paused else rdt) * sim_speed / SPEED_BASE
 		if _at: tdt *= _attract_boost()
 		elapsed += tdt
-		tick_acc += tdt
-		tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
-		var nt := 0
-		var loop_t0 := Time.get_ticks_usec()
-		var sim_budget := _sim_frame_budget_us()
-		# frame budget: the sim gets a slice of the frame; a long attacks pass is time-sliced over frames
-		# (upstream runs a local step as a Coop job spread over frames), so the window never stalls and the
-		# sim simply runs slower than the chosen speed when it can't keep up
-		_begin_presentation_batch()
-		while (tick_acc >= 0.1 or _tick_stage > 0) and nt < MAX_TICKS_PER_FRAME:
-			if Time.get_ticks_usec() - loop_t0 > sim_budget: break
-			var a0 := Time.get_ticks_usec()
-			if _tick_stage == 0:
-				tick_acc -= 0.1
-				nt += 1
-				_drain_sim_intents()
-				_rebuild_def_posts()
-				sim_atk.begin_tick()
-				_tick_stage = 1
-			if _tick_stage == 1:
-				var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
-				prof.atk += Time.get_ticks_usec() - a0
-				_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
-				if not atk_done: break
-				_tick_stage = 2
-				_ai_place_budget = 24
-				sim_ai.begin_tick()
-			# the AI pass is spread over frames too (same nations, same order)
-			a0 = Time.get_ticks_usec()
-			var ai_done := sim_ai.run_slice(loop_t0 + sim_budget)
-			var e_ai := Time.get_ticks_usec() - a0
-			_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
-			prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
-			if not ai_done: break
-			_tick_stage = 0
-			a0 = Time.get_ticks_usec()
-			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
-			if not OS.has_environment("NO_TRADE"): sim_naval.tick()
-			sim_naval.defer_paths = false
-			prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
-			_pf_add("naval", Time.get_ticks_usec() - a0)
-			ticks_done += 1
-			a0 = Time.get_ticks_usec()
-			_economy(0.1)
-			sim_ars.tick()
-			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
-			_requests_tick()
-			sim_ws.tick()
-			_trains_tick()
-			prof.eco += Time.get_ticks_usec() - a0
-			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
-			if net_host != null: net_host.on_tick()
-		_flush_presentation_batch()
-		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+		_advance_fixed_ticks(tdt)
 		_advance_sim_frame(dt, tdt)
 		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 		var _q2 := Time.get_ticks_usec()

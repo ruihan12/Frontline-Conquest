@@ -132,3 +132,9 @@ Legacy playback now also uses queued presentation in snapshot mode. The simulati
 `--sim-worker-nav` moves the water-body census and navigation graph build to a worker during interactive map loading. The worker receives a private copy of the map and constructs its own graph. The scene thread keeps advancing the loading screen and takes ownership of the result after joining. It also joins on teardown. Startup, cached loads, and the default path keep their existing behavior.
 
 In a seeded native Europe loading smoke test, the worker and inline path produced the same ownership, water-body, coastline and navigation-region hash. The longest loading-frame interval fell from 855 ms to 485 ms in that run. Total load time was 2.41 s inline and 2.59 s with the worker. This is a loading result. It does not test the live match tick loop or hardware browser frame rate.
+
+## Fixed-tick scheduling boundary
+
+`main.gd::_advance_fixed_ticks` now owns the time budget, tick accumulator, attack and AI resumption, and fixed-tick subsystem order. The frame loop calls it before frame-time simulation and the match-end checks. Host replication still runs after each completed tick. The regression test forces an attack pass and an AI pass to span frames and checks that input is consumed once and each subsystem runs in order.
+
+The scheduler still uses the game node. Its fixed-tick dependencies include ownership changes that queue painting, legacy build and diplomacy side effects, and the host callback. The loading worker remains the only job that runs off the scene thread.
