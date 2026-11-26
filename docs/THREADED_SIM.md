@@ -235,6 +235,8 @@ With attack, AI scan, economy and naval workers enabled, the seeded 3,000-tick r
 
 With `--sim-worker-attacks --sim-worker-arsenal`, the conquest job finds the nearest hostile structure for artillery due to fire. The arsenal uses the result if the structure revision, alliances and range still match. The inline arsenal owns firing order and random terrain sampling. A focused test fires at the worker's selected target and then removes it to verify the inline fallback.
 
+In one 300-frame native run with 24 seeded ports, the 95th-percentile frame interval fell from 51.5 ms inline to 44.1 ms with the naval worker. Both modes completed about 6.0 ticks/s. The naval worker remains opt-in while browser and phone performance are unmeasured.
+
 ## Conquest commit
 
 The main thread applies worker-computed nation totals once per attack pass. Tile replay still updates ownership, borders, structures, fallout and repaint order. The worker records the pre-annexation location and gold amount for player conquest effects. Player-facing structure captures still use inline simulation because their sounds can consume gameplay RNG.
