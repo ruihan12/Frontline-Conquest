@@ -27,6 +27,8 @@ var _prepare_standings: bool
 var economy: EconomyWorker.Job
 var structs: Array = []
 var battery_targets := {}
+var strike_scans := {}
+var _due_strikes := {}
 var sam_plans: Array = []
 var structure_revision := -1
 var battery_radius: float
@@ -121,12 +123,16 @@ func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedBy
 	_rules.log_mid = source.log_mid
 	_rules.priority_f4 = source.priority_f4.duplicate()
 
-func capture_batteries(game) -> void:
+func capture_arsenal(game) -> void:
 	for building: Dictionary in game.structs:
 		if building.k == 10 and float(building.get("bt", 0.0)) <= 0.0 \
 				and int(building.get("next_fire", tick + 2)) <= tick + 1:
 			_due_batteries.append({"tile": building.tile, "o": building.o})
-	if _due_batteries.is_empty():
+	for munition: Dictionary in game.sim_ars.munitions:
+		if int(munition.t1) <= tick + 1:
+			var key := Vector2i(munition.tile, munition.nk)
+			_due_strikes[key] = _rules.strike_radius(key.y)
+	if _due_batteries.is_empty() and _due_strikes.is_empty():
 		return
 	for building: Dictionary in game.structs:
 		structs.append({"tile": building.tile, "o": building.o})
@@ -234,6 +240,11 @@ func run() -> void:
 		economy.run()
 	for battery: Dictionary in _due_batteries:
 		battery_targets[battery.tile] = SimArsenal.battery_structure_target(self, battery, battery_radius * battery_radius)
+	for key: Vector2i in _due_strikes:
+		var radius: float = _due_strikes[key]
+		var territories := SimArsenal.strike_territory(key.x, radius, key.y, owner_map, W, H)
+		var targets := SimArsenal.strike_structures(key.x, radius, structs, W)
+		strike_scans[key] = [radius, territories, targets]
 	for job: Dictionary in sam_plans:
 		var trajectory: PackedVector2Array = job.input_trajectory
 		if trajectory.is_empty():

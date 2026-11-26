@@ -113,6 +113,7 @@ func _run():
 		print("NAVAL_WORKER_GRAPH_QUERIES ", m._naval_worker.graph_queries)
 	if worker_enabled and m._attack_worker.prepare_batteries:
 		print("ARSENAL_WORKER_TARGETS ", m.sim_ars.worker_battery_count, " SAM_PLANS ", m.sim_ars.worker_sam_plans_used)
+		print("ARSENAL_WORKER_STRIKES territory=", m.sim_ars.worker_strike_territory_scans_used, " structures=", m.sim_ars.worker_strike_structure_scans_used)
 	if worker_enabled and m._attack_worker.prepare_rails:
 		print("RAIL_WORKER_CURVES ", m._rail_worker_curves_used)
 		print("RAIL_WORKER_TRAIN_STEPS ", m._rail_worker_train_steps_used)

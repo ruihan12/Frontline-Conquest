@@ -54,6 +54,7 @@ func reset() -> void:
 	_battery_targets.clear()
 	_battery_allies = {}
 	_prepared_sam.clear()
+	accept_strike_scans(-1, -1, -1, {})
 	munitions.clear(); sam_shots.clear()
 	for k in stats: stats[k] = 0
 
@@ -287,6 +288,39 @@ func _munitions_tick(t: int) -> void:
 		munitions.erase(m)
 		strike(m)
 
+var _strike_tick := -1
+var _strike_map_revision := -1
+var _strike_structure_revision := -1
+var _strike_scans := {}
+var worker_strike_territory_scans_used := 0
+var worker_strike_structure_scans_used := 0
+
+func accept_strike_scans(tick: int, map_revision: int, structure_revision: int, scans: Dictionary) -> void:
+	_strike_tick = tick
+	_strike_map_revision = map_revision
+	_strike_structure_revision = structure_revision
+	_strike_scans = scans
+
+static func strike_territory(center: int, radius: float, kind: int, owners: PackedInt32Array,
+		width: int, height: int) -> Dictionary:
+	var hit := {}
+	if kind == SimRules.N_SHELL:
+		var owner := owners[center]
+		if owner > 0: hit[owner] = 1
+		return hit
+	for tile: int in land_in_disk(center, radius, owners, width, height):
+		var owner := owners[tile]
+		if owner > 0: hit[owner] = hit.get(owner, 0) + 1
+	return hit
+
+static func strike_structures(center: int, radius: float, structures: Array, width: int) -> PackedInt32Array:
+	var tiles := PackedInt32Array()
+	var squared := radius * radius
+	for structure: Dictionary in structures:
+		if _d2(center, structure.tile, width) <= squared:
+			tiles.append(structure.tile)
+	return tiles
+
 # SimArsenal._strike: kills a share of each enemy army with land under it, damages structures there
 func strike(m: Dictionary) -> void:
 	var nk: int = m.nk
@@ -295,15 +329,16 @@ func strike(m: Dictionary) -> void:
 	var W: int = g.W
 	var radius := R.strike_radius(nk)
 	var r2 := radius * radius
-	var hit := {}
-	if nk == SimRules.N_SHELL:
-		var o0: int = g.owner_map[to]
-		if _strike_enemy(shooter, o0): hit[o0] = 1
+	var scan: Array = _strike_scans.get(Vector2i(to, nk), []) if _strike_tick == now() else []
+	var use_scan: bool = not scan.is_empty() and scan[0] == radius
+	var hit: Dictionary
+	if use_scan and _strike_map_revision == g._attack_map_revision:
+		hit = scan[1]
+		worker_strike_territory_scans_used += 1
 	else:
-		for tt in disk_tiles(to, radius):
-			var o1: int = g.owner_map[tt]
-			if _strike_enemy(shooter, o1): hit[o1] = hit.get(o1, 0) + 1
+		hit = strike_territory(to, radius, nk, g.owner_map, W, g.H)
 	for o in hit:
+		if not _strike_enemy(shooter, o): continue
 		var n = g.nations[o]
 		var troops: float = n.troops
 		var kill := SimRules.strike_kill(nk, troops, float(hit[o]) * R.k_area, R.ts)
@@ -320,9 +355,16 @@ func strike(m: Dictionary) -> void:
 			n["attacked_tick"] = now()
 	var dmg: int = SimRules.STRIKE_DAMAGE[nk]
 	if dmg > 0:
-		for st in g.structs.duplicate():
-			if _strike_enemy(shooter, st.o) and _d2(to, st.tile, W) <= r2:
-				damage_struct(st, dmg, shooter)
+		if use_scan and _strike_structure_revision == g._sv:
+			worker_strike_structure_scans_used += 1
+			for tile: int in scan[2]:
+				var building = g.struct_at.get(tile)
+				if building != null and _strike_enemy(shooter, building.o):
+					damage_struct(building, dmg, shooter)
+		else:
+			for st in g.structs.duplicate():
+				if _strike_enemy(shooter, st.o) and _d2(to, st.tile, W) <= r2:
+					damage_struct(st, dmg, shooter)
 	var c := tpos(to, W)
 	var vis_r := maxf(1.5, radius)
 	g.blasts.append({"pos": c * g.TS, "r": vis_r * g.TS, "t": 0.0, "dur": 0.55 if nk == SimRules.N_SHELL else 0.9, "seed": to * 2654435761 % 100000, "kind": "sam"})
@@ -343,8 +385,10 @@ func strike(m: Dictionary) -> void:
 
 # land tiles of a disc around tile `c` (tile-centre distances, like SimState.disk_tiles(.., land_only))
 func disk_tiles(c: int, r: float) -> PackedInt32Array:
+	return land_in_disk(c, r, g.owner_map, g.W, g.H)
+
+static func land_in_disk(c: int, r: float, owners: PackedInt32Array, W: int, H: int) -> PackedInt32Array:
 	var out := PackedInt32Array()
-	var W: int = g.W; var H: int = g.H
 	var cx := c % W; var cy := c / W
 	var ri := int(ceil(r)); var r2 := r * r
 	for y in range(maxi(0, cy - ri), mini(H, cy + ri + 1)):
@@ -353,7 +397,7 @@ func disk_tiles(c: int, r: float) -> PackedInt32Array:
 			var dx := x - cx
 			if dx * dx + dy * dy > r2: continue
 			var i := y * W + x
-			if g.owner_map[i] >= 0: out.append(i)
+			if owners[i] >= 0: out.append(i)
 	return out
 
 # ---------------------------------------------------------------- nuke blasts (SimNukes._detonate)

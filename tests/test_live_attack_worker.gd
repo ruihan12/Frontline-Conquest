@@ -67,11 +67,12 @@ func _run() -> void:
 	var trader_matches := _check_trader_preparation(game)
 	var steering_matches := _check_warship_steering(game)
 	var posts_match := _check_post_transport_preparation(game)
+	var strikes_match := _check_strike_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
 		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches and trader_matches \
-		and steering_matches and posts_match
+		and steering_matches and posts_match and strikes_match
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -610,3 +611,50 @@ func _check_post_transport_preparation(game) -> bool:
 	sim._posts_tick(game.sim_atk.tick)
 	return sim.worker_post_scans_used == scans and sim.shells.slice(before).any(
 		func(shell): return is_same(shell.shooter, post) and is_same(shell.target.ref, alternate))
+
+func _check_strike_preparation(game) -> bool:
+	const SHOOTER := 5
+	const TARGET := 3
+	const KIND := SimRules.N_AIRSTRIKE
+	var center: int = game.owner_map.find(TARGET)
+	while center >= 0 and game.struct_at.has(center):
+		center = game.owner_map.find(TARGET, center + 1)
+	if center < 0: return false
+	var arsenal: SimArsenal = game.sim_ars
+	arsenal.munitions.clear()
+	game._struct_add(0, center, TARGET)
+	var building: Dictionary = game.struct_at[center]
+	building.hp = 1000
+	game.nations[TARGET].troops = 50000.0
+	var impact := {"nk": KIND, "tile": center, "o": SHOOTER, "t1": game.sim_atk.tick + 1}
+	arsenal.munitions.append(impact)
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var radius: float = game.sim_rules.strike_radius(KIND)
+	var hits := SimArsenal.strike_territory(center, radius, KIND, game.owner_map, game.W, game.H)
+	var troops: float = game.nations[TARGET].troops
+	var loss := SimRules.strike_kill(KIND, troops, hits[TARGET] * game.sim_rules.k_area, game.sim_rules.ts)
+	arsenal._munitions_tick(game.sim_atk.tick)
+	var prepared: bool = arsenal.worker_strike_territory_scans_used == 1 \
+		and arsenal.worker_strike_structure_scans_used == 1 and building.hp == 400 \
+		and loss > 0.0 and game.nations[TARGET].troops == troops - loss
+	if not prepared:
+		print("Strike fixture prepared=", prepared)
+		return false
+
+	impact.t1 = game.sim_atk.tick + 1
+	arsenal.munitions.append(impact)
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	game._struct_remove(building)
+	game._set_owner(center, SHOOTER)
+	game._struct_add(0, center, TARGET)
+	var replacement: Dictionary = game.struct_at[center]
+	replacement.hp = 1000
+	arsenal._munitions_tick(game.sim_atk.tick)
+	return arsenal.worker_strike_territory_scans_used == 1 and arsenal.worker_strike_structure_scans_used == 1 \
+		and replacement.hp == 400

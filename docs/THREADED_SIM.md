@@ -310,3 +310,9 @@ The threaded Godot 4.3 Web export consumed a cached steering step in cross-origi
 The 600-tick fixture started with 16 warships and applied 5,006 prepared steps. All four checkpoints matched the reference for ship state, territory and nation totals.
 
 The seeded 3,000-tick World run applied 3,248 prepared defense-post scans and matched all five territory and nation-total checkpoints.
+
+## Strike impact scans
+
+The arsenal flag prepares territory counts and nearby structures for due artillery, air strike and railgun impacts. The scene validates the map and structure revisions independently. It checks live alliances and applies casualties, structure damage and presentation in the original order. The regression checks damage and troop loss, then changes ownership and replaces a structure before the next impact to exercise fallback.
+
+All five 3,000-tick World checkpoints matched the reference. World had no strike scans in that run. The separate 600-tick strike fixture used 49 worker results for territory and 49 for structures. Its four territory, troop, structure and arsenal-stat checkpoints matched the reference. The threaded Web export also used both worker results for an air strike in cross-origin-isolated Chromium.
