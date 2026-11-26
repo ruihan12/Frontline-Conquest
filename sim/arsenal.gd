@@ -14,9 +14,43 @@ var stats := {"sam_fired": 0, "sam_hits": 0, "shells": 0, "strikes": 0, "struct_
 
 func _init(main, rules: SimRules) -> void:
 	g = main
+	threaded_blasts = "--sim-worker-blasts" in OS.get_cmdline_user_args()
 	R = rules
 
+const BlastGeometry = preload("res://sim/blast_geometry.gd")
+const MAX_BLAST_GEOMETRIES := 24
+var threaded_blasts := false
+var _blast_geometries := {}
+
+func prepare_blast(radius: float) -> void:
+	if not threaded_blasts or radius <= 0.0 or not is_finite(radius) or radius > 4096.0:
+		return
+	if _blast_geometries.has(radius) or _blast_geometries.size() >= MAX_BLAST_GEOMETRIES:
+		return
+	var geometry := BlastGeometry.new()
+	var task := WorkerThreadPool.add_task(geometry.prepare.bind(radius))
+	if task >= 0:
+		_blast_geometries[radius] = {"task": task, "geometry": geometry}
+
+func _join_blast_tasks() -> void:
+	for entry: Dictionary in _blast_geometries.values():
+		if entry.task >= 0:
+			WorkerThreadPool.wait_for_task_completion(entry.task)
+	_blast_geometries.clear()
+
+func _blast_tiles(center: int, radius: float) -> PackedInt32Array:
+	var entry: Dictionary = _blast_geometries.get(radius, {})
+	if entry.is_empty():
+		return disk_tiles(center, radius)
+	if entry.task >= 0:
+		if not WorkerThreadPool.is_task_completed(entry.task):
+			return disk_tiles(center, radius)
+		WorkerThreadPool.wait_for_task_completion(entry.task)
+		entry.task = -1
+	return entry.geometry.land_tiles(center, g.W, g.H, g.owner_map)
+
 func reset() -> void:
+	_join_blast_tasks()
 	munitions.clear(); sam_shots.clear()
 	for k in stats: stats[k] = 0
 
@@ -308,7 +342,7 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 	var lost := {}
 	var before := {}
 	var fallout_n := 0
-	for tt in disk_tiles(ct, r):
+	for tt in _blast_tiles(ct, r):
 		var dx := tt % W - cx; var dy := tt / W - cy
 		if float(dx * dx + dy * dy) > inner2 and g.rng.randi() % 2 == 0: continue
 		var ow: int = g.owner_map[tt]

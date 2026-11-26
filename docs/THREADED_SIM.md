@@ -152,3 +152,9 @@ Snapshot-mode host and solo alerts use a simulation-assigned launch ID and detac
 ## Economy worker experiment
 
 Run the isolated accrual benchmark with `godot --headless --path . -s tests/perf_economy_worker.gd`. It uses the World owner count and synthetic seeded accrual inputs. It excludes city counting, elimination, live state application, and the other simulation passes. The inline and worker calculations produced identical results in 1,000 comparisons. On this machine the first run took 431 µs inline versus 494 µs via the worker at the median, and 557 versus 685 µs at the 95th percentile. This measures a worker that the tick must join immediately. It does not measure overlap with rendering. The current tick still needs updated balances before proceeding to arsenal and the rest of the simulation.
+
+## Blast footprint preparation during play
+
+With `--sim-worker-blasts`, a missile launch queues its circular footprint geometry by radius. Each job receives only a radius and produces ordered row spans. At impact, the sim filters the spans against current land and applies damage in the original order. An unfinished job falls back to the original scan without waiting. Round reset and teardown join outstanding jobs. This moves geometry preparation off the main thread and leaves gameplay mutation with the tick.
+
+In an isolated native benchmark with a World-sized ownership array, a prepared radius-100 scan took 2.16 ms median versus 5.63 ms for the original scan. The benchmark measures tile selection only. It excludes damage, repaint, job submission and the rest of the frame. With the flag enabled, all five seeded World checkpoints matched and parity reported 463 passed, zero failures and five intentional skips.

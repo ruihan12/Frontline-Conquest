@@ -125,6 +125,8 @@ func _spawn_missile(o: int, k: int, nk: int, from: Vector2, to: Vector2, ft: int
 	if tile_snapshot != null and not net_remote:
 		ms["sim_uid"] = _next_missile_id
 		_next_missile_id += 1
+	if sim_ars != null and nk != SimRules.N_MIRV:
+		sim_ars.prepare_blast(float(ms.r))
 	missiles.append(ms)
 	return ms
 

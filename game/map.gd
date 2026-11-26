@@ -468,6 +468,8 @@ func _prepare_navigation_async() -> void:
 	sim_nav = result[2]
 
 func _exit_tree() -> void:
+	if sim_ars != null:
+		sim_ars._join_blast_tasks()
 	if _navigation_thread != null:
 		_navigation_thread.wait_to_finish()
 		_navigation_thread = null
