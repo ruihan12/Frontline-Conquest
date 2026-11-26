@@ -835,6 +835,14 @@ func _present_map_effect(kind: String, v: Array) -> void:
 				var point: Vector2 = v[0]
 				fx_layer.pop(v[1], Color(1, 0.85, 0.5))
 				fx_layer.burst("sam", point.x, point.y)
+		"railgun_beam":
+			beams.append({"a": v[0], "b": v[1], "t": 0.0})
+		"strike_blast":
+			blasts.append({"pos": v[0], "r": v[1], "t": 0.0, "dur": v[2], "seed": v[3], "kind": "sam"})
+		"strike_shake":
+			_add_shake(v[0])
+		"shell_impact":
+			shells.append({"pos": v[0], "t": 0.0})
 		"conquest":
 			if fx_layer != null:
 				var loc = names.name_location(v[0]) if names != null else null

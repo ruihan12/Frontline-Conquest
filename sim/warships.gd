@@ -500,7 +500,7 @@ func _shells_tick(t: int) -> void:
 			if not has_ref(g.boats, bt) or bt.a == s.o: continue
 			var bp: Vector2 = g._boat_pos(bt)[0]
 			erase_ref(g.boats, bt)
-			g.shells.append({"pos": bp, "t": 0.0})
+			g._map_effect("shell_impact", [bp])
 			stats.sunk_transports += 1
 			if bt.a == g.PLAYER: g.notify("%s's warship sank your transport" % g._nname(s.o), "bad")
 			elif s.o == g.PLAYER: g.notify("Your warship sank a transport from %s" % g._nname(bt.a), "good")
@@ -510,7 +510,7 @@ func _shells_tick(t: int) -> void:
 			var o2 = tg.ref
 			if not has_ref(g.warships, o2) or o2.o == s.o: continue
 			o2.hp = maxf(0.0, o2.hp - s.dmg)
-			g.shells.append({"pos": o2.pos * g.TS, "t": 0.0})
+			g._map_effect("shell_impact", [o2.pos * g.TS])
 			if o2.hp <= 0.0:
 				erase_ref(g.warships, o2)
 				stats.sunk_warships += 1

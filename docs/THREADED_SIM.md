@@ -320,3 +320,7 @@ All five 3,000-tick World checkpoints matched the reference. World had no strike
 ## Queued solo warship orders
 
 The unit card and fallback map controls now send the ship UID and destination tile through the local intent queue when it is enabled. The simulation resolves the UID and revalidates ownership, water and reachability before changing the ship's route at the next tick boundary. An order invalidated before application reports the reason. Inline play retains immediate orders. The regression covers acceptance, rejection, delayed application and revalidation after an ownership change.
+
+## Combat presentation events
+
+Warship impact flashes, strike blasts and camera shake, and railgun beams publish value-only events. The presentation batch creates the visual records after the simulation slice. Direct headless calls still present immediately. The regression fires a railgun and resolves a warship shell, checks gameplay damage inside the batch, then checks the order and initial age of the delivered effects.
