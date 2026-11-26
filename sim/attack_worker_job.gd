@@ -29,7 +29,7 @@ var player_capture_tiles := PackedInt32Array()
 var counters := {}
 var tick: int
 var next_aid: int
-var player_conquest := false
+var player_conquests: Array[Array] = []
 var _allies: Dictionary
 var _traitors: Dictionary
 var _kinds := PackedInt32Array()
@@ -163,6 +163,8 @@ func defended(tile: int, owner: int) -> bool:
 func _pf_add(key: String, value: float) -> void:
 	counters[key] = counters.get(key, 0.0) + value
 
-func _on_conquest(_victim: int, attacker: int, _gold: float) -> void:
+func _on_conquest(victim: int, attacker: int, gold: float) -> void:
 	if attacker == 1:
-		player_conquest = true
+		var nation: Dictionary = nations[victim]
+		var land := maxf(1.0, float(nation.land))
+		player_conquests.append([victim, float(nation.sx) / land, float(nation.sy) / land, gold])

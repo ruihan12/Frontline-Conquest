@@ -57,7 +57,7 @@ func take(game) -> bool:
 	var signature := _signature
 	_clear()
 	if game.net_host != null or game.net_remote or job.tick != game.sim_atk.tick + 1 \
-			or job.player_conquest or signature != _state_signature(game):
+			or signature != _state_signature(game):
 		return _reject(job)
 	# Player-facing structure capture audio can consume the gameplay RNG.
 	# Other captures can replay their ownership changes in the original order.
@@ -65,7 +65,9 @@ func take(game) -> bool:
 		if game.struct_at.has(tile):
 			return _reject(job)
 	for i in range(0, job.captures.size(), 2):
-		game._set_owner(job.captures[i], job.captures[i + 1])
+		game._set_owner(job.captures[i], job.captures[i + 1], true)
+	if not job.captures.is_empty():
+		game._attack_map_revision += 1
 	for i in game.nations.size():
 		var nation: Dictionary = game.nations[i]
 		nation.merge(job.nations[i], true)
@@ -74,6 +76,8 @@ func take(game) -> bool:
 	game.sim_atk.tick = job.tick
 	game.sim_atk.next_aid = job.next_aid
 	game.sim_atk.merges.clear()
+	for values: Array in job.player_conquests:
+		game._map_effect("conquest", values)
 	var pressure: Variant = null
 	if job.pressure != null and job.transport_orders == SimAI.transport_orders(game.boats):
 		pressure = job.pressure

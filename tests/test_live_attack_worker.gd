@@ -54,13 +54,14 @@ func _run() -> void:
 	var map_invalidated: bool = map_job and game._attack_worker.ready() and not game._attack_worker.take(game)
 	var structure_replayed := _check_structure_capture(game, 3)
 	var player_structure_deferred := _check_structure_capture(game, game.PLAYER)
+	var conquest_replayed := _check_player_conquest(game)
 	var merge_replayed := _check_pending_merge(game)
 	var merge_restarted := _check_ended_merge(game)
 	var preparation_matches := _check_ai_preparation(game)
 	var scans_match := _check_ai_border_scan(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
-		and merge_replayed and merge_restarted and preparation_matches and scans_match
+		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -106,6 +107,36 @@ func _check_structure_capture(game, defender: int) -> bool:
 		return not applied and game.owner_map[tile] == defender and city.o == defender and city.hits == 2
 	return applied and game.owner_map[tile] == ATTACKER \
 		and city.o == ATTACKER and city.hits == 0
+
+func _check_player_conquest(game) -> bool:
+	var tile := -1
+	for border_tile: int in game.border[game.PLAYER]:
+		var right := border_tile + 1
+		if right % game.W != 0 and game.owner_map[right] == 0:
+			tile = right
+			break
+	if tile < 0:
+		return false
+	game.attacks.clear()
+	game.sim_atk.merges.clear()
+	var victim: int = game._new_nation("Worker conquest fixture", Color.RED, true)
+	game._set_owner(tile, victim)
+	game.nations[victim].gold = 1234.0
+	var attack = game.sim_atk.start(game.PLAYER, victim, 100000.0)
+	if attack == null:
+		return false
+	attack.head = tile
+	attack.chew = game.sim_rules.k_area
+	game._rebuild_def_posts()
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	game._begin_presentation_batch()
+	var applied: bool = game._attack_worker.take(game)
+	var event_replayed: bool = game._presentation_events.has(["map", "conquest", [victim, 0.0, 0.0, 1234.0]])
+	game._flush_presentation_batch()
+	return applied and event_replayed and game.owner_map[tile] == game.PLAYER \
+		and game.nations[victim].land == 0 and game.nations[victim].killer == game.PLAYER
 
 func _check_pending_merge(game) -> bool:
 	game.attacks.clear()

@@ -955,25 +955,26 @@ func _upd_border(t: int) -> void:
 	if b: d[t] = true
 	else: d.erase(t)
 
-func _set_owner(i: int, o: int) -> void:
+# A committed worker pass supplies the final nation counters and map mirror.
+func _set_owner(i: int, o: int, replay_worker := false) -> void:
 	var om := owner_map
 	var old: int = om[i]
 	var x := i % W
 	var y := i / W
 	if old > 0 and old < border.size(): border[old].erase(i)
-	if old > 0:
+	if old > 0 and not replay_worker:
 		var no: Dictionary = nations[old]
 		no.land -= 1
 		no.sx -= x; no.sy -= y
-	if not tile_pop.is_empty():
+	if not replay_worker and not tile_pop.is_empty():
 		var tp: float = tile_pop[i]
 		if old > 0: nations[old].pop -= tp
 		if o > 0: nations[o].pop += tp
 	om[i] = o
-	if _attack_worker != null: _record_attack_tile(i)
+	if _attack_worker != null and not replay_worker: _record_attack_tile(i)
 	if net_rec: net_dirty.append(i)
 	if _tile_snapshot_valid: _tile_snapshot_dirty.append(i)
-	if old > 0 and o > 0: nations[old]["last_by"] = o
+	if old > 0 and o > 0 and not replay_worker: nations[old]["last_by"] = o
 	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]
 		if o > 0 and o != old:
@@ -992,7 +993,7 @@ func _set_owner(i: int, o: int) -> void:
 			_struct_remove(st)
 	if o > 0 and fallout.size() > i and fallout[i] == 1:
 		fallout[i] = 0; fallout_list.erase(i)
-	if o > 0:
+	if o > 0 and not replay_worker:
 		var n: Dictionary = nations[o]
 		n.land += 1
 		var bb: Rect2i = n.bb
