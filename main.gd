@@ -180,6 +180,15 @@ func _process_inner(dt: float) -> void:
 	boat_launched_frame = false
 	if state == "pick":
 		var picked: bool = (start_tile >= 0 and nations[PLAYER].land > 0) or (net_host != null and net_host.any_placed())
+		# online with a waiting room: the spawn timer runs for everybody once the room closes, whether they chose or not
+		var waiting := in_waiting_room()
+		var shared_spawn: bool = (net_host != null and not net_remote and net_host.uses_lobby()) or (net_remote and net_lobby.has("on"))
+		if shared_spawn: picked = not waiting
+		if net_host != null and not net_remote:
+			_pick_net_t += dt
+			if _pick_net_t >= 0.1:
+				_pick_net_t = 0.0
+				net_host.on_tick()  # deltas and state reach the viewers during the spawn phase too
 		if picked: deploy_t -= dt
 		if picked:
 			pick_title.text = "DEPLOYING IN %d" % ceili(maxf(deploy_t, 0.0))
@@ -187,9 +196,11 @@ func _process_inner(dt: float) -> void:
 		else:
 			pick_title.text = "CHOOSE YOUR STARTING LOCATION"
 			pick_sub.text = "Click any unclaimed land to found your nation."
-		pick_ring.set_meta("v", clampf(deploy_t / 5.0, 0, 1)); pick_ring.set_meta("n", ceili(maxf(deploy_t, 0.0)))
+		pick_ring.set_meta("v", clampf(deploy_t / (net_lobby_spawn_secs() if shared_spawn else 5.0), 0, 1)); pick_ring.set_meta("n", ceili(maxf(deploy_t, 0.0)))
 		pick_ring.visible = true; pick_ring.queue_redraw()
+		if waiting: pick_panel.visible = false  # the waiting-room panel is up instead
 		if picked and deploy_t <= 0:
+			if net_host != null and not net_remote: net_host.autoplace()
 			state = "play"
 			begin_shields()
 			if audio_dir != null: audio_dir.begin_match(); audio_dir.set_music_mood("calm")
@@ -1420,9 +1431,19 @@ func _make_minput() -> void:
 	minput.tile_clicked.connect(_map_click)
 	minput.tile_context.connect(_map_context)
 
+var _pick_net_t := 0.0
+
+## Online, before the match: the waiting room is open (nobody places a start yet).
+func in_waiting_room() -> bool:
+	if net_remote: return bool(net_lobby.get("on", false))
+	return net_host != null and net_host.lobby
+
+func net_lobby_spawn_secs() -> float:
+	return float(net_lobby.get("spawn", 20.0)) if net_remote else 20.0
+
 func _map_click(tile: int) -> void:
 	if state == "play" and build_sel >= 0 and client.interact.aim_kind == "": try_build(build_sel, tile)
-	elif state == "pick" or state == "play": client.on_click_tile(tile)
+	elif (state == "pick" and not in_waiting_room()) or state == "play": client.on_click_tile(tile)
 
 func _map_context(tile: int, pos: Vector2) -> void:
 	if build_sel >= 0: build_sel = -1
@@ -1447,6 +1468,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			else:
 				if lpress and not dragging and e.button_index == MOUSE_BUTTON_LEFT:
 					if state == "play" and build_sel >= 0 and (client == null or client.interact.aim_kind == ""): try_build(build_sel, _mouse_tile())
+					elif state == "pick" and in_waiting_room(): pass
 					elif (state == "pick" or state == "play") and client != null: client.on_click()
 					elif state == "pick":
 						_place_start(_mouse_tile())

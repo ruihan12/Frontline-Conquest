@@ -64,6 +64,7 @@ func _viewer_event(data: Dictionary, recipients := []) -> void:
 		net_host.emit_event(data, recipients)
 
 
+var net_lobby := {}  # the waiting room, as the server last sent it (net/mp_host.gd S_LOBBY); empty offline
 var net_remote := false  # remote viewer: the sim never ticks here, replicated state is written into the sim arrays
 var team_mode := false  # a team game (online only): nations[id].team is 0 for tribes, 1..n for players
 var team_names := []

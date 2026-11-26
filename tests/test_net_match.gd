@@ -19,6 +19,7 @@ func _init() -> void:
 	await hs.ready_async(); await ha.ready_async(); await hb.ready_async()
 	var clients := {}
 	var host := Host.new(hs.m, func(peer: int, pkt: PackedByteArray) -> void: clients[peer].on_message(pkt))
+	host.lobby_enabled = false  # (the waiting room has its own test: test_net_lobby.gd)
 	host.start_match(0, 0, 8, 1)
 	var ca := Client.new(ha.m, func(pkt: PackedByteArray) -> void: host.on_message(1, pkt))
 	var cb := Client.new(hb.m, func(pkt: PackedByteArray) -> void: host.on_message(2, pkt))

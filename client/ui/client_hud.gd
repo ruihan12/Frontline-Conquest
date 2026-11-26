@@ -21,6 +21,7 @@ var attacks: AttacksPanel
 var feed: EventFeed
 var alert: AlertBanner
 var spawn: SpawnOverlay
+var waiting: WaitingRoom
 var topbar: ClientTopbar
 var pause: PauseMenu
 var over: GameOver
@@ -134,6 +135,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	spawn = SpawnOverlay.new(ctx)
 	root.add_child(spawn)
 	spawn.visible = false
+	waiting = WaitingRoom.new(ctx, g)
+	root.add_child(waiting)
 	feed = EventFeed.new(ctx)
 	root.add_child(feed)
 	alert = AlertBanner.new(ctx)
@@ -353,6 +356,7 @@ func layout() -> void:
 		lobby.apply_layout()
 	top.apply_layout()
 	spawn.apply_layout()
+	waiting.apply_layout()
 	if coach != null:
 		coach.apply_layout()
 	if tutorial != null:
@@ -730,7 +734,7 @@ func clear_feed() -> void:
 ## The pointer over the map: the hover card (UIInteract.on_hover). main.gd still owns the clicks.
 func _hover(dt: float, in_match: bool) -> void:
 	var modal: bool = pause.is_open or over.is_open or help.is_open or (g.arsenal_dlg != null and g.arsenal_dlg.visible) or (g.settings_dlg != null and g.settings_dlg.visible)
-	interact.enabled = in_match and not modal and (g.state == "pick" or g.state == "play")
+	interact.enabled = in_match and not modal and (g.state == "pick" or g.state == "play") and not g.in_waiting_room()
 	var aim := _placing_kind() if g.state == "play" else ""
 	if aim != interact.aim_kind:
 		# (the game changed its build selection: a new aim starts unlocked, with no ghost)
@@ -905,12 +909,22 @@ func process(dt: float) -> void:
 		topbar.refresh()
 		layout()
 	var ph: int = ctx.state.phase if in_match else -1
+	var room: bool = in_match and waiting.should_show()
+	if room != waiting.visible:
+		waiting.visible = room
+		if room:
+			waiting.refresh()
+		if ph == Defs.PHASE_SPAWN:
+			var was := spawn.visible
+			spawn.visible = not room
+			if spawn.visible and not was:
+				spawn.on_show()
 	if ph != _phase:
 		var before := _phase
 		_phase = ph
 		top.visible = ph == Defs.PHASE_PLAYING or ph == Defs.PHASE_OVER
 		var was_spawn := spawn.visible
-		spawn.visible = ph == Defs.PHASE_SPAWN
+		spawn.visible = ph == Defs.PHASE_SPAWN and not g.in_waiting_room()
 		if spawn.visible and not was_spawn:
 			spawn.on_show()
 		if ph != Defs.PHASE_PLAYING:

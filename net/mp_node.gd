@@ -64,6 +64,8 @@ func start_server(main, port: int, bots: int, map_tab: int, map_i: int, max_huma
 		if server_peers.has(peer):
 			transport.send(peer, pkt))
 	host.max_humans = max_humans
+	if OS.has_environment("FRONTLINE_LOBBY_SECS"):
+		host.lobby_secs = clampf(float(OS.get_environment("FRONTLINE_LOBBY_SECS")), 5.0, 600.0)
 	if not use_enet or DisplayServer.get_name() == "headless":
 		g.net_dedicated = DisplayServer.get_name() == "headless"
 	if g.net_dedicated and g.names != null:
@@ -248,7 +250,7 @@ func _process(dt: float) -> void:
 			client.resume()
 		else:
 			client.join(player_name, token, party, requested_mode)
-	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
+	if autospawn and role == "client" and joined and g.net_remote and g.state == "pick" and not g.in_waiting_room() and g.nations.size() > 1 and int(g.nations[1].land) == 0 \
 			and (not g.team_mode or not g.team_names.is_empty()):
 		_spawn_wait += dt
 		if _spawn_wait < 1.0:

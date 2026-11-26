@@ -155,6 +155,8 @@ func refresh() -> void:
 	if gs >= 0.0:
 		left = gs
 		_total = float(SimRules.SOLO_COUNTDOWN_TICKS) / Defs.TICK_RATE
+		if s.g.net_lobby.has("on"):
+			_total = float(s.g.net_lobby.get("spawn", 20.0))  # online: one shared spawn timer
 	var ring := _ring
 	ring.visible = left >= 0.0 and s.phase == Defs.PHASE_SPAWN
 	if left >= 0.0:

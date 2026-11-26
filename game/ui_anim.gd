@@ -120,7 +120,7 @@ func _to_menu() -> void:
 	if net_remote or net_client != null or net_host != null:  # leaving an online match: drop the connection and the viewer/host state
 		var mpn := get_node_or_null("MPNode")
 		if mpn != null: mpn.queue_free()
-		net_remote = false; net_client = null; net_hello = {}; net_host = null; net_rec = false
+		net_remote = false; net_client = null; net_hello = {}; net_lobby = {}; net_host = null; net_rec = false
 	if audio_dir != null: audio_dir.end_match()
 	# every finished match leaves through here: the world, its structures and every cache are rebuilt (owner request 2026-11-25)
 	if nations.size() > 1 or not structs.is_empty() or state != "menu": _reset_menu_world()

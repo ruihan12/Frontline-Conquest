@@ -42,6 +42,11 @@ var _hello_wait := false
 var _held: Array = []
 
 
+## The waiting room's "Vote to start" toggle.
+func send_vote(v: bool) -> void:
+	send.call(PackedByteArray([HostC.C_VOTE]) + var_to_bytes({"vote": v}))
+
+
 func on_message(pkt: PackedByteArray) -> void:
 	if pkt.size() < 1:
 		return
@@ -62,6 +67,7 @@ func on_message(pkt: PackedByteArray) -> void:
 			g.net_remote = true
 			g.net_client = self
 			g.net_hello = d
+			g.net_lobby = {}
 			g.map_tab = int(d.map_tab)
 			g.map_i = int(d.map_i)
 			g.diff_i = int(d.get("diff", 1))
@@ -93,6 +99,10 @@ func on_message(pkt: PackedByteArray) -> void:
 			NetRepC.apply_nations(g, body)
 		HostC.S_LISTS:
 			NetRepC.apply_lists(g, body, _motion.update)
+		HostC.S_LOBBY:
+			var lb = bytes_to_var(body)
+			if lb is Dictionary:
+				g.net_lobby = lb
 		HostC.S_STATE:
 			var s: Dictionary = bytes_to_var(body)
 			g.sim_atk.tick = int(s.tick)

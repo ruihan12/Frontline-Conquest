@@ -58,3 +58,5 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - 2026-11-25: WebSocket viewers can resume for 30 seconds after a mid-match disconnect using a private per-seat token. A successful resume rotates the token and sends a fresh snapshot.
 
 - 2026-11-25: The long-range input regression test rechecks its pointer after the deployment-camera hover frames and verifies the exact land intent. Simulation behavior is unchanged.
+
+- 2026-11-26: Waiting room and shared spawn phase (see CLAUDE.md). Server flow: lobby (LOBBY_SECS, vote to start) -> spawn (SPAWN_SECS, autoplace for anyone who did not choose) -> play -> end screen -> next lobby. Joins are only accepted in the lobby; a match in progress answers match_started. One match at a time still: people arriving mid-match wait for the next room.

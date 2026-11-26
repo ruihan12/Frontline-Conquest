@@ -143,6 +143,9 @@ var time_limit_ticks: int:
 
 ## Spawn phase: seconds until the match starts (-1: not counting).
 func spawn_seconds_left() -> float:
+	if g.state == "pick" and ((g.net_remote and g.net_lobby.has("on")) or (g.net_host != null and not g.net_remote and g.net_host.uses_lobby())):
+		# online with a waiting room: one shared timer for everybody, running once the room has closed
+		return -1.0 if g.in_waiting_room() else maxf(float(g.deploy_t), 0.0)
 	if g.state != "pick" or g.start_tile < 0:
 		return -1.0
 	return maxf(float(g.deploy_t), 0.0)

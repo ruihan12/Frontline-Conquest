@@ -36,6 +36,19 @@ const S_PARTY := 13  # var {me, code, state, players}
 const S_GO := 14     # var {key, ranked}: the party leader chose a match, everyone joins it
 const S_NOTICE := 15 # var {text}
 const C_INTENT := 2
+const C_VOTE := 4    # var {vote: bool}: wants the waiting match to start now
+const S_LOBBY := 16  # var {on, left, players, max, votes, need, voted, names, team, total}: the waiting room
+# Waiting room (upstream MatchServer: lobby, then a shared spawn phase): LOBBY_SECS from the first player in; two thirds
+# of the waiting players voting (at least VOTE_MIN of them, or one after VOTE_SOLO_AFTER alone) starts it in VOTE_START_SECS;
+# joins close JOIN_CLOSE_SECS before the start; then everyone picks a start within SPAWN_SECS (nobody who didn't gets one
+# chosen for them).
+const LOBBY_SECS := 60.0
+const VOTE_SHARE := 2.0 / 3.0
+const VOTE_START_SECS := 10.0
+const VOTE_MIN := 2
+const VOTE_SOLO_AFTER := 30.0
+const JOIN_CLOSE_SECS := 6.0
+const SPAWN_SECS := 20.0
 
 const ALLOWED := ["spawn", "move_warship", "attack", "boat", "build", "nuke", "reinforce", "retreat", "ally_request", "ally_break", "donate", "donate_gold", "ally_reply", "ally_extend"]
 const MAX_INTENT_BYTES := 512
@@ -56,6 +69,14 @@ var on_end: Callable = Callable()     # (result dict) once, when the match ends
 var ranked := false
 # team games (ranked teams, casual teams): players only, no bot players, tribes on no team
 var team_game := false
+var lobby_enabled := true    # a dedicated server waits for people first; a PC that hosts for friends does not
+var lobby := false           # true while the waiting room is open
+var lobby_secs := LOBBY_SECS  # FRONTLINE_LOBBY_SECS
+var lobby_left := LOBBY_SECS
+var _votes := {}             # peer -> true
+var _vote_locked := false
+var _alone := 0.0
+var _lobby_sent := 0.0
 var team_expected := 0       # the roster size; the teams are made when this many have joined (or after TEAM_WAIT_SECS)
 var teams_ready := false
 var team_config := ""        # Duos / Trios / Quads, picked at random when the teams are made
@@ -108,6 +129,11 @@ func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 	team_groups.clear()
 	died_tick.clear(); left_early.clear(); departed.clear()
 	started_ms = Time.get_ticks_msec()
+	lobby = uses_lobby()
+	lobby_left = lobby_secs
+	_votes.clear()
+	_vote_locked = false
+	_alone = 0.0
 	# reserve a nation slot for every person that may join, so every viewer's nation list is complete from the start
 	slots = [int(g.PLAYER)]
 	for _i in range(1, max_humans):
@@ -115,6 +141,10 @@ func start_match(map_tab: int, map_i: int, bots: int, diff := 1) -> void:
 		g.nations[sid].alive = false
 		slots.append(sid)
 	g._rebuild_kind_cache()
+
+
+func uses_lobby() -> bool:
+	return lobby_enabled and not host_is_player
 
 
 func human_count() -> int:
@@ -159,6 +189,9 @@ func _admit_party(key: String) -> bool:
 func join(peer: int, pname: String, account = 0) -> int:
 	if ended or peers.size() >= max_humans or peers.has(peer) or (team_game and teams_ready):
 		return -1
+	if uses_lobby() and (not lobby or (lobby_left < JOIN_CLOSE_SECS and not peers.is_empty())):
+		reject(peer, "match_started")
+		return -2
 	var key := str(pending_party.get(peer, ""))
 	if not _admit_party(key):
 		reject(peer, "party_too_big" if not key.is_empty() else "match_full")
@@ -193,8 +226,9 @@ func join(peer: int, pname: String, account = 0) -> int:
 	_send_hello(peer)
 	_send_full(peer)
 	_broadcast_nation_info(peer)
-	if team_game and peers.size() + (1 if host_is_player else 0) >= team_expected and _reserved_seats() == 0:
+	if team_game and not lobby and peers.size() + (1 if host_is_player else 0) >= team_expected and _reserved_seats() == 0:
 		make_teams()
+	_send_lobby_all()
 	return nid
 
 
@@ -237,7 +271,7 @@ func reject(peer: int, reason: String) -> void:
 
 
 func transport_lost(peer: int, now := -1) -> void:
-	if not peers.has(peer) or ended or g.state != "play":
+	if not peers.has(peer) or ended or g.state != "play" or lobby:
 		leave(peer)
 		return
 	if now < 0:
@@ -283,6 +317,7 @@ func _resume(peer: int, token: String) -> bool:
 
 
 func leave(peer: int) -> void:
+	_votes.erase(peer)
 	pending_party.erase(peer)
 	team_groups.erase(peer)
 	if party_left.is_valid():
@@ -474,6 +509,15 @@ func on_message(peer: int, pkt: PackedByteArray) -> void:
 			else:
 				join(peer, str(d.get("name", "")))
 		return
+	if t == C_VOTE:
+		if lobby and peers.has(peer) and d is Dictionary:
+			if bool(d.get("vote", false)):
+				_votes[peer] = true
+			else:
+				_votes.erase(peer)
+			_check_votes()
+			_send_lobby_all()
+		return
 	if t != C_INTENT or not peers.has(peer) or peers[peer].has("disconnected_until") or not (d is Dictionary):
 		return
 	if pkt.size() > (1024 if str(d.get("type", "")) == "console" else MAX_INTENT_BYTES):
@@ -568,7 +612,7 @@ func apply_intent(nid: int, d: Dictionary) -> bool:
 		it["amount"] = clampi(int(it.amount), 1, 10)
 	# phases: spawning only in the spawn phase; everything else only in play
 	if ty == "spawn":
-		if g.state != "pick":
+		if g.state != "pick" or lobby:
 			return false
 	elif g.state != "play":
 		return false
@@ -658,6 +702,9 @@ func _add_placement(list: Array, nid: int, pname: String, account, total: float)
 ## Called every frame by the node: waits for the roster, then makes the teams anyway after TEAM_WAIT_SECS.
 func frame(dt: float) -> void:
 	expire_disconnected(Time.get_ticks_msec())
+	if lobby and not ended:
+		_lobby_frame(dt)
+		return
 	if team_game and not teams_ready and not ended:
 		_team_wait += dt
 		if _team_wait >= TEAM_WAIT_SECS and peers.size() + (1 if host_is_player else 0) >= 2:
@@ -716,3 +763,98 @@ func team_land() -> Array:
 		if t != 0 and g.nations[id].alive:
 			sums[t] += int(g.nations[id].land)
 	return sums
+
+
+# ---------------- waiting room ----------------
+
+func _vote_counts() -> Array:
+	var players := 0
+	var votes := 0
+	for peer in peers:
+		if peers[peer].has("disconnected_until"):
+			continue
+		players += 1
+		if _votes.has(peer):
+			votes += 1
+	var need := maxi(1, ceili(float(players) * VOTE_SHARE - 0.000001))
+	return [votes, need, players]
+
+
+func _check_votes() -> void:
+	if _vote_locked or not lobby:
+		return
+	var c := _vote_counts()
+	var min_players := 1 if _alone >= VOTE_SOLO_AFTER else VOTE_MIN
+	if int(c[2]) >= min_players and int(c[0]) >= int(c[1]):
+		_vote_locked = true  # later joiners or changed votes don't cancel it
+		lobby_left = minf(lobby_left, VOTE_START_SECS)
+
+
+func _lobby_frame(dt: float) -> void:
+	var c := _vote_counts()
+	if int(c[2]) == 0:
+		lobby_left = lobby_secs  # the countdown starts when the first player is in
+		_vote_locked = false
+		_alone = 0.0
+		return
+	_alone = _alone + dt if int(c[2]) == 1 else 0.0
+	lobby_left -= dt
+	_check_votes()
+	if peers.size() >= max_humans:
+		lobby_left = minf(lobby_left, JOIN_CLOSE_SECS + 1.0)
+	if lobby_left <= 0.0:
+		if team_game and not teams_ready:
+			if int(c[2]) < 2:
+				lobby_left = 1.0  # a team game needs at least two people
+				return
+			make_teams()
+		_end_lobby()
+		return
+	_lobby_sent += dt
+	if _lobby_sent >= 0.5:
+		_lobby_sent = 0.0
+		_send_lobby_all()
+
+
+func _end_lobby() -> void:
+	lobby = false
+	lobby_left = 0.0
+	g.deploy_t = SPAWN_SECS
+	_send_lobby_all()
+	for peer in peers:
+		send.call(peer, _pack(S_STATE, _state_dict(int(peers[peer].nid))))
+
+
+func _lobby_dict(peer: int) -> Dictionary:
+	var c := _vote_counts()
+	var names := []
+	for p in peers.values():
+		if names.size() < 3:
+			names.append(str(p.name))
+	return {"on": lobby, "left": maxf(0.0, lobby_left), "players": int(c[2]), "max": max_humans, "votes": int(c[0]), "need": int(c[1]),
+		"voted": _votes.has(peer), "names": names, "team": team_game, "teams": team_config,
+		"total": lobby_secs, "vote_min": 1 if _alone >= VOTE_SOLO_AFTER else VOTE_MIN, "spawn": SPAWN_SECS}
+
+
+func _send_lobby(peer: int) -> void:
+	if peers.has(peer):
+		send.call(peer, _pack(S_LOBBY, _lobby_dict(peer)))
+
+
+func _send_lobby_all() -> void:
+	for peer in peers:
+		if not peers[peer].has("disconnected_until"):
+			_send_lobby(peer)
+
+
+## The spawn phase is over: anybody who didn't choose a start gets one on free land.
+func autoplace() -> void:
+	for peer in peers:
+		var nid: int = int(peers[peer].nid)
+		if int(g.nations[nid].land) > 0:
+			continue
+		var t: int = g._random_start()
+		if t < 0:
+			t = g._find_spawn_tile(g.W / 2, g.H / 2)
+		if t >= 0:
+			NetIntentsC.apply(g, nid, {"type": "spawn", "tile": t})

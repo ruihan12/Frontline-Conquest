@@ -20,6 +20,7 @@ func _init() -> void:
 	for v in vs: await v.ready_async()
 	var clients := {}
 	var host := Host.new(hs.m, func(peer: int, pkt: PackedByteArray) -> void: clients[peer].on_message(pkt))
+	host.lobby_enabled = false  # (the waiting room has its own test: test_net_lobby.gd)
 	host.max_humans = 4
 	host.team_game = true
 	host.team_expected = 4
