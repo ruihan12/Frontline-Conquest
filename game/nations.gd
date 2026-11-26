@@ -137,7 +137,7 @@ func _start_game_ui() -> void:
 	_start_game()
 	_skip_gen = false
 	_set_world_visible(true)
-	supply_on = true
+	supply_on = false  # in-game supply-drop crates removed 2026-11-26 (owner request); the code stays dormant
 	_supply_rng.seed = int(rng.seed) ^ 0x5eed  # (its own stream: the sim's rng is not touched)
 	load_ov.visible = false
 	_loading = false
