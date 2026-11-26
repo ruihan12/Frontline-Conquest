@@ -1,6 +1,6 @@
 # ICBM toggle (kept custom): +10% cost and a 20% chance per launch to evade SAMs entirely.
 #   godot --headless --path . --script tests/test_icbm_evade.gd
-# Seeded sim RNG: about 35% of N launches evade (3 sigma band), the roll is deterministic for a seed, only
+# Seeded sim RNG: about 20% of N launches evade (3 sigma band), the roll is deterministic for a seed, only
 # the player rolls and only with ICBM on, a MIRV's warheads (and a Scattershot's) inherit the launch roll, and
 # under a ring of enemy SAMs an evading bomb is never targeted or intercepted while the others are.
 extends SceneTree
@@ -40,6 +40,8 @@ func _run() -> void:
 	var hs = load("res://sim/headless_sim.gd").new(self)
 	await hs.ready_async()
 	m = hs.m
+	m.rng.seed = 12345
+	seed(12345)
 	var P: int = m.PLAYER
 	var home: int = hs.start(0, 0, Vector2(0.30, 0.38), 40, 1e15)
 	m.peace = 1e12
@@ -67,8 +69,9 @@ func _run() -> void:
 	m.missiles.clear()
 	var ev := r1.count(true)
 	var share := float(ev) / float(maxi(1, r1.size()))
-	var sd := sqrt(0.35 * 0.65 / float(N))
-	_check(r1.size() == N and absf(share - 0.35) <= 3.0 * sd, "ICBM on: %d / %d launches evade (%.1f%%, expect 35%% +- %.1f%%)" % [ev, r1.size(), share * 100.0, 3.0 * sd * 100.0])
+	const EXPECTED_EVASION := 0.20
+	var sd := sqrt(EXPECTED_EVASION * (1.0 - EXPECTED_EVASION) / float(N))
+	_check(r1.size() == N and absf(share - EXPECTED_EVASION) <= 3.0 * sd, "ICBM on: %d / %d launches evade (%.1f%%, expect 20%% +- %.1f%%)" % [ev, r1.size(), share * 100.0, 3.0 * sd * 100.0])
 	var r2 := _rolls(N, tgt, 9001)
 	m.missiles.clear()
 	_check(r1 == r2, "same seed, same evasion rolls (sim RNG, deterministic)")

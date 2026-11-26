@@ -40,6 +40,7 @@ func submit(game) -> bool:
 		_job.economy = EconomyWorker.capture(game, 0.1)
 	if prepare_batteries:
 		_job.capture_batteries(game)
+		_job.sam_plans = game.sim_ars.capture_sam_plans(_job.tick + 1)
 	if prepare_rails:
 		_job.capture_rail_inputs(game)
 	if prepare_warships:
@@ -95,6 +96,8 @@ func take(game) -> bool:
 	game._prepared_economy = job.economy
 	if not job.battery_targets.is_empty():
 		game.sim_ars.accept_battery_targets(job.tick, job.structure_revision, job.alliances, job.battery_radius, job.battery_targets)
+	if prepare_batteries:
+		game.sim_ars.accept_sam_plans(job.tick, job.sam_plans)
 	if prepare_rails:
 		game._publish_rail_geometry(job.rail_curves, job.rail_station_edges, job.rail_scale)
 		game._prepared_train_steps = job.train_steps

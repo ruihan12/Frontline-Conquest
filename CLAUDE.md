@@ -85,7 +85,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - The opt-in live attack worker now replays bot-only structure captures and handles ticks with pending attack merges. All five seeded World checkpoints matched the inline reference with 2,999 of 3,000 attack passes applied from the production worker.
 - The attack worker completes queued merges and prepares AI standings and attacker counts. `--sim-worker-ai-scan` also offloads scheduled AI border scans. Frame effects continue updating during worker execution.
 - `--sim-worker-economy` computes troop growth, gold and cooldowns off-thread. It shares the attack job when both flags are enabled and recomputes changed inputs before applying them.
-- `--sim-worker-naval` moves eligible solo port ticks and fresh graph searches to the worker. `--sim-worker-arsenal` with attack threading offloads artillery structure-target scans.
+- `--sim-worker-naval` moves eligible solo port ticks and fresh graph searches to the worker. `--sim-worker-arsenal` with attack threading offloads artillery structure-target scans and SAM interception planning.
 - `--sim-worker-trains` with attack threading prepares rail geometry and train progression. `--sim-worker-warships` prepares shoreline protection checks and transport targeting.
 
 ## What's left

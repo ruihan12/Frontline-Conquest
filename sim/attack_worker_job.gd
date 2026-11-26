@@ -26,6 +26,7 @@ var _prepare_standings: bool
 var economy: EconomyWorker.Job
 var structs: Array = []
 var battery_targets := {}
+var sam_plans: Array = []
 var structure_revision := -1
 var battery_radius: float
 var _due_batteries: Array = []
@@ -184,6 +185,15 @@ func run() -> void:
 		economy.run()
 	for battery: Dictionary in _due_batteries:
 		battery_targets[battery.tile] = SimArsenal.battery_structure_target(self, battery, battery_radius * battery_radius)
+	for job: Dictionary in sam_plans:
+		var trajectory: PackedVector2Array = job.input_trajectory
+		if trajectory.is_empty():
+			trajectory = SimArsenal.sample_sam_trajectory(job.arc, job.flight[1], W, H)
+		job.trajectory = trajectory
+		var plans := {}
+		for station: Vector3i in job.stations:
+			plans[station] = SimArsenal.sam_plan(_rules, W, tick, job.flight, station, trajectory)
+		job.results = plans
 	for step: RailGeometry.TrainStep in train_steps:
 		step.calculate()
 	_prepare_rail_curves()

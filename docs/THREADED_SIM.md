@@ -260,3 +260,11 @@ With `--sim-worker-attacks --sim-worker-warships`, the attack job samples copied
 A software Chromium fixture verified that the Web export prepared both a train arrival and a trader shoreline check. The native regression also covers an arriving train that continues to the next leg and a stale timing result that is recalculated inline.
 
 The warship worker also samples transport positions once and selects the nearest eligible transport for ships due to scan. Live warships use that selection while transport inputs, alliances, range, ship position and prior shell targets still match. The native regression covers equal-distance targets and fallback after a change to the shell targets or alliances. Ship movement, other target types and combat remain on the scene thread.
+
+## SAM interception planning
+
+The arsenal flag prepares missile trajectories and due SAM intercept plans using detached missile and station inputs. The arsenal checks the current flight, arc, station level and upgrade tick before applying a result. It still owns candidate refresh, firing priority, cooldowns and interception effects.
+
+The native regression compares worker and inline plans, checks that a station upgrade invalidates a plan and intercepts a missile through the normal arsenal tick. All five seeded World checkpoints matched the inline reference over 3,000 ticks. The World run consumed no SAM plans, so it establishes overall parity and the focused fixture covers the SAM path.
+
+A Godot 4.3 Web export used a prepared SAM plan to intercept one missile in cross-origin-isolated software Chromium. The ICBM regression now seeds its map and checks the documented 20% evasion chance.

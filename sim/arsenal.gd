@@ -53,6 +53,7 @@ func reset() -> void:
 	_join_blast_tasks()
 	_battery_targets.clear()
 	_battery_allies = {}
+	_prepared_sam.clear()
 	munitions.clear(); sam_shots.clear()
 	for k in stats: stats[k] = 0
 
@@ -503,12 +504,7 @@ func _cur_k(ms) -> int:
 func _traj(ms, k: int) -> Vector2:
 	var traj = ms.get("traj")
 	if traj == null:
-		var ft := flight_ticks(ms)
-		var arc: Dictionary = g._missile_arc(ms)
-		traj = PackedVector2Array(); traj.resize(ft + 1)
-		for i in ft + 1:
-			var p: Vector2 = SimRules.nuke_arc_at(arc, float(i) / float(ft))
-			traj[i] = Vector2(clampf(floorf(p.x), 0.0, g.W - 1) + 0.5, clampf(floorf(p.y), 0.0, g.H - 1) + 0.5)
+		traj = sample_sam_trajectory(g._missile_arc(ms), flight_ticks(ms), g.W, g.H)
 		ms["traj"] = traj
 	return traj[clampi(k, 0, traj.size() - 1)]
 
@@ -527,48 +523,137 @@ func _sam_candidates(ms, sams: Array) -> void:
 		if p.distance_squared_to(ms.to) <= r2 or p.distance_squared_to(ms.from) <= r2: c.append(st)
 	ms["cands"] = c
 
-func _man_v(a: Vector2, b: Vector2) -> float:
+static func _man_v(a: Vector2, b: Vector2) -> float:
 	return absf(floorf(a.x) - floorf(b.x)) + absf(floorf(a.y) - floorf(b.y))
 
-func _sam_plan(ms, st) -> void:
-	if ms.get("evade", false):
-		ms.plan_fire[st.tile] = -1
-		return
-	var t := now()
-	var cur := maxi(0, _cur_k(ms))
-	var last := flight_ticks(ms)
-	var zone := SimRules.NUKE_TARGETABLE_FULL / R.k_lin
+static func sample_sam_trajectory(arc: Dictionary, ft: int, width: int, height: int) -> PackedVector2Array:
+	var trajectory := PackedVector2Array()
+	trajectory.resize(ft + 1)
+	for i in ft + 1:
+		var p := SimRules.nuke_arc_at(arc, float(i) / float(ft))
+		trajectory[i] = Vector2(clampf(floorf(p.x), 0.0, width - 1) + 0.5,
+			clampf(floorf(p.y), 0.0, height - 1) + 0.5)
+	return trajectory
+
+static func sam_plan(rules: SimRules, width: int, t: int, flight: Array, station: Vector3i,
+		trajectory: PackedVector2Array) -> Vector2i:
+	var cur: int = flight[0]
+	var last: int = flight[1]
+	var from: Vector2 = flight[2]
+	var to: Vector2 = flight[3]
+	var zone := SimRules.NUKE_TARGETABLE_FULL / rules.k_lin
 	var z2 := zone * zone
-	var rmax := SimRules.SAM_MAX_RANGE_FULL / R.k_lin
+	var rmax := SimRules.SAM_MAX_RANGE_FULL / rules.k_lin
 	var rmax2 := rmax * rmax
-	var sp := tpos(st.tile, g.W)
-	var lvl := int(st.get("level", 1))
-	var up := int(st.get("up_tick", -100000))
+	var sp := tpos(station.x, width)
 	var inc := 0
 	var lastd := -1.0
-	var key: int = st.tile
 	for k in range(cur, last):
-		var p := _traj(ms, k)
+		var p := trajectory[clampi(k, 0, trajectory.size() - 1)]
 		var d := sp.distance_squared_to(p)
 		inc = inc + 1 if (lastd >= 0.0 and d > lastd) else 0
 		lastd = d
 		var nt := k - cur
-		var rr := R.sam_range_at(lvl, t + nt - up)
-		if d <= rr * rr and (p.distance_squared_to(ms.to) < z2 or p.distance_squared_to(ms.from) < z2):
-			var stk := R.sam_ticks_to(_man_v(sp, p))
+		var rr := rules.sam_range_at(station.y, t + nt - station.z)
+		if d <= rr * rr and (p.distance_squared_to(to) < z2 or p.distance_squared_to(from) < z2):
+			var stk := rules.sam_ticks_to(_man_v(sp, p))
 			if nt >= stk:
-				ms.plan_fire[key] = t + nt - stk; ms.plan_k[key] = k
-				return
+				return Vector2i(t + nt - stk, k)
 		if inc > 3 and d > rmax2: break
 	var kf := last - 1
 	if kf >= cur:
-		var rf := R.sam_range_at(lvl, t + (last - cur) - up)
-		if sp.distance_squared_to(ms.to) <= rf * rf:
-			var st2 := R.sam_ticks_to(_man_v(sp, _traj(ms, kf)))
+		var rf := rules.sam_range_at(station.y, t + (last - cur) - station.z)
+		if sp.distance_squared_to(to) <= rf * rf:
+			var st2 := rules.sam_ticks_to(_man_v(sp, trajectory[clampi(kf, 0, trajectory.size() - 1)]))
 			if kf - cur >= st2:
-				ms.plan_fire[key] = t + kf - cur - st2; ms.plan_k[key] = kf
-				return
+				return Vector2i(t + kf - cur - st2, kf)
+	return Vector2i(-1, -1)
+
+var _prepared_sam: Array = []
+var _prepared_sam_tick := -1
+var worker_sam_plans_used := 0
+
+func _sam_flight(ms: Dictionary, tick: int) -> Array:
+	var k := tick - int(ms.lt) if ms.has("lt") else _cur_k(ms)
+	return [maxi(0, k), flight_ticks(ms), ms.from, ms.to]
+
+func _sam_arc(ms: Dictionary) -> Dictionary:
+	var arc = ms.get("arc")
+	return R.munition_arc(g.H, ms.from, ms.to, int(ms.get("nk", SimRules.N_ATOM))) if arc == null else arc
+
+static func _sam_station(st: Dictionary) -> Vector3i:
+	return Vector3i(st.tile, int(st.get("level", 1)), int(st.get("up_tick", -100000)))
+
+static func _sam_needs_plan(plan: int, tick: int) -> bool:
+	return plan == -3 or (plan >= 0 and plan < tick)
+
+func capture_sam_plans(tick: int) -> Array:
+	var jobs := []
+	var stations: Variant = null
+	var reach := (SimRules.SAM_MAX_RANGE_FULL + SimRules.NUKE_TARGETABLE_FULL) / R.k_lin
+	for ms: Dictionary in g.missiles:
+		if ms.get("sam_st") != null or not interceptable(ms): continue
+		var refresh := tick >= int(ms.get("cand_tick", -100000))
+		if refresh and stations == null:
+			stations = []
+			for st: Dictionary in g.structs:
+				if st.k == 4 and float(st.get("bt", 0.0)) <= 0.1:
+					stations.append(st)
+		var due := []
+		var candidates: Array = stations if refresh else ms.get("cands", [])
+		for st: Dictionary in candidates:
+			if not _alive_struct(st) or st.o == ms.o or g.allied(st.o, ms.o) \
+					or float(st.get("bt", 0.0)) > 0.1:
+				continue
+			if refresh:
+				var position := tpos(st.tile, g.W)
+				if position.distance_squared_to(ms.from) > reach * reach \
+						and position.distance_squared_to(ms.to) > reach * reach:
+					continue
+			elif not _sam_needs_plan(int(ms.plan_fire.get(st.tile, -3)), tick):
+				continue
+			due.append(_sam_station(st))
+		if not due.is_empty():
+			var flight := _sam_flight(ms, tick)
+			if flight[0] >= flight[1]: continue
+			var trajectory: PackedVector2Array = ms.get("traj", PackedVector2Array())
+			jobs.append({"flight": flight, "arc": _sam_arc(ms).duplicate(true),
+				"input_trajectory": trajectory.duplicate(), "stations": due})
+	return jobs
+
+func accept_sam_plans(tick: int, plans: Array) -> void:
+	_prepared_sam_tick = tick
+	_prepared_sam = plans
+
+func _sam_plan(ms: Dictionary, st: Dictionary) -> void:
+	var t := now()
+	var key: int = st.tile
 	ms.plan_fire[key] = -1
+	if ms.get("evade", false): return
+	var flight := _sam_flight(ms, t)
+	if flight[0] >= flight[1]: return
+	var station := _sam_station(st)
+	var result := Vector2i(-1, -1)
+	var prepared := false
+	if t == _prepared_sam_tick and not _prepared_sam.is_empty():
+		var arc := _sam_arc(ms)
+		for job: Dictionary in _prepared_sam:
+			if job.flight != flight or job.arc != arc or not job.results.has(station):
+				continue
+			if ms.get("traj", PackedVector2Array()) != job.input_trajectory and ms.get("traj") != job.trajectory:
+				continue
+			if not ms.has("arc"): ms.arc = arc
+			ms.traj = job.trajectory
+			result = job.results[station]
+			prepared = true
+			worker_sam_plans_used += 1
+			break
+	if not prepared:
+		_traj(ms, flight[0])
+		result = sam_plan(R, g.W, t, flight, station, ms.traj)
+	ms.plan_fire[key] = result.x
+	if result.x >= 0:
+		ms.plan_k[key] = result.y
 
 func _sam_tick(t: int) -> void:
 	if g.missiles.is_empty(): return
@@ -587,7 +672,7 @@ func _sam_tick(t: int) -> void:
 			if not _alive_struct(st) or float(st.get("bt", 0.0)) > 0.0 or st.o == ms.o or g.allied(st.o, ms.o): continue
 			var key: int = st.tile
 			var plan := int(ms.plan_fire.get(key, -3))
-			if plan == -3 or (plan >= 0 and plan < t):
+			if _sam_needs_plan(plan, t):
 				_sam_plan(ms, st)
 				plan = int(ms.plan_fire[key])
 			if plan >= 0 and plan <= t + 1:

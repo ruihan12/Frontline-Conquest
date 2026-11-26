@@ -60,12 +60,13 @@ func _run() -> void:
 	var preparation_matches := _check_ai_preparation(game)
 	var scans_match := _check_ai_border_scan(game)
 	var battery_matches := _check_battery_preparation(game)
+	var sam_matches := _check_sam_preparation(game)
 	var rails_match := _check_rail_preparation(game)
 	var shore_matches := _check_shore_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and battery_matches and rails_match and shore_matches
+		and battery_matches and sam_matches and rails_match and shore_matches
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -264,6 +265,52 @@ func _check_battery_preparation(game) -> bool:
 	game._struct_remove(game.struct_at[target])
 	var recalculated: bool = game.sim_ars.battery_target(battery) == alternate and game.sim_ars.worker_battery_count == 1
 	return used and recalculated
+
+func _check_sam_preparation(game) -> bool:
+	var tile: int = game.owner_map.find(2)
+	while tile >= 0 and game.struct_at.has(tile):
+		tile = game.owner_map.find(2, tile + 1)
+	if tile < 0: return false
+	game._struct_add(4, tile, 2)
+	var station: Dictionary = game.struct_at[tile]
+	station.bt = 0.0
+	var aim := SimArsenal.tpos(tile, game.W)
+	var destination := aim + Vector2(20, 0)
+	var arc := {"pts": PackedVector2Array([aim, destination]), "lens": PackedFloat32Array([0, 20]), "length": 20.0}
+	var missile := {"o": 3, "k": 7, "nk": SimRules.N_ATOM, "from": aim, "to": destination, "arc": arc,
+		"lt": game.sim_atk.tick, "ft": 60, "dur": 1.2, "plan_fire": {}, "plan_k": {}}
+	game.missiles.append(missile)
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var arsenal: SimArsenal = game.sim_ars
+	var plans: Array = arsenal._prepared_sam
+	var tick: int = game.sim_atk.tick
+	var inline := missile.duplicate(true)
+	arsenal.accept_sam_plans(-1, [])
+	arsenal._sam_plan(inline, station)
+	arsenal.accept_sam_plans(tick, plans)
+	arsenal._sam_plan(missile, station)
+	var used: bool = arsenal.worker_sam_plans_used == 1 and missile.plan_fire.get(tile, -1) >= tick \
+		and inline.plan_fire == missile.plan_fire and inline.plan_k == missile.plan_k and inline.traj == missile.traj
+	station.level += 1
+	arsenal._sam_plan(missile, station)
+	arsenal.accept_sam_plans(-1, [])
+	arsenal._sam_plan(inline, station)
+	var recomputed: bool = arsenal.worker_sam_plans_used == 1 and inline.plan_fire == missile.plan_fire \
+		and inline.plan_k == missile.plan_k
+	station.level -= 1
+	arsenal.accept_sam_plans(tick, plans)
+	var hits_before: int = arsenal.stats.sam_hits
+	arsenal._sam_tick(tick)
+	var intercepted: bool = arsenal.worker_sam_plans_used == 2 and missile.get("shot_down", false) \
+		and arsenal.stats.sam_hits == hits_before + 1
+	game.missiles.erase(missile)
+	arsenal.sam_shots.clear()
+	game._struct_remove(station)
+	if not used or not recomputed or not intercepted:
+		print("SAM preparation fixture used=", used, " recomputed=", recomputed, " intercepted=", intercepted)
+	return used and recomputed and intercepted
 
 func _check_rail_preparation(game) -> bool:
 	var leg := ceili(game.sim_rules.road_min_tiles()) + 4
