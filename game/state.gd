@@ -57,8 +57,13 @@ const ORANGE := Color(0.95, 0.52, 0.12)
 const AttackWorker = preload("res://sim/attack_worker.gd")
 var _attack_worker: AttackWorker
 var _attack_worker_applied := 0
+var _attack_map_revision := 0
 var _held_sim_dt := 0.0
 var _held_sim_tdt := 0.0
+
+func _record_attack_tile(tile: int) -> void:
+	_attack_map_revision += 1
+	_attack_worker.record_tile(tile)
 
 func _stop_attack_worker() -> void:
 	if _attack_worker != null:

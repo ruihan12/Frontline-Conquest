@@ -312,6 +312,7 @@ func _gt(lbl: String) -> void:
 	_gt_t = t
 
 func gen_map() -> void:
+	_stop_attack_worker()
 	_reset_tile_snapshot()
 	_gt_t = Time.get_ticks_usec()
 	var mid := _upstream_id_for(map_tab, map_i)
@@ -984,6 +985,7 @@ func _set_owner(i: int, o: int) -> void:
 		if old > 0: nations[old].pop -= tp
 		if o > 0: nations[o].pop += tp
 	om[i] = o
+	if _attack_worker != null: _record_attack_tile(i)
 	if net_rec: net_dirty.append(i)
 	if _tile_snapshot_valid: _tile_snapshot_dirty.append(i)
 	if old > 0 and o > 0: nations[old]["last_by"] = o

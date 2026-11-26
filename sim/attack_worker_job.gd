@@ -23,12 +23,14 @@ var _traitors: Dictionary
 var _kinds := PackedInt32Array()
 var _rules: SimRules
 
-func _init(game) -> void:
+func _init(game, mirror_owners := PackedInt32Array(), mirror_fallout := PackedByteArray()) -> void:
 	W = game.W
 	H = game.H
-	owner_map = game.owner_map.duplicate()
-	mtn = game.mtn.duplicate()
-	fallout = game.fallout.duplicate()
+	owner_map = game.owner_map.duplicate() if mirror_owners.is_empty() else mirror_owners
+	# Terrain is read-only during play. Map generation joins the live
+	# worker before it changes the terrain buffer.
+	mtn = game.mtn
+	fallout = game.fallout.duplicate() if mirror_fallout.is_empty() else mirror_fallout
 	fallout_count = game.fallout_count
 	land_total = game.land_total
 	nations = game.nations.duplicate(true)

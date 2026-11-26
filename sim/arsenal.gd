@@ -352,6 +352,7 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 			lost[ow] += 1
 			g._set_owner(tt, g.NEUTRAL)
 		g.fallout[tt] = 1; g.fallout_list[tt] = true
+		if g._attack_worker != null: g._record_attack_tile(tt)
 		g._record_tile_snapshot(tt)
 		g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
 		g._map_effect("fallout", [tt])
