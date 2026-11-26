@@ -44,6 +44,14 @@ for d in sorted(os.listdir(SRC)):
     meta = {"id": oid, "name": m["name"], "categories": ["others"] + [c for c in m.get("categories", []) if c != "featured"],
             "forced_modifiers": [], "k_lin": 1.0, "scale": 1.0, "width": W, "height": H, "land_tiles": land,
             "default_tribes": max(40, min(400, round(400 * land / 689018))), "nations": nations, "source": "OpenFront " + d}
+    TW, TH = 296, 164  # card thumbnail source (nearest sample of the tile bytes; the web build keeps only this in the pack)
+    th = bytearray(TW * TH)
+    for y in range(TH):
+        sy = min(H - 1, int((y + 0.5) * H / TH))
+        for x in range(TW):
+            th[y * TW + x] = raw[sy * W + min(W - 1, int((x + 0.5) * W / TW))]
+    meta["thumb"] = [TW, TH]
+    open(os.path.join(DST, oid + ".thumb.bin"), "wb").write(zlib.compress(bytes(th), 9))
     json.dump(meta, open(os.path.join(DST, oid + ".json"), "w"))
     open(os.path.join(DST, oid + ".codes.bin"), "wb").write(zlib.compress(bytes(codes), 9))
     open(os.path.join(DST, oid + ".tiles.bin"), "wb").write(zlib.compress(bytes(raw), 9))

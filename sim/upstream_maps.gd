@@ -43,6 +43,59 @@ static func _read_zlib(path: String, n: int) -> PackedByteArray:
 	return out
 
 
+# Web: the OpenFront maps' codes/tiles are not in the pack (they would sit in memory whether played or not);
+# they are downloaded from lazy/maps/ next to index.html when a match on that map is about to start.
+static var _raw_codes := {}  # lazy id -> zlib bytes as downloaded (as_real_map's b64 source)
+
+
+static func is_lazy(id: String) -> bool:
+	return id.begins_with("of_") and OS.has_feature("web") and not FileAccess.file_exists(DIR + id + ".codes.bin")
+
+
+static func needs_fetch(id: String) -> bool:
+	return is_lazy(id) and not _raw_codes.has(id)
+
+
+static func _inflate(raw: PackedByteArray, n: int) -> PackedByteArray:
+	var out := raw.decompress(n, FileAccess.COMPRESSION_DEFLATE)
+	return out if out.size() == n else PackedByteArray()
+
+
+static func _http_get(host: Node, rel: String) -> PackedByteArray:
+	var url := str(JavaScriptBridge.eval("new URL(%s, window.location.href).href" % JSON.stringify(rel), true))
+	var req := HTTPRequest.new()
+	host.add_child(req)
+	if req.request(url) != OK:
+		req.queue_free()
+		return PackedByteArray()
+	var res: Array = await req.request_completed
+	req.queue_free()
+	if int(res[0]) != HTTPRequest.RESULT_SUCCESS or int(res[1]) != 200:
+		return PackedByteArray()
+	return res[3]
+
+
+# Downloads and caches a lazy map's terrain (true when it is ready or was never lazy). Keeps only this map
+# and drops the other downloaded ones.
+static func ensure(id: String, host: Node) -> bool:
+	if not needs_fetch(id): return true
+	var s := size_of(id)
+	var n := s.x * s.y
+	var c: PackedByteArray = await _http_get(host, "lazy/maps/%s.codes.bin" % id)
+	var t: PackedByteArray = await _http_get(host, "lazy/maps/%s.tiles.bin" % id)
+	var cc := _inflate(c, n)
+	var tt := _inflate(t, n)
+	if n <= 0 or cc.is_empty() or tt.is_empty():
+		push_warning("UpstreamMaps: could not download %s" % id)
+		return false
+	for k in _raw_codes.keys():
+		_codes.erase(k); _tiles.erase(k); _real.erase(k); _raw_codes.erase(k)
+	_raw_codes[id] = c
+	_codes[id] = cc
+	_tiles[id] = tt
+	return true
+
+
 static func index() -> Dictionary:
 	if _index.is_empty():
 		var d = _read_json(DIR + "index.json")
@@ -137,11 +190,16 @@ static func as_real_map(id: String) -> Dictionary:
 	if _real.has(id): return _real[id]
 	var m := meta(id)
 	if m.is_empty(): return {}
-	var f := FileAccess.open(DIR + id + ".codes.bin", FileAccess.READ)
-	if f == null: return {}
+	var zraw: PackedByteArray
+	if _raw_codes.has(id):
+		zraw = _raw_codes[id]
+	else:
+		var f := FileAccess.open(DIR + id + ".codes.bin", FileAccess.READ)
+		if f == null: return {}
+		zraw = f.get_buffer(f.get_length())
 	var e := {"id": id, "name": str(m.name), "k_lin": float(m.k_lin),
 		"width": int(m.get("width", 0)), "height": int(m.get("height", 0)),
-		"b64": Marshalls.raw_to_base64(f.get_buffer(f.get_length())),
+		"b64": Marshalls.raw_to_base64(zraw),
 		"nations": nations(id), "land": int(m.land_tiles), "upstream": true,
 		"forced_modifiers": m.get("forced_modifiers", []),
 		"default_tribes": default_tribes(id)}
@@ -175,10 +233,16 @@ static func tribe_names() -> Array:
 
 # Card thumbnail in the in-game terrain palette (MapSurface.luau colours).
 static func preview_image(id: String, pw: int, ph: int) -> Image:
-	var tb := tiles(id)
+	var tb := PackedByteArray()
 	var s := size_of(id)
 	var mw := s.x
 	var mh := s.y
+	var th = meta(id).get("thumb", null)
+	if th is Array and FileAccess.file_exists(DIR + id + ".thumb.bin"):
+		mw = int(th[0]); mh = int(th[1])
+		tb = _read_zlib(DIR + id + ".thumb.bin", mw * mh)
+	else:
+		tb = tiles(id)
 	var im := Image.create(pw, ph, false, Image.FORMAT_RGBA8)
 	if tb.size() != mw * mh or mw < 1 or mh < 1: return im
 	for py in ph:

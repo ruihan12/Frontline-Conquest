@@ -1028,7 +1028,16 @@ func _want_perfstart() -> bool:
 
 func _perf_autostart() -> void:
 	await get_tree().create_timer(4.0).timeout  # (web: let the title screen finish its own boot first)
-	call("sim_start", 0, 0, Vector2(0.5, 0.38), 0, -1.0)
+	var pm := 0
+	if OS.has_feature("web"):  # ?perfmap=<map id> picks another map (tests the lazy download)
+		var qs := str(JavaScriptBridge.eval("String(window.location.search || '')", true))
+		var at := qs.find("perfmap=")
+		if at >= 0: pm = UpstreamMaps.index_of(qs.substr(at + 8).get_slice("&", 0))
+	if pm > 0:
+		var pid: String = UpstreamMaps.id_at(pm)
+		var okd: bool = await UpstreamMaps.ensure(pid, self)
+		print("perfstart: map %s downloaded=%s" % [pid, str(okd)])
+	call("sim_start", 0, pm, Vector2(0.5, 0.38), 0, -1.0)
 	if menu_panel: menu_panel.visible = false
 	pick_panel.visible = false
 	if hud: hud.show_match()

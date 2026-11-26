@@ -811,11 +811,54 @@ func current_track() -> String:
 	return _track
 
 
+# Web: the soundtrack is not in the pack (66 tracks, 76 MB that would sit in memory); each track downloads from
+# lazy/music/<key>.ogg when it is needed (the playing one, and the next one is fetched ahead).
+var _lazy_music: bool = OS.has_feature("web")
+var _lazy_fetching := {}  # key -> true while downloading
+var _lazy_wait := {}      # key -> fade_s: start the track as soon as it arrives
+
+
+func _lazy_track(key: String) -> bool:
+	return _lazy_music and not _asset_exists(soundtrack_root() + key + ".ogg")
+
+
+func _lazy_fetch(key: String) -> void:
+	if _lazy_fetching.has(key): return
+	_lazy_fetching[key] = true
+	var url := str(JavaScriptBridge.eval("new URL(%s, window.location.href).href" % JSON.stringify("lazy/music/%s.ogg" % key), true))
+	var req := HTTPRequest.new()
+	add_child(req)
+	var s: AudioStream = null
+	if req.request(url) == OK:
+		var res: Array = await req.request_completed
+		if int(res[0]) == HTTPRequest.RESULT_SUCCESS and int(res[1]) == 200:
+			var o := AudioStreamOggVorbis.load_from_buffer(res[3])
+			if o != null:
+				o.loop = false
+				s = o
+	req.queue_free()
+	_lazy_fetching.erase(key)
+	if s != null:
+		_track_streams[key] = s
+		if _lazy_wait.has(key):
+			var f: float = float(_lazy_wait[key])
+			_lazy_wait.erase(key)
+			if _playlist != null and _playlist.tracks.has(key):
+				_start_track(key, f)
+	else:
+		if _playlist != null: _playlist.tracks.erase(key)  # unreadable: forget it for this session
+		if _lazy_wait.has(key):
+			var f2: float = float(_lazy_wait[key])
+			_lazy_wait.erase(key)
+			var k2 := _playlist.next(_pool_mood) if _playlist != null else ""
+			if k2 != "" and _playlist.tracks.has(k2): _start_track(k2, f2)
+
+
 func _build_playlist() -> void:
 	var tracks := {}
 	for k in SOUNDTRACK_TRACKS:
 		var path := soundtrack_root() + str(k) + ".ogg"
-		if _asset_exists(path):
+		if _asset_exists(path) or _lazy_music:
 			tracks[k] = {"id": path, "length": float(SOUNDTRACK_TRACKS[k][0]), "title": str(SOUNDTRACK_TRACKS[k][1])}
 	_playlist = Playlist.new({"tracks": tracks, "moods": SOUNDTRACK_MOODS}, _rng) if not tracks.is_empty() else null
 
@@ -832,6 +875,9 @@ func _track_stream(key: String) -> AudioStream:
 		var imp = load(path) if ResourceLoader.exists(path) else null
 		if imp is AudioStream:
 			s = imp
+	if s == null and _lazy_track(key):
+		_lazy_fetch(key)
+		return null
 	if s is AudioStreamOggVorbis:
 		(s as AudioStreamOggVorbis).loop = false
 	if s != null:
@@ -843,6 +889,10 @@ func _start_track(key: String, fade_s: float) -> void:
 	if _playlist == null or not _playlist.tracks.has(key):
 		return
 	var s := _track_stream(key)
+	if s == null and _lazy_track(key) and _playlist.tracks.has(key):
+		_lazy_wait.clear()  # only the newest request starts
+		_lazy_wait[key] = fade_s  # downloading: it starts when it arrives
+		return
 	if s == null:
 		# unreadable track: forget it for this session (upstream TRACK_LOAD_TIMEOUT_S skip), try another
 		_playlist.tracks.erase(key)

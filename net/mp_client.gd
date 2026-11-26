@@ -38,9 +38,20 @@ func send_intent(intent: Dictionary) -> void:
 	send.call(HostC._pack(HostC.C_INTENT, intent))
 
 
+var _hello_wait := false
+var _held: Array = []
+
+
 func on_message(pkt: PackedByteArray) -> void:
 	if pkt.size() < 1:
 		return
+	if _hello_wait:
+		_held.append(pkt)
+		return
+	if not _held.is_empty():
+		var q := _held
+		_held = []
+		for h in q: on_message(h)
 	var t: int = pkt[0]
 	var body := pkt.slice(1)
 	match t:
@@ -54,6 +65,15 @@ func on_message(pkt: PackedByteArray) -> void:
 			g.map_tab = int(d.map_tab)
 			g.map_i = int(d.map_i)
 			g.diff_i = int(d.get("diff", 1))
+			var up_id: String = g.UpstreamMaps.id_at(g.map_i)
+			if g.UpstreamMaps.needs_fetch(up_id):
+				# web: the map's terrain is downloaded first; packets that arrive meanwhile wait their turn
+				_hello_wait = true
+				var ok: bool = await g.UpstreamMaps.ensure(up_id, g)
+				_hello_wait = false
+				if not ok:
+					g.notify("Could not download that map.", "warn")
+					return
 			g._start_game()
 			g.net_rec = false
 			g.team_mode = bool(d.get("team_game", false))  # (the teams themselves arrive in S_TEAMS once the roster is full)
@@ -61,6 +81,10 @@ func on_message(pkt: PackedByteArray) -> void:
 				g.notify("Team match: waiting for %d players" % int(d.get("team_expected", 0)), "info")
 			# the round starts in the host's phase; the replicated tiles come next
 			started = true
+			if not _held.is_empty():
+				var q2 := _held
+				_held = []
+				for h2 in q2: on_message(h2)
 		HostC.S_SNAPSHOT:
 			NetRepC.apply_tiles(g, body)
 		HostC.S_DELTA:

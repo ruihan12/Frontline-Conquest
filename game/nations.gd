@@ -107,6 +107,17 @@ func _start_game_ui() -> void:
 	_set_world_visible(false)
 	await get_tree().process_frame
 	await get_tree().process_frame
+	var up_id: String = UpstreamMaps.id_at(map_i)
+	if UpstreamMaps.needs_fetch(up_id):
+		_load_progress(0.1)
+		var ok: bool = await UpstreamMaps.ensure(up_id, self)
+		if not ok:
+			notify("Could not download that map. Check your connection and try again.", "warn")
+			_set_world_visible(true)
+			load_ov.visible = false
+			_loading = false
+			if client != null: client.set_loading(false)
+			return
 	_async_gen = true
 	await gen_map()
 	_async_gen = false
