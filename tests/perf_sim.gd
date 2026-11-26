@@ -1,5 +1,41 @@
-# Headless sim tick profiler: World, 400 tribes. godot --headless -s tests/perf_sim.gd -- [--ticks=N] [--seed=S]
+# Headless sim tick profiler: World, 400 tribes. godot --headless -s tests/perf_sim.gd -- [--ticks=N] [--seed=S] [--worker-attacks]
 extends SceneTree
+const AttackJob = preload("res://tests/attack_worker_job.gd")
+
+class AttackTask extends RefCounted:
+	var job: AttackJob
+	func run() -> void:
+		job.run()
+
+# This harness grants the worker exclusive access to the copied attack pass.
+# The caller joins before continuing the reference sequence of simulation steps.
+func _worker_attack_pass(m) -> bool:
+	if m.attacks.is_empty() or m.team_mode or not m.tile_pop.is_empty() or not m.sim_atk.merges.is_empty():
+		return false
+	m._rebuild_def_posts()
+	var task := AttackTask.new()
+	task.job = AttackJob.new(m)
+	var id := WorkerThreadPool.add_task(task.run)
+	if id < 0:
+		return false
+	WorkerThreadPool.wait_for_task_completion(id)
+	var result := task.job
+	if result.player_conquest:
+		return false
+	for i in range(0, result.captures.size(), 2):
+		if m.struct_at.has(result.captures[i]):
+			return false
+	for i in range(0, result.captures.size(), 2):
+		m._set_owner(result.captures[i], result.captures[i + 1])
+	for i in m.nations.size():
+		m.nations[i].merge(result.nations[i], true)
+	m.attacks.assign(result.attacks)
+	m.rng.state = result.rng.state
+	m.sim_atk.tick = result.tick
+	for key in result.counters:
+		m._pf_add(key, result.counters[key])
+	return true
+
 func _initialize(): _run()
 func _run():
 	var ticks := 3000; var seed := 12345
@@ -21,9 +57,15 @@ func _run():
 	var tot_worst := 0
 	var slice_max := 0
 	var blk := 600
+	var worker_enabled := "--worker-attacks" in OS.get_cmdline_user_args()
+	var worker_ticks := 0
 	for i in ticks:
 		var ts := []
-		ts.append(Time.get_ticks_usec()); m._tick_attacks()
+		ts.append(Time.get_ticks_usec())
+		if worker_enabled and _worker_attack_pass(m):
+			worker_ticks += 1
+		else:
+			m._tick_attacks()
 		ts.append(Time.get_ticks_usec())
 		if "--sliced" in OS.get_cmdline_user_args():
 			m._ai_place_budget = 24; m.sim_ai.begin_tick()
@@ -61,4 +103,5 @@ func _run():
 			print("   HASH t=", i + 1, " owner=", hsum, " troops=", tr)
 			tot_worst = 0
 	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
+	print("ATTACK_WORKER_TICKS ", worker_ticks)
 	quit()
