@@ -144,3 +144,7 @@ The scheduler still uses the game node. Its fixed-tick dependencies include owne
 In snapshot mode, fixed-tick slices journal tile repaint requests and alliance recolour requests. The scene thread consumes those requests before painting. Tile requests carry the four neighbour eligibility bits from the time of the change, so another capture in the same slice cannot change the queued tile order or erase an earlier repaint requirement. The existing paint queue still handles deduplication. Default mode keeps the immediate path.
 
 The simulation still owns territory changes, border refreshes, and structure capture. The journal removes paint-queue mutation from the snapshot-mode fixed tick but leaves the tick and rendering on the scene thread.
+
+## Missile alert ownership
+
+Snapshot-mode host and solo alerts use a simulation-assigned launch ID and detached missile records. A separate interception journal lets the HUD resolve the alert after the missile leaves the next snapshot. IDs increase across round resets so a late alert cannot reuse a previous round's ID. The viewer keeps its existing replication and alert path.

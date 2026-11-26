@@ -484,6 +484,7 @@ func _layout_alert() -> void:
 ## The game has no nuke events: the missiles in flight are compared with the last frame's.
 func _track_nukes() -> void:
 	var now: Dictionary = ctx.state.nukes()
+	var intercepted: Dictionary = ctx.state.take_missile_intercepts()
 	for uid in now:
 		if not _seen_nukes.has(uid):
 			var r := alert.track(uid)
@@ -493,7 +494,7 @@ func _track_nukes() -> void:
 	for uid in _seen_nukes.keys():
 		if not now.has(uid):
 			var raw = _seen_nukes[uid]
-			alert.resolve(uid, bool(raw.get("shot_down", false)))
+			alert.resolve(uid, intercepted.has(uid) or bool(raw.get("shot_down", false)))
 			_seen_nukes.erase(uid)
 	for uid in now:
 		_seen_nukes[uid] = now[uid].raw

@@ -122,6 +122,9 @@ func _spawn_missile(o: int, k: int, nk: int, from: Vector2, to: Vector2, ft: int
 		"tgt_o": owner_map[tile] if tile >= 0 and tile < W * H else -1,
 		"mirv": nk == SimRules.N_MIRV, "mirv_bus": nk == SimRules.N_MIRV, "branched": nk == SimRules.N_WARHEAD, "evade": false}
 	ms.merge(extra, true)
+	if tile_snapshot != null and not net_remote:
+		ms["sim_uid"] = _next_missile_id
+		_next_missile_id += 1
 	missiles.append(ms)
 	return ms
 

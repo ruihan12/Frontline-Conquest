@@ -59,6 +59,18 @@ const TileSnapshot = preload("res://sim/tile_snapshot.gd")
 var tile_snapshot: TileSnapshot
 const RenderRecords = preload("res://sim/render_records.gd")
 var _render_records: RenderRecords
+var _next_missile_id := 1
+var _intercepted_missiles := {}
+
+func _record_missile_intercept(missile: Dictionary) -> void:
+	if tile_snapshot != null and not net_remote and missile.has("sim_uid"):
+		_intercepted_missiles[missile.sim_uid] = true
+
+func _take_missile_intercepts() -> Dictionary:
+	var intercepted := _intercepted_missiles
+	_intercepted_missiles = {}
+	return intercepted
+
 
 func _publish_render_records() -> void:
 	if tile_snapshot != null:
@@ -95,6 +107,7 @@ var _collect_presentation := false
 var _repaint_events := PackedInt32Array()
 
 func _reset_tile_snapshot() -> void:
+	_intercepted_missiles.clear()
 	_repaint_events = PackedInt32Array()
 	_render_records = null
 	_tile_snapshot_valid = false

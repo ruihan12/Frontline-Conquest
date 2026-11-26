@@ -12,7 +12,7 @@ const BOAT_FIELDS := ["uid", "a", "pts", "cum", "d", "air", "_draw_previous", "_
 const WARSHIP_FIELDS := ["uid", "o", "pos", "tgt", "vet", "_draw_previous", "_draw_received", "_draw_duration"]
 
 const TRADER_FIELDS := ["uid", "o", "pts", "cum", "d", "air", "_draw_previous", "_draw_received", "_draw_duration"]
-const MISSILE_FIELDS := ["o", "nk", "from", "to", "lt", "ft", "t", "dur", "r", "_draw_previous", "_draw_received", "_draw_duration"]
+const MISSILE_FIELDS := ["sim_uid", "k", "tgt_o", "mirv_bus", "split_done", "o", "nk", "from", "to", "lt", "ft", "t", "dur", "r", "_draw_previous", "_draw_received", "_draw_duration"]
 const PLANE_FIELDS := ["o", "from", "to", "t", "dur", "_draw_previous", "_draw_received", "_draw_duration"]
 const MUNITION_FIELDS := ["o", "nk", "from", "to", "t0", "t1"]
 

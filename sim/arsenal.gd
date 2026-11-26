@@ -562,6 +562,7 @@ func sam_resolve(ms) -> bool:
 		ms["sam_st"] = null
 		ms["cand_tick"] = now()
 		return false
+	g._record_missile_intercept(ms)
 	ms["shot_down"] = true  # (read by the client's alert banner: it turns green)
 	SimWarships.erase_ref(g.missiles, ms)
 	stats.sam_hits += 1

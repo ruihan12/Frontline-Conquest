@@ -516,31 +516,47 @@ func reinforce_ready(id: int) -> int:
 var _nuke_uid := 0
 var _nuke_tick := -1
 var _nukes := {}
+var _nuke_snapshot: WeakRef
 
 
-## uid -> {uid, owner, kind (Defs.N_*), to_tile, launch_tick, flight_ticks, raw}. A uid is given to
-## each missile of the game the first time it is seen. (A MIRV bus that has split is not listed: its
-## warheads are.)
+## Maps missile IDs to alert data. Snapshot mode uses the ID assigned at launch.
+## A MIRV bus is hidden after it releases its warheads.
 func nukes() -> Dictionary:
 	var t := tick
-	if t == _nuke_tick and _nukes.size() <= g.missiles.size():
+	var use_sim_ids: bool = g.tile_snapshot != null and not g.net_remote
+	var snapshot = g._render_records if use_sim_ids else null
+	if snapshot != null:
+		if _nuke_snapshot != null and is_same(_nuke_snapshot.get_ref(), snapshot):
+			return _nukes
+		_nuke_snapshot = weakref(snapshot)
+	elif _nuke_snapshot == null and t == _nuke_tick and _nukes.size() <= g.missiles.size():
 		return _nukes
+	else:
+		_nuke_snapshot = null
 	_nuke_tick = t
 	_nukes = {}
 	var w: int = g.W
-	for ms in g.missiles:
+	var missiles: Array = g.missiles if snapshot == null else snapshot.missiles
+	for ms: Dictionary in missiles:
 		if bool(ms.get("mirv_bus", false)) and bool(ms.get("split_done", false)):
 			continue
-		if not ms.has("cuid"):
-			_nuke_uid += 1
-			ms["cuid"] = _nuke_uid
+		var uid: int
+		if use_sim_ids:
+			if not ms.has("sim_uid"):
+				continue
+			uid = ms.sim_uid
+		else:
+			if not ms.has("cuid"):
+				_nuke_uid += 1
+				ms["cuid"] = _nuke_uid
+			uid = int(ms.cuid)
 		var to: Vector2 = ms.to
 		var tx := int(to.x)
 		var ty := int(to.y)
-		_nukes[int(ms.cuid)] = {
-			"uid": int(ms.cuid),
+		_nukes[uid] = {
+			"uid": uid,
 			"owner": int(ms.o),
-			"kind": int(ms.get("nk", SimRules.NUKE_KIND_OF.get(int(ms.k), 0))),
+			"kind": int(ms.get("nk", SimRules.NUKE_KIND_OF.get(int(ms.get("k", -1)), 0))),
 			"to_tile": ty * w + tx if (tx >= 0 and ty >= 0 and tx < w and ty < g.H) else -1,
 			"target_owner": int(ms.get("tgt_o", -1)),
 			"launch_tick": int(ms.get("lt", t)),
@@ -548,3 +564,7 @@ func nukes() -> Dictionary:
 			"raw": ms,
 		}
 	return _nukes
+
+
+func take_missile_intercepts() -> Dictionary:
+	return g._take_missile_intercepts()
