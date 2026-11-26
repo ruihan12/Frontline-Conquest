@@ -242,3 +242,11 @@ In one 300-frame native run with 24 seeded ports, the 95th-percentile frame inte
 The main thread applies worker-computed nation totals once per attack pass. Tile replay still updates ownership, borders, structures, fallout and repaint order. The worker records the pre-annexation location and gold amount for player conquest effects. Player-facing structure captures still use inline simulation because their sounds can consume gameplay RNG.
 
 The scene thread continues aging existing blast, shell, floating-text and fallout visuals while a worker task is pending. When the held simulation frames resume, effects only age for the new frame. This keeps the visual clock running and avoids advancing a new effect with earlier frame deltas.
+
+## Rail route preparation
+
+With `--sim-worker-attacks --sim-worker-trains`, the attack job prepares candidate station links and up to 40 uncached rail curves for eligible stations. The worker and inline simulation share the same rail A* and geometry routines. Candidate lists are reused when the live station order and kinds match. Prepared curves consume the normal per-frame route allowance when requested. Station linking, train spawn rolls and arrival payments retain their live order.
+
+All five checkpoints matched the inline reference over 3,000 seeded World ticks. That scenario consumed zero prepared rail curves. A separate train fixture consumed a prepared curve on arrival, matched the inline geometry and paid the expected gold. An isolated software Chromium build loaded one prepared curve between two seeded stations.
+
+A 300-frame native World sample seeded 20 stations. With attack threading alone it completed 7.39 ticks/s with a 61.3 ms 95th-percentile frame interval. With rail preparation enabled it completed 7.54 ticks/s with a 61.3 ms interval and used 39 prepared curves. The flag remains opt-in.

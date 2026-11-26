@@ -12,6 +12,8 @@ func _pf_line() -> String:
 		out += " attack_worker_passes=%d" % _attack_worker_applied
 		if _attack_worker.prepare_ai_scans and sim_ai != null:
 			out += " ai_worker_scans=%d" % sim_ai.worker_scan_count
+		if _attack_worker.prepare_rails:
+			out += " rail_worker_curves=%d" % _rail_worker_curves_used
 	if _naval_worker != null:
 		out += " naval_worker_ticks=%d naval_graph_queries=%d" % [_naval_worker_ticks, _naval_worker.graph_queries]
 	if _economy_worker != null:

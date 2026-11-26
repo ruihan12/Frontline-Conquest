@@ -4,6 +4,7 @@ extends RefCounted
 
 const TS := 2.0
 const ConquestBorders = preload("res://sim/conquest_borders.gd")
+const RailGeometry = preload("res://sim/rail_geometry.gd")
 var W: int
 var H: int
 var owner_map: PackedInt32Array
@@ -27,6 +28,11 @@ var battery_targets := {}
 var structure_revision := -1
 var battery_radius: float
 var _due_batteries: Array = []
+var rail_curves := {}
+var rail_station_edges := {}
+var rail_scale: float
+var _rail_stations := {}
+var _known_rail_curves := {}
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
@@ -106,6 +112,27 @@ func capture_batteries(game) -> void:
 	structure_revision = game._sv
 	battery_radius = game.sim_rules.artillery_range()
 
+func capture_rail_inputs(game) -> void:
+	var factories := {}
+	for building: Dictionary in game.structs:
+		if building.k == 2 and float(building.get("bt", 0.0)) <= 0.1:
+			var cached: Array = game._rail_mst.get(building.o, [])
+			if cached.is_empty() or cached[0] != game._rail_mst_version(building.o):
+				factories[building.o] = true
+	if factories.is_empty():
+		return
+	for building: Dictionary in game.structs:
+		if factories.has(building.o) and building.k in game.RAIL_KINDS and float(building.get("bt", 0.0)) <= 0.1:
+			if not _rail_stations.has(building.o):
+				_rail_stations[building.o] = []
+			_rail_stations[building.o].append({"k": building.k, "tile": building.tile})
+	for key in game.rail_cache:
+		_known_rail_curves[key] = true
+	rail_scale = _rules.k_lin
+	if game._prepared_rail_scale == rail_scale:
+		for key in game._prepared_rail_curves:
+			_known_rail_curves[key] = true
+
 func run() -> void:
 	var conquest := SimAttacks.new(self, _rules)
 	conquest.tick = tick
@@ -125,6 +152,35 @@ func run() -> void:
 		economy.run()
 	for battery: Dictionary in _due_batteries:
 		battery_targets[battery.tile] = SimArsenal.battery_structure_target(self, battery, battery_radius * battery_radius)
+	_prepare_rail_curves()
+
+func _prepare_rail_curves() -> void:
+	if _rail_stations.is_empty():
+		return
+	var minimum := _rules.road_min_tiles()
+	var maximum := _rules.road_max_tiles()
+	var max_path := _rules.rail_max_path()
+	for owner in _rail_stations:
+		var nodes: Array = _rail_stations[owner]
+		if nodes.size() < 2:
+			continue
+		var factories := []
+		for node: Dictionary in nodes:
+			if node.k == 2:
+				var tile: int = node.tile
+				factories.append(Vector2(tile % W + 0.5, tile / W + 0.5))
+		var edges := RailGeometry.station_edges(nodes, factories, W, minimum, maximum)
+		if not edges.is_empty():
+			rail_station_edges[owner] = [RailGeometry.station_signature(nodes), edges]
+		for edge: Array in edges:
+			var source: int = nodes[edge[1]].tile
+			var target: int = nodes[edge[2]].tile
+			var key := RailGeometry.cache_key(source, target)
+			if _known_rail_curves.has(key) or rail_curves.has(key):
+				continue
+			rail_curves[key] = RailGeometry.curve(mini(source, target), maxi(source, target), W, H, owner_map, rail_scale, max_path)
+			if rail_curves.size() >= 40:
+				return
 
 func _set_owner(tile: int, owner: int) -> void:
 	var old := owner_map[tile]

@@ -60,10 +60,11 @@ func _run() -> void:
 	var preparation_matches := _check_ai_preparation(game)
 	var scans_match := _check_ai_border_scan(game)
 	var battery_matches := _check_battery_preparation(game)
+	var rails_match := _check_rail_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and battery_matches
+		and battery_matches and rails_match
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -262,3 +263,50 @@ func _check_battery_preparation(game) -> bool:
 	game._struct_remove(game.struct_at[target])
 	var recalculated: bool = game.sim_ars.battery_target(battery) == alternate and game.sim_ars.worker_battery_count == 1
 	return used and recalculated
+
+func _check_rail_preparation(game) -> bool:
+	var leg := ceili(game.sim_rules.road_min_tiles()) + 4
+	var start := -1
+	var finish := -1
+	for y in range(10, game.H - 10, 10):
+		for x in range(0, game.W - leg, leg):
+			var a: int = y * game.W + x
+			var b := a + leg
+			if not game.struct_at.has(a) and not game.struct_at.has(b) \
+					and game._land_los(Vector2(x + 0.5, y + 0.5), Vector2(x + leg + 0.5, y + 0.5)):
+				start = a
+				finish = b
+				break
+		if start >= 0:
+			break
+	if start < 0:
+		return false
+	game._struct_add(2, start, 2)
+	game._struct_add(0, finish, 2)
+	game.struct_at[start].bt = 0.0
+	game.struct_at[finish].bt = 0.0
+	game._rail_bfs_left = 1
+	var expected: Array = game._rail_curve(start, finish)
+	var key := "r%d:%d" % [start, finish]
+	game.rail_cache.erase(key)
+	game._attack_worker.prepare_rails = true
+	if expected.is_empty() or not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game) or not game._prepared_rail_curves.has(key):
+		return false
+	var deferred: bool = game._rail_curve(start, finish).is_empty() and game._prepared_rail_curves.has(key)
+	game._rail_bfs_left = 1
+	game._rail_calc_left = 40
+	var factory: Dictionary = game.struct_at[start]
+	var city: Dictionary = game.struct_at[finish]
+	factory.last_spawn = game.sim_atk.tick
+	factory.trucks = 1
+	game.trains = [{"o": 2, "fac": factory, "route": [factory, city], "leg": 0,
+		"src": factory, "dst": city, "t": 0.0, "dur": 1.0, "stops": 0}]
+	var gold: float = game.nations[2].gold
+	game._trains_tick()
+	return deferred and game._rail_worker_curves_used == 1 and game._rail_bfs_left == 0 \
+		and game._rail_worker_edge_lists_used == 1 \
+		and game.rail_cache.get(key) == expected and game.trains.is_empty() and factory.trucks == 0 \
+		and game.nations[2].gold == gold + SimRules.train_gold("self", 0)

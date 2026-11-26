@@ -48,6 +48,7 @@ func _ready() -> void:
 		_attack_worker = AttackWorker.new()
 		_attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
 		_attack_worker.prepare_batteries = "--sim-worker-arsenal" in OS.get_cmdline_user_args()
+		_attack_worker.prepare_rails = "--sim-worker-trains" in OS.get_cmdline_user_args()
 	if "--sim-worker-economy" in OS.get_cmdline_user_args():
 		_economy_worker = EconomyWorker.new()
 	if "--sim-worker-naval" in OS.get_cmdline_user_args():
@@ -960,6 +961,8 @@ func _upd_border(t: int) -> void:
 func _set_owner(i: int, o: int, replay_worker := false) -> void:
 	var om := owner_map
 	var old: int = om[i]
+	if not _prepared_rail_curves.is_empty() and (old < 0) != (o < 0):
+		_prepared_rail_curves.clear()
 	var x := i % W
 	var y := i / W
 	if old > 0 and old < border.size(): border[old].erase(i)

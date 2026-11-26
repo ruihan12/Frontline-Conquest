@@ -4,6 +4,7 @@ extends RefCounted
 const Job = preload("res://sim/attack_worker_job.gd")
 var prepare_ai_scans := false
 var prepare_batteries := false
+var prepare_rails := false
 var _task := -1
 var _joined := false
 var _job: Job
@@ -38,6 +39,8 @@ func submit(game) -> bool:
 		_job.economy = EconomyWorker.capture(game, 0.1)
 	if prepare_batteries:
 		_job.capture_batteries(game)
+	if prepare_rails:
+		_job.capture_rail_inputs(game)
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
 	_task = WorkerThreadPool.add_task(_job.run)
@@ -89,6 +92,8 @@ func take(game) -> bool:
 	game._prepared_economy = job.economy
 	if not job.battery_targets.is_empty():
 		game.sim_ars.accept_battery_targets(job.tick, job.structure_revision, job.alliances, job.battery_radius, job.battery_targets)
+	if prepare_rails:
+		game._publish_rail_geometry(job.rail_curves, job.rail_station_edges, job.rail_scale)
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()

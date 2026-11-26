@@ -41,6 +41,7 @@ func _run():
 		m._attack_worker = AttackWorker.new()
 		m._attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
 		m._attack_worker.prepare_batteries = "--sim-worker-arsenal" in OS.get_cmdline_user_args()
+		m._attack_worker.prepare_rails = "--sim-worker-trains" in OS.get_cmdline_user_args()
 	for i in ticks:
 		var ts := []
 		ts.append(Time.get_ticks_usec())
@@ -111,6 +112,8 @@ func _run():
 		print("NAVAL_WORKER_GRAPH_QUERIES ", m._naval_worker.graph_queries)
 	if worker_enabled and m._attack_worker.prepare_batteries:
 		print("ARSENAL_WORKER_TARGETS ", m.sim_ars.worker_battery_count)
+	if worker_enabled and m._attack_worker.prepare_rails:
+		print("RAIL_WORKER_CURVES ", m._rail_worker_curves_used)
 	m.queue_free()
 	await process_frame
 	quit()
