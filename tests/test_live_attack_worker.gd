@@ -61,10 +61,11 @@ func _run() -> void:
 	var scans_match := _check_ai_border_scan(game)
 	var battery_matches := _check_battery_preparation(game)
 	var rails_match := _check_rail_preparation(game)
+	var shore_matches := _check_shore_preparation(game)
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and battery_matches and rails_match
+		and battery_matches and rails_match and shore_matches
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -289,6 +290,16 @@ func _check_rail_preparation(game) -> bool:
 	var expected: Array = game._rail_curve(start, finish)
 	var key := "r%d:%d" % [start, finish]
 	game.rail_cache.erase(key)
+	var factory: Dictionary = game.struct_at[start]
+	var city: Dictionary = game.struct_at[finish]
+	factory.last_spawn = game.sim_atk.tick
+	factory.trucks = 3
+	var continuing := {"o": 2, "fac": factory, "route": [factory, city, factory], "leg": 0,
+		"src": factory, "dst": city, "t": 0.0, "dur": 1.0, "stops": 12}
+	game.trains = [{"o": 2, "fac": factory, "route": [factory, city], "leg": 0,
+		"src": factory, "dst": city, "t": 0.0, "dur": 1.0, "stops": 0},
+		{"o": 2, "fac": factory, "route": [factory, city], "leg": 0,
+		"src": factory, "dst": city, "t": 0.0, "dur": 1.0, "stops": 12}, continuing]
 	game._attack_worker.prepare_rails = true
 	if expected.is_empty() or not game._attack_worker.submit(game):
 		return false
@@ -298,15 +309,41 @@ func _check_rail_preparation(game) -> bool:
 	var deferred: bool = game._rail_curve(start, finish).is_empty() and game._prepared_rail_curves.has(key)
 	game._rail_bfs_left = 1
 	game._rail_calc_left = 40
-	var factory: Dictionary = game.struct_at[start]
-	var city: Dictionary = game.struct_at[finish]
-	factory.last_spawn = game.sim_atk.tick
-	factory.trucks = 1
-	game.trains = [{"o": 2, "fac": factory, "route": [factory, city], "leg": 0,
-		"src": factory, "dst": city, "t": 0.0, "dur": 1.0, "stops": 0}]
+	var delayed: Dictionary = game.trains[1]
+	delayed.dur = 5.0
 	var gold: float = game.nations[2].gold
 	game._trains_tick()
 	return deferred and game._rail_worker_curves_used == 1 and game._rail_bfs_left == 0 \
 		and game._rail_worker_edge_lists_used == 1 \
-		and game.rail_cache.get(key) == expected and game.trains.is_empty() and factory.trucks == 0 \
-		and game.nations[2].gold == gold + SimRules.train_gold("self", 0)
+		and game.rail_cache.get(key) == expected and game.trains.size() == 2 and factory.trucks == 2 \
+		and is_same(game.trains[0], delayed) and delayed.t == 1.0 and delayed.stops == 12 \
+		and is_same(game.trains[1], continuing) and continuing.leg == 1 and continuing.stops == 13 \
+		and is_same(continuing.dst, factory) and continuing.t == 0.0 \
+		and game._rail_worker_train_steps_used == 2 and game._prepared_train_steps.is_empty() \
+		and game.nations[2].gold == gold + SimRules.train_gold("self", 0) + SimRules.train_gold("self", 12)
+
+func _check_shore_preparation(game) -> bool:
+	var shore := -1
+	for tile in game.sim_naval.coast_list:
+		var nearby: int = game.sim_naval.water_next_to(tile)
+		if game.sim_ws._shore_water(nearby):
+			shore = nearby
+			break
+	if shore < 0:
+		return false
+	@warning_ignore("integer_division")
+	var point := Vector2(shore % int(game.W) + 0.5, shore / int(game.W) + 0.5) * float(game.TS)
+	var trader := {"d": 0.0, "pts": PackedVector2Array([point, point + Vector2.RIGHT]),
+		"cum": PackedFloat32Array([0.0, 1.0])}
+	game.traders = [trader]
+	game.warships = [{"uid": posmod(-game.sim_atk.tick - 1, SimRules.SCAN_TICKS)}]
+	game._attack_worker.prepare_warships = true
+	if not game._attack_worker.submit(game):
+		return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game):
+		return false
+	var used: bool = game.sim_ws._safe_from_pirates(trader, 0) and game.sim_ws.worker_shore_checks_used == 1
+	trader.pts = PackedVector2Array()
+	var recalculated: bool = not game.sim_ws._safe_from_pirates(trader, 0) and game.sim_ws.worker_shore_checks_used == 1
+	return used and recalculated

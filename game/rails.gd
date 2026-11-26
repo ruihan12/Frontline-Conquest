@@ -345,23 +345,35 @@ func _trains_tick() -> void:
 		for _l in mini(int(f.get("level", 1)), 1000):
 			if rng.randi() % rate == 0: go = true; break
 		if go and spawn_train_from(f): f["last_spawn"] = tick
-	for tr in trains.duplicate():
+	var steps := _prepared_train_steps if _prepared_train_tick == tick else []
+	_prepared_train_steps = []
+	_prepared_train_tick = -1
+	var active := trains.duplicate()
+	for i in active.size():
+		var tr: Dictionary = active[i]
 		if not _has_rail_link(tr.src, tr.dst) or not nations[tr.o].alive:
 			_train_done(tr); continue
-		tr.t += 1.0
-		if tr.t < tr.dur: continue
+		var step: RailGeometry.TrainStep
+		if i < steps.size() and steps[i].matches(tr):
+			step = steps[i]
+			_rail_worker_train_steps_used += 1
+			tr.t = step.next_time
+			if not step.arrives: continue
+		else:
+			tr.t += 1.0
+			if tr.t < tr.dur: continue
 		var s = tr.dst
 		if not is_same(struct_at.get(s.tile), s) or (s.o != tr.o and sim_naval.hostile(s.o, tr.o)) or is_embargoed(tr.o, s.o):
 			_train_done(tr); continue
 		if s.k in [0, 1]:
 			var rel := "self" if s.o == tr.o else ("ally" if allied(tr.o, s.o) else "other")
-			var pay: float = SimRules.train_gold(rel, int(tr.stops))
+			var pay: float = step.payout(rel) if step != null else SimRules.train_gold(rel, int(tr.stops))
 			nations[tr.o].gold += pay
 			if s.o != tr.o and nations[s.o].alive: nations[s.o].gold += pay
 			if tr.o == PLAYER or s.o == PLAYER: add_float(Vector2(s.tile % W + 0.5, s.tile / W + 0.5) * TS, "+%s" % _fmt(pay), GOLD_C)
 			tr.stops = int(tr.stops) + 1
 		var route: Array = tr.route
-		tr.leg = int(tr.leg) + 1
+		tr.leg = step.next_leg if step != null else int(tr.leg) + 1
 		if tr.leg >= route.size() - 1:
 			_train_done(tr); continue
 		tr.src = route[tr.leg]; tr.dst = route[tr.leg + 1]

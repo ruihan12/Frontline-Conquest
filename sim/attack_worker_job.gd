@@ -28,6 +28,11 @@ var battery_targets := {}
 var structure_revision := -1
 var battery_radius: float
 var _due_batteries: Array = []
+var shore_checks: Array = []
+var shore_distance: float
+var _trade_water: int
+var _trade_routes: Array = []
+var train_steps: Array[RailGeometry.TrainStep] = []
 var rail_curves := {}
 var rail_station_edges := {}
 var rail_scale: float
@@ -112,7 +117,23 @@ func capture_batteries(game) -> void:
 	structure_revision = game._sv
 	battery_radius = game.sim_rules.artillery_range()
 
+func capture_shore_inputs(game) -> void:
+	if game.traders.is_empty():
+		return
+	var due: bool = game.warships.any(func(ship):
+		return (tick + 1 + int(ship.get("uid", 0))) % SimRules.SCAN_TICKS == 0)
+	if not due:
+		return
+	shore_distance = SimWarships.shore_distance_per_tick(game.sim_rules, game.boat_speed, game.TS)
+	_trade_water = game.WATER
+	for trader: Dictionary in game.traders:
+		var points: PackedVector2Array = trader.get("pts", PackedVector2Array())
+		var distances: PackedFloat32Array = trader.get("cum", PackedFloat32Array())
+		_trade_routes.append({"pts": points.duplicate(), "cum": distances.duplicate(), "d": trader.d})
+
 func capture_rail_inputs(game) -> void:
+	for train: Dictionary in game.trains:
+		train_steps.append(RailGeometry.TrainStep.new(train))
 	var factories := {}
 	for building: Dictionary in game.structs:
 		if building.k == 2 and float(building.get("bt", 0.0)) <= 0.1:
@@ -152,7 +173,11 @@ func run() -> void:
 		economy.run()
 	for battery: Dictionary in _due_batteries:
 		battery_targets[battery.tile] = SimArsenal.battery_structure_target(self, battery, battery_radius * battery_radius)
+	for step: RailGeometry.TrainStep in train_steps:
+		step.calculate()
 	_prepare_rail_curves()
+	for route: Dictionary in _trade_routes:
+		shore_checks.append([route, SimWarships.route_near_shore(route, owner_map, W, H, _trade_water, TS, shore_distance)])
 
 func _prepare_rail_curves() -> void:
 	if _rail_stations.is_empty():

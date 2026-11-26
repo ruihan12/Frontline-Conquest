@@ -79,6 +79,8 @@ func _stop_sim_workers() -> void:
 	_prepared_economy = null
 	_prepared_rail_curves.clear()
 	_prepared_rail_edges.clear()
+	_prepared_train_steps.clear()
+	_prepared_train_tick = -1
 	if _tick_stage >= 3:
 		_tick_stage = 0
 	_held_sim_frames.clear()
@@ -587,6 +589,9 @@ var _prepared_rail_edges := {}
 var _prepared_rail_scale := 0.0
 var _rail_worker_curves_used := 0
 var _rail_worker_edge_lists_used := 0
+var _prepared_train_steps: Array = []
+var _prepared_train_tick := -1
+var _rail_worker_train_steps_used := 0
 var _rail_nb_ver := ""
 const FACTORY_RANGE := 110.0  # trainStationMaxRange at k_lin 1 (Rules.ROAD_MAX_TILES)
 # Minimum spanning tree (Manhattan weight) per owner: each structure joins the road network once.

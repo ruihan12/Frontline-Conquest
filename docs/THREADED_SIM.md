@@ -250,3 +250,11 @@ With `--sim-worker-attacks --sim-worker-trains`, the attack job prepares candida
 All five checkpoints matched the inline reference over 3,000 seeded World ticks. That scenario consumed zero prepared rail curves. A separate 600-tick seeded run with 20 stations consumed six prepared curves and matched the checkpoint with rail preparation disabled. The focused train fixture consumed a prepared curve on arrival, matched the inline geometry and paid the expected gold. An isolated software Chromium build loaded one prepared curve between two seeded stations.
 
 A 300-frame native World sample seeded 20 stations. With attack threading alone it completed 7.39 ticks/s with a 61.3 ms 95th-percentile frame interval. With rail preparation enabled it completed 7.54 ticks/s with a 61.3 ms interval and used 39 prepared curves. The flag remains opt-in.
+
+## Train progression and warship shoreline checks
+
+The existing train flag also prepares elapsed time, leg advance and the possible station payouts for each train. The scene validates the current link and the train's timing before using the result, then applies arrivals and payments in their original order. A changed train or a train spawned during the current tick uses inline calculation. The 600-tick World fixture with 20 stations consumed 177 worker steps and matched the earlier checkpoint.
+
+With `--sim-worker-attacks --sim-worker-warships`, the attack job samples copied trader paths when warships are due to scan. The warship can reuse a shoreline protection result if the route, distance sailed, map revision and speed still match. Ship movement, target selection and combat remain on the scene thread.
+
+A software Chromium fixture verified that the Web export prepared both a train arrival and a trader shoreline check. The native regression also covers an arriving train that continues to the next leg and a stale timing result that is recalculated inline.

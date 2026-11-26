@@ -5,6 +5,7 @@ const Job = preload("res://sim/attack_worker_job.gd")
 var prepare_ai_scans := false
 var prepare_batteries := false
 var prepare_rails := false
+var prepare_warships := false
 var _task := -1
 var _joined := false
 var _job: Job
@@ -41,6 +42,8 @@ func submit(game) -> bool:
 		_job.capture_batteries(game)
 	if prepare_rails:
 		_job.capture_rail_inputs(game)
+	if prepare_warships:
+		_job.capture_shore_inputs(game)
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
 	_task = WorkerThreadPool.add_task(_job.run)
@@ -94,6 +97,10 @@ func take(game) -> bool:
 		game.sim_ars.accept_battery_targets(job.tick, job.structure_revision, job.alliances, job.battery_radius, job.battery_targets)
 	if prepare_rails:
 		game._publish_rail_geometry(job.rail_curves, job.rail_station_edges, job.rail_scale)
+		game._prepared_train_steps = job.train_steps
+		game._prepared_train_tick = job.tick
+	if prepare_warships:
+		game.sim_ws.accept_shore_checks(job.tick, game._attack_map_revision, job.shore_distance, job.shore_checks)
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()

@@ -25,6 +25,7 @@ func _init(main, rules: SimRules) -> void:
 	R = rules
 
 func reset() -> void:
+	accept_shore_checks(-1, -1, 0.0, [])
 	shells.clear(); tref.clear(); next_uid = 1; _post_last.clear(); _post_shelled.clear()
 	for k in stats: stats[k] = 0
 
@@ -232,13 +233,14 @@ func _find_target(ws: Dictionary):
 	for p in _ports_of(ws.o):
 		if g.sim_naval.coast_body(p.tile) == body: reachable = true; break
 	if not reachable: return null
-	for tr in g.traders:
+	for i in g.traders.size():
+		var tr: Dictionary = g.traders[i]
 		if tr.o == ws.o or g.allied(tr.o, ws.o): continue
 		var dst_o: int = int(tr.dst.get("o", 0)) if tr.dst is Dictionary else 0
 		if dst_o == ws.o or (dst_o > 0 and g.allied(dst_o, ws.o)): continue
 		var tp: Vector2 = g._path_pos(tr)[0] / g.TS
 		var d3 := tp.distance_squared_to(ws.pos)
-		if d3 > r2 or tp.distance_squared_to(ws.patrol) > pr * pr or _safe_from_pirates(tr): continue
+		if d3 > r2 or tp.distance_squared_to(ws.patrol) > pr * pr or _safe_from_pirates(tr, i): continue
 		if best == null or d3 < bd:
 			best = {"kind": "trade", "ref": tr}; bd = d3
 	return best
@@ -246,37 +248,66 @@ func _find_target(ws: Dictionary):
 # SimWarships._safe_from_pirates: a trade ship that sailed a shoreline tile (water 4-adjacent to land)
 # in the last SAFE_FROM_PIRATES_TICKS ticks is safe. The port's ships keep the distance sailed (tr.d,
 # px along tr.pts), so the last ticks' stretch of the route is sampled about every half tile.
-func _safe_from_pirates(tr: Dictionary) -> bool:
+var _prepared_shore_tick := -1
+var _prepared_shore_revision := -1
+var _prepared_shore_distance := 0.0
+var _prepared_shore_checks: Array = []
+var worker_shore_checks_used := 0
+
+func accept_shore_checks(tick: int, revision: int, distance_per_tick: float, checks: Array) -> void:
+	_prepared_shore_tick = tick
+	_prepared_shore_revision = revision
+	_prepared_shore_distance = distance_per_tick
+	_prepared_shore_checks = checks
+
+static func shore_distance_per_tick(rules: SimRules, boat_speed: float, tile_size: float) -> float:
+	return rules.ship_tiles_per_s() / 10.0 * boat_speed * tile_size
+
+func _safe_from_pirates(tr: Dictionary, index := -1) -> bool:
+	var distance := shore_distance_per_tick(R, g.boat_speed, g.TS)
+	if index >= 0 and index < _prepared_shore_checks.size() and _prepared_shore_tick == now() \
+			and _prepared_shore_revision == g._attack_map_revision and _prepared_shore_distance == distance:
+		var check: Array = _prepared_shore_checks[index]
+		if check[0].d == tr.d and check[0].pts == tr.get("pts") and check[0].cum == tr.get("cum"):
+			worker_shore_checks_used += 1
+			return check[1]
+	return route_near_shore(tr, g.owner_map, g.W, g.H, g.WATER, g.TS, distance)
+
+static func route_near_shore(tr: Dictionary, owners: PackedInt32Array, width: int, height: int,
+		water: int, tile_size: float, distance_per_tick: float) -> bool:
 	var cum: PackedFloat32Array = tr.get("cum", PackedFloat32Array())
 	var pts: PackedVector2Array = tr.get("pts", PackedVector2Array())
 	if pts.size() < 2 or cum.size() != pts.size():
 		return false
-	var d1: float = float(tr.d)
-	var per_tick: float = g.sim_rules.ship_tiles_per_s() / 10.0 * g.boat_speed * g.TS
-	var d0 := maxf(0.0, d1 - SimRules.SAFE_FROM_PIRATES_TICKS * per_tick)
-	var step: float = g.TS * 0.5
-	var m := 1
-	var d := d0
+	var end: float = float(tr.d)
+	var step := tile_size * 0.5
+	var segment := 1
+	var distance := maxf(0.0, end - SimRules.SAFE_FROM_PIRATES_TICKS * distance_per_tick)
 	while true:
-		while m < cum.size() - 1 and cum[m] < d: m += 1
-		var seg := maxf(0.001, cum[m] - cum[m - 1])
-		var p: Vector2 = pts[m - 1].lerp(pts[m], clampf((d - cum[m - 1]) / seg, 0.0, 1.0)) / g.TS
-		if _shore_water(_tile_of(p)):
+		while segment < cum.size() - 1 and cum[segment] < distance:
+			segment += 1
+		var length := maxf(0.001, cum[segment] - cum[segment - 1])
+		var fraction := clampf((distance - cum[segment - 1]) / length, 0.0, 1.0)
+		var point := pts[segment - 1].lerp(pts[segment], fraction) / tile_size
+		var tile := clampi(int(point.y), 0, height - 1) * width + clampi(int(point.x), 0, width - 1)
+		if _is_shore_water(tile, owners, width, water):
 			return true
-		if d >= d1: break
-		d = minf(d + step, d1)
+		if distance >= end:
+			return false
+		distance = minf(distance + step, end)
 	return false
 
 # SimWarships.shore_water: 1 on water tiles 4-adjacent to land.
 func _shore_water(t: int) -> bool:
-	var om: PackedInt32Array = g.owner_map
-	var W: int = g.W
-	if t < 0 or t >= om.size() or om[t] != g.WATER: return false
+	return _is_shore_water(t, g.owner_map, g.W, g.WATER)
+
+static func _is_shore_water(t: int, om: PackedInt32Array, W: int, water: int) -> bool:
+	if t < 0 or t >= om.size() or om[t] != water: return false
 	var x := t % W
-	if x > 0 and om[t - 1] != g.WATER: return true
-	if x < W - 1 and om[t + 1] != g.WATER: return true
-	if t >= W and om[t - W] != g.WATER: return true
-	if t + W < om.size() and om[t + W] != g.WATER: return true
+	if x > 0 and om[t - 1] != water: return true
+	if x < W - 1 and om[t + 1] != water: return true
+	if t >= W and om[t - W] != water: return true
+	if t + W < om.size() and om[t + W] != water: return true
 	return false
 
 func _shoot(ws: Dictionary, tg, t: int) -> void:

@@ -151,3 +151,41 @@ static func station_signature(nodes: Array) -> PackedInt32Array:
 		values[i * 2] = nodes[i].tile
 		values[i * 2 + 1] = nodes[i].k
 	return values
+
+# A movement prediction carries only scalar inputs and outputs. Live link
+# validation and payout recipients are resolved in train order at commit.
+class TrainStep:
+	var time: float
+	var duration: float
+	var leg: int
+	var stops: int
+	var next_time: float
+	var arrives: bool
+	var next_leg: int
+	var self_gold: float
+	var ally_gold: float
+	var other_gold: float
+
+	func _init(train: Dictionary) -> void:
+		time = train.t
+		duration = train.dur
+		leg = train.leg
+		stops = train.stops
+
+	func calculate() -> void:
+		next_time = time + 1.0
+		arrives = next_time >= duration
+		if arrives:
+			next_leg = leg + 1
+			self_gold = SimRules.train_gold("self", stops)
+			ally_gold = SimRules.train_gold("ally", stops)
+			other_gold = SimRules.train_gold("other", stops)
+
+	func matches(train: Dictionary) -> bool:
+		return time == train.t and duration == train.dur and leg == train.leg and stops == train.stops
+
+	func payout(relation: String) -> float:
+		match relation:
+			"self": return self_gold
+			"ally": return ally_gold
+			_: return other_gold
