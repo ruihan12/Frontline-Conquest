@@ -31,7 +31,7 @@ func move_warship(uid: int, tile: int) -> String:
 		if int(ws.get("uid", 0)) == uid:
 			if int(ws.o) != int(g.PLAYER):
 				return "Not your warship"
-			return g.order_warship(ws, tile)
+			return g.request_warship_order(ws, tile)
 	return "That warship is gone"
 
 

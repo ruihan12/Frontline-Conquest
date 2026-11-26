@@ -185,7 +185,11 @@ func _pace_step() -> void:
 func _drain_sim_intents() -> void:
 	if sim_intents != null and state == "play" and net_host == null and not net_remote:
 		for command in sim_intents.take():
-			NetIntents.apply(self, PLAYER, command)
+			if command.get("type") == "move_warship":
+				var error := NetIntents.move_warship(self, PLAYER, int(command.get("uid", 0)), int(command.get("tile", -1)))
+				if not error.is_empty(): notify(error, "bad")
+			else:
+				NetIntents.apply(self, PLAYER, command)
 
 # These updates depend on the frame clocks. Keep their sequence and RNG draw
 # timing while separating them from the fixed tick and the match-end UI.

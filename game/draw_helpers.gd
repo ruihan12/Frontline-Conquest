@@ -288,16 +288,30 @@ func _warship_click() -> bool:
 	if t < 0 or owner_map[t] != WATER:
 		sel_ws = null  # land click: deselect and let the click act normally
 		return false
-	var err := order_warship(sel_ws, t)
+	var err := request_warship_order(sel_ws, t)
 	if err != "": notify(err, "bad")
 	else: sfx("click")
 	return true
 
-# move order for a warship to a water tile; "" on success, else the reason
-func order_warship(ws: Dictionary, t: int) -> String:
-	if t < 0 or t >= W * H or owner_map[t] != WATER: return "Warships can only sail on water"
-	var p := Vector2(t % W + 0.5, t / W + 0.5)
-	if sim_ws._body_at(p) != sim_ws._body_at(ws.pos): return "That water is not reachable by this warship"
+func request_warship_order(ws: Dictionary, tile: int) -> String:
+	if sim_intents == null or state != "play" or net_host != null or net_remote:
+		return order_warship(ws, tile)
+	var error := _warship_order_error(ws, tile)
+	if error.is_empty():
+		sim_intents.submit({"type": "move_warship", "uid": int(ws.uid), "tile": tile})
+	return error
+
+func _warship_order_error(ws: Dictionary, tile: int) -> String:
+	if tile < 0 or tile >= W * H or owner_map[tile] != WATER: return "Warships can only sail on water"
+	var target := SimArsenal.tpos(tile, W)
+	if sim_ws._body_at(target) != sim_ws._body_at(ws.pos): return "That water is not reachable by this warship"
+	return ""
+
+# Called by the simulation when an order takes effect.
+func order_warship(ws: Dictionary, tile: int) -> String:
+	var error := _warship_order_error(ws, tile)
+	if not error.is_empty(): return error
+	var p := SimArsenal.tpos(tile, W)
 	ws.tgt = p; ws.patrol = p
 	ws.manual = sim_atk.tick
 	if ws.state != 0: ws.state = 0; ws.port = null

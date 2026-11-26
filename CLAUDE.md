@@ -86,7 +86,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - The attack worker completes queued merges and prepares AI standings and attacker counts. `--sim-worker-ai-scan` also offloads scheduled AI border scans and tribal shoreline probes. Frame effects continue updating during worker execution.
 - `--sim-worker-economy` computes troop growth, gold and cooldowns off-thread. It shares the attack job when both flags are enabled and recomputes changed inputs before applying them.
 - `--sim-worker-naval` moves eligible solo port ticks and fresh graph searches to the worker. `--sim-worker-arsenal` with attack threading offloads artillery target scans, strike impact scans and SAM interception planning.
-- `--sim-worker-trains` with attack threading prepares rail geometry and train progression. `--sim-worker-warships` prepares shoreline protection checks, warship targeting and cached steering, and defense-post transport scans.
+- `--sim-worker-trains` with attack threading prepares rail geometry and train progression. `--sim-worker-warships` prepares shoreline protection checks, warship targeting and cached steering, and defense-post transport scans. Solo warship orders use the intent queue when enabled.
 - Combined workers lowered the median headless World frame interval from 30.23 ms to 19.53 ms. The 95th-percentile interval rose from 39.06 ms to 45.45 ms. See [threaded simulation timings](docs/THREADED_SIM.md).
 
 ## What's left

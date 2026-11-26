@@ -316,3 +316,7 @@ The seeded 3,000-tick World run applied 3,248 prepared defense-post scans and ma
 The arsenal flag prepares territory counts and nearby structures for due artillery, air strike and railgun impacts. The scene validates the map and structure revisions independently. It checks live alliances and applies casualties, structure damage and presentation in the original order. The regression checks damage and troop loss, then changes ownership and replaces a structure before the next impact to exercise fallback.
 
 All five 3,000-tick World checkpoints matched the reference. World had no strike scans in that run. The separate 600-tick strike fixture used 49 worker results for territory and 49 for structures. Its four territory, troop, structure and arsenal-stat checkpoints matched the reference. The threaded Web export also used both worker results for an air strike in cross-origin-isolated Chromium.
+
+## Queued solo warship orders
+
+The unit card and fallback map controls now send the ship UID and destination tile through the local intent queue when it is enabled. The simulation resolves the UID and revalidates ownership, water and reachability before changing the ship's route at the next tick boundary. An order invalidated before application reports the reason. Inline play retains immediate orders. The regression covers acceptance, rejection, delayed application and revalidation after an ownership change.
