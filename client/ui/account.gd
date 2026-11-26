@@ -297,6 +297,7 @@ func _register(include_progress: bool) -> void:
 func _finish_auth(result: Dictionary) -> void:
 	if result.ok:
 		_profile = {"username": result.data.get("username", "")}
+		if g.progress_sync != null: g.progress_sync.pull()  # the account's stored progress replaces this browser's
 		await _home()
 	else:
 		_notice.text = result.message
@@ -324,9 +325,11 @@ func _history() -> void:
 
 func _logout() -> void:
 	_start_request()
+	if g.progress_sync != null: await g.progress_sync.flush()
 	var result := await api.logout()
 	_end_request()
 	if not api.signed_in():
+		if g.progress_sync != null: g.progress_sync.on_logout()
 		_profile.clear()
 		await _home()
 	else:

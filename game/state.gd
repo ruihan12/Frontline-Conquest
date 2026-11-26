@@ -645,6 +645,7 @@ var save := {
 	"unlocked": ["mega", "reinf"],
 	"settings": {"res_i": 3, "win_i": 0, "fps_i": 3, "qual_i": 3, "msaa_i": 2, "vsync": false, "shake_i": 1, "vol_master": 0.8, "vol_music": 0.5, "vol_sfx": 0.8}
 }
+var progress_sync = null  # net/progress_sync.gd (registered accounts keep their progress on the server)
 var settings_dlg: Control
 var settings_btns := {}
 var save_path := SAVE_PATH

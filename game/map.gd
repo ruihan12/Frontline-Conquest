@@ -56,6 +56,11 @@ func _ready() -> void:
 	if autoshot or bench: save_path = "user://save_test.json"
 	Engine.max_fps = 0  # uncapped
 	load_save()
+	if not autoshot and not bench and DisplayServer.get_name() != "headless":
+		progress_sync = preload("res://net/progress_sync.gd").new()
+		add_child(progress_sync)
+		progress_sync.setup(self)
+		progress_sync.pull.call_deferred()
 	RenderingServer.set_default_clear_color(Color(0.20, 0.42, 0.62))
 	if autoshot: Engine.time_scale = 4.0
 	# map split into chunk textures; only dirty chunks are uploaded each frame

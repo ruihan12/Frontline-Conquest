@@ -1038,9 +1038,13 @@ func apply_settings(recolor_map := true) -> void:
 	if overlay:
 		overlay.queue_redraw()
 
-func write_save() -> void:
+func write_save_file() -> void:
 	var f := FileAccess.open(save_path, FileAccess.WRITE)
 	if f: f.store_string(JSON.stringify(save))
+
+func write_save() -> void:
+	write_save_file()
+	if progress_sync != null: progress_sync.mark_dirty()  # a registered account's progress is pushed to the server
 
 func unlocked(id: String) -> bool:
 	return id in save.unlocked
