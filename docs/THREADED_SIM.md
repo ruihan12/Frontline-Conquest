@@ -225,6 +225,8 @@ In the 300-frame native sample, attacks plus AI scans achieved 5.66 ticks/s at a
 
 With the attack, AI scan, economy and naval flags combined, all five seeded World checkpoints matched the inline reference over 3,000 ticks. The profiler accepted 2,077 naval worker results. A software Chromium smoke test seeded 24 finished ports and applied six naval worker results by tick seven. The naval worker remains opt-in.
 
+With the same 24-port fixture in a 300-frame native headless run, the 95th-percentile frame interval was 48.4 ms inline and 47.6 ms with the naval worker. Tick throughput fell from 6.25 to 5.17 ticks/s. The worker completed 44 port ticks in that sample.
+
 ## Conquest commit
 
 The main thread applies worker-computed nation totals once per attack pass. Tile replay still updates ownership, borders, structures, fallout and repaint order. The worker records the pre-annexation location and gold amount for player conquest effects. Player-facing structure captures still use inline simulation because their sounds can consume gameplay RNG.
