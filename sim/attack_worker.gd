@@ -36,6 +36,7 @@ func submit(game) -> bool:
 			_mirror_fallout[tile] = game.fallout[tile]
 	_dirty_tiles = PackedInt32Array()
 	_job = Job.new(game, _mirror_owners, _mirror_fallout, prepare_ai_scans)
+	_job.prepare_render_tiles = game._tile_snapshot_valid
 	if game._economy_worker != null:
 		_job.economy = EconomyWorker.capture(game, 0.1)
 	if prepare_batteries:
@@ -75,8 +76,11 @@ func take(game) -> bool:
 	for tile in job.player_capture_tiles:
 		if game.struct_at.has(tile):
 			return _reject(job)
+	var prepared_tiles: bool = game._tile_snapshot_valid and not job.render_tiles.is_empty()
 	for i in range(0, job.captures.size(), 2):
-		game._set_owner(job.captures[i], job.captures[i + 1], true)
+		game._set_owner(job.captures[i], job.captures[i + 1], true, not prepared_tiles)
+	if prepared_tiles:
+		game._tile_snapshot_worker_packets.append(job.render_tiles)
 	if not job.captures.is_empty():
 		game._attack_map_revision += 1
 	for i in game.nations.size():

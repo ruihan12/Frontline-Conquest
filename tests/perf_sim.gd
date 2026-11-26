@@ -34,6 +34,7 @@ func _run():
 	var blk := 600
 	var worker_enabled := "--worker-attacks" in OS.get_cmdline_user_args()
 	var worker_ticks := 0
+	var worker_tile_rows := 0
 	var economy_worker: EconomyWorker = m._economy_worker
 	var economy_rows := 0
 	var naval_job_ticks := 0
@@ -91,7 +92,17 @@ func _run():
 			var d: int = ts[k + 1] - ts[k]
 			acc[keys[k]] += d; worst[keys[k]] = maxi(worst[keys[k]], d)
 		tot_worst = maxi(tot_worst, ts[-1] - ts[0])
+		if m.tile_snapshot != null:
+			for packet: PackedInt32Array in m._tile_snapshot_worker_packets:
+				worker_tile_rows += packet.size() / 3
+			m._publish_tile_snapshot()
 		if (i + 1) % blk == 0:
+			if m.tile_snapshot != null and (m.tile_snapshot.owners() != m.owner_map or m.tile_snapshot.fallout() != m.fallout):
+				print("RENDER_TILE_DIVERGENCE t=", i + 1)
+				m.queue_free()
+				await process_frame
+				quit(1)
+				return
 			var s := "t=%dmin ms/tick:" % ((i + 1) / 600)
 			var tot := 0.0
 			for k in keys: s += " %s=%.2f(max %.1f)" % [k, acc[k] / 1000.0 / blk, worst[k] / 1000.0]; tot += acc[k] / 1000.0 / blk
@@ -106,6 +117,7 @@ func _run():
 			tot_worst = 0
 	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
 	print("ATTACK_WORKER_TICKS ", worker_ticks)
+	if m.tile_snapshot != null: print("RENDER_WORKER_TILE_ROWS ", worker_tile_rows)
 	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n, " TRIBE_SHORE ", m.sim_ai.worker_tribe_shore_count)
 	print("ECONOMY_WORKER_ROWS ", economy_rows)
 	print("NAVAL_WORKER_TICKS ", naval_job_ticks)

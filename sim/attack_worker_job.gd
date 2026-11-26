@@ -7,6 +7,7 @@ const WATER := -1
 const ConquestBorders = preload("res://sim/conquest_borders.gd")
 const RailGeometry = preload("res://sim/rail_geometry.gd")
 const RoutePosition = preload("res://sim/route_position.gd")
+const TileSnapshot = preload("res://sim/tile_snapshot.gd")
 var W: int
 var H: int
 var owner_map: PackedInt32Array
@@ -59,6 +60,8 @@ var _known_rail_curves := {}
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
+var prepare_render_tiles := false
+var render_tiles := PackedInt32Array()
 var player_capture_tiles := PackedInt32Array()
 var counters := {}
 var tick: int
@@ -229,6 +232,8 @@ func run() -> void:
 	tick = conquest.tick
 	next_aid = conquest.next_aid
 	conquest.g = null
+	if prepare_render_tiles and not captures.is_empty():
+		render_tiles = TileSnapshot.capture(captures, owner_map, fallout, 2)
 	if _prepare_standings:
 		standings = SimAI.collect_standings(self)
 	pressure = SimAI.collect_pressure(self, transport_orders)

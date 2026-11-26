@@ -959,7 +959,7 @@ func _upd_border(t: int) -> void:
 	else: d.erase(t)
 
 # A committed worker pass supplies the final nation counters and map mirror.
-func _set_owner(i: int, o: int, replay_worker := false) -> void:
+func _set_owner(i: int, o: int, replay_worker := false, record_snapshot := true) -> void:
 	var om := owner_map
 	var old: int = om[i]
 	if not _prepared_rail_curves.is_empty() and (old < 0) != (o < 0):
@@ -978,7 +978,7 @@ func _set_owner(i: int, o: int, replay_worker := false) -> void:
 	om[i] = o
 	if _attack_worker != null and not replay_worker: _record_attack_tile(i)
 	if net_rec: net_dirty.append(i)
-	if _tile_snapshot_valid: _tile_snapshot_dirty.append(i)
+	if record_snapshot and _tile_snapshot_valid: _tile_snapshot_dirty.append(i)
 	if old > 0 and o > 0 and not replay_worker: nations[old]["last_by"] = o
 	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]

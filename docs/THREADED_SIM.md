@@ -324,3 +324,9 @@ The unit card and fallback map controls now send the ship UID and destination ti
 ## Combat presentation events
 
 Warship impact flashes, strike blasts and camera shake, and railgun beams publish value-only events. The presentation batch creates the visual records after the simulation slice. Direct headless calls still present immediately. The regression fires a railgun and resolves a warship shell, checks gameplay damage inside the batch, then checks the order and initial age of the delivered effects.
+
+## Worker-produced territory snapshots
+
+With render snapshots enabled, the conquest job packs final ownership and fallout values for each tile in its capture journal. The scene still replays captures in order, then publishes the prepared tile values with the render snapshot. Scene-side changes are sampled after the worker packets, so a later mutation wins. Initial snapshots and ticks with rejected or unavailable worker results use the established scene-side path.
+
+The 3,000-tick World run published 1,853,903 worker-produced tile rows and matched the live territory and fallout arrays at every checkpoint. A threaded Chromium smoke matched its render mirror after three worker passes.

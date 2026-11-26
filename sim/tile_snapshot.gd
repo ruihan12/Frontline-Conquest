@@ -9,11 +9,14 @@ func reset(owners: PackedInt32Array, fallout: PackedByteArray) -> void:
 	_owners = owners.duplicate()
 	_fallout = fallout.duplicate()
 
-static func capture(tiles: PackedInt32Array, owners: PackedInt32Array, fallout: PackedByteArray) -> PackedInt32Array:
+# The attack journal has one value after each tile index, so it uses a stride of two.
+static func capture(tiles: PackedInt32Array, owners: PackedInt32Array, fallout: PackedByteArray,
+		tile_stride := 1) -> PackedInt32Array:
 	var changes := PackedInt32Array()
-	changes.resize(tiles.size() * 3)
+	changes.resize(tiles.size() / tile_stride * 3)
 	var offset := 0
-	for tile: int in tiles:
+	for i in range(0, tiles.size(), tile_stride):
+		var tile := tiles[i]
 		changes[offset] = tile
 		changes[offset + 1] = owners[tile]
 		changes[offset + 2] = fallout[tile]

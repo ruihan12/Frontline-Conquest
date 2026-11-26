@@ -139,6 +139,7 @@ const SimIntentQueue = preload("res://sim/intent_queue.gd")
 var sim_intents: SimIntentQueue
 var _tile_snapshot_valid := false
 var _tile_snapshot_dirty := PackedInt32Array()
+var _tile_snapshot_worker_packets: Array[PackedInt32Array] = []
 var _collect_presentation := false
 var _repaint_events := PackedInt32Array()
 
@@ -148,6 +149,7 @@ func _reset_tile_snapshot() -> void:
 	_repaint_events = PackedInt32Array()
 	_render_records = null
 	_tile_snapshot_valid = false
+	_tile_snapshot_worker_packets.clear()
 	_tile_snapshot_dirty = PackedInt32Array()
 
 func _record_tile_snapshot(tile: int) -> void:
@@ -160,7 +162,12 @@ func _publish_tile_snapshot() -> void:
 	if not _tile_snapshot_valid:
 		tile_snapshot.reset(owner_map, fallout)
 		_tile_snapshot_valid = true
-	elif not _tile_snapshot_dirty.is_empty():
+		return
+	for packet: PackedInt32Array in _tile_snapshot_worker_packets:
+		tile_snapshot.apply(packet)
+	_tile_snapshot_worker_packets.clear()
+	# Scene-side updates are sampled last, including newer writes to a tile already in a worker packet.
+	if not _tile_snapshot_dirty.is_empty():
 		var delta := TileSnapshot.capture(_tile_snapshot_dirty, owner_map, fallout)
 		_tile_snapshot_dirty = PackedInt32Array()
 		tile_snapshot.apply(delta)

@@ -133,6 +133,8 @@ func _check_player_conquest(game) -> bool:
 	var victim: int = game._new_nation("Worker conquest fixture", Color.RED, true)
 	game._set_owner(tile, victim)
 	game.nations[victim].gold = 1234.0
+	game.tile_snapshot = game.TileSnapshot.new()
+	game._publish_tile_snapshot()
 	var attack = game.sim_atk.start(game.PLAYER, victim, 100000.0)
 	if attack == null:
 		return false
@@ -146,8 +148,19 @@ func _check_player_conquest(game) -> bool:
 	var applied: bool = game._attack_worker.take(game)
 	var event_replayed: bool = game._presentation_events.has(["map", "conquest", [victim, 0.0, 0.0, 1234.0]])
 	game._flush_presentation_batch()
+	var packet_ready: bool = game._tile_snapshot_worker_packets.size() == 1 \
+		and game._tile_snapshot_dirty.is_empty() and game.tile_snapshot.owner(tile) == victim
+	# A scene-side update recorded after replay must take precedence over the worker packet.
+	game.fallout[tile] = 1
+	game._record_tile_snapshot(tile)
+	game._publish_tile_snapshot()
+	var published: bool = game.tile_snapshot.owner(tile) == game.PLAYER and game.tile_snapshot.has_fallout(tile) \
+		and game._tile_snapshot_worker_packets.is_empty() and game._tile_snapshot_dirty.is_empty()
+	game.fallout[tile] = 0
+	game._reset_tile_snapshot()
+	game.tile_snapshot = null
 	return applied and event_replayed and game.owner_map[tile] == game.PLAYER \
-		and game.nations[victim].land == 0 and game.nations[victim].killer == game.PLAYER
+		and game.nations[victim].land == 0 and game.nations[victim].killer == game.PLAYER and packet_ready and published
 
 func _check_pending_merge(game) -> bool:
 	game.attacks.clear()
