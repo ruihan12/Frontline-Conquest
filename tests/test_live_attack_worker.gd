@@ -59,6 +59,7 @@ func _run() -> void:
 	var merge_restarted := _check_ended_merge(game)
 	var preparation_matches := _check_ai_preparation(game)
 	var scans_match := _check_ai_border_scan(game)
+	var tribe_scan_matches := _check_tribe_shore_scan(game)
 	var battery_matches := _check_battery_preparation(game)
 	var sam_matches := _check_sam_preparation(game)
 	var rails_match := _check_rail_preparation(game)
@@ -66,7 +67,7 @@ func _run() -> void:
 	var passed := submitted and yielded > 0 and finished and second and recovered \
 		and map_invalidated and mirror_updated and structure_replayed and player_structure_deferred \
 		and conquest_replayed and merge_replayed and merge_restarted and preparation_matches and scans_match \
-		and battery_matches and sam_matches and rails_match and shore_matches
+		and tribe_scan_matches and battery_matches and sam_matches and rails_match and shore_matches
 	print("LIVE_ATTACK_WORKER ", "PASS" if passed else "FAIL")
 	game.queue_free()
 	await process_frame
@@ -240,6 +241,67 @@ func _check_ai_border_scan(game) -> bool:
 	game._set_owner(neutral_tile, 0)
 	game.sim_ai.scan_border(id)
 	return game.sim_ai._prepared_border_scans.has(id)
+
+class ShoreFixture:
+	const WATER := -1
+	const W := 12
+	const H := 12
+	var owner_map := PackedInt32Array()
+	var fallout := PackedByteArray()
+	var border := [{}, {}, {78: true}]
+
+	func _init() -> void:
+		owner_map.resize(W * H)
+		owner_map.fill(2)
+		fallout.resize(W * H)
+		for tile in [66, 90, 77, 79]:
+			owner_map[tile] = WATER
+		owner_map[18] = 5
+		owner_map[138] = 0
+		owner_map[73] = 6
+		owner_map[83] = 5
+
+	func kind_of(_id: int) -> int:
+		return SimRules.KIND_TRIBE
+
+func _check_tribe_shore_scan(game) -> bool:
+	var fixture := ShoreFixture.new()
+	var scan := SimAI.collect_border(fixture, 2, 1.0, null, 1.0)
+	if scan[7] != [[5, 0, 6], true]: return false
+	fixture.fallout[138] = 1
+	scan = SimAI.collect_border(fixture, 2, 1.0, null, 1.0)
+	if scan[7] != [[5, 6], false]: return false
+	var id := -1
+	for candidate in range(2, game.nations.size()):
+		if game.kind_of(candidate) == SimRules.KIND_TRIBE and game.nations[candidate].alive \
+				and not game.border[candidate].is_empty():
+			id = candidate
+			break
+	if id < 0: return false
+	var state: Dictionary = game.sim_ai.st[id]
+	state.attack_tick = (game.sim_atk.tick + 1) % int(state.attack_rate)
+	if not game._attack_worker.submit(game): return false
+	game._attack_worker.wait()
+	if not game._attack_worker.take(game): return false
+	var ai: SimAI = game.sim_ai
+	var prepared: Array = ai._prepared_border_scans.get(id, [])
+	if prepared.size() < 8: return false
+	var revision: int = game._attack_map_revision
+	var original_rng: int = game.rng.state
+	ai.accept_border_scans(-1, -1, {})
+	var inline_neutral := ai._tribe_nearby(id)
+	var inline_near := ai._near.duplicate()
+	var inline_rng: int = game.rng.state
+	game.rng.state = original_rng
+	ai.accept_border_scans(game.sim_atk.tick, revision, {id: prepared})
+	var worker_neutral := ai._tribe_nearby(id)
+	var matched: bool = inline_neutral == worker_neutral and inline_near == ai._near \
+		and inline_rng == game.rng.state and ai.worker_tribe_shore_count == 1
+	game.rng.state = original_rng
+	ai.accept_border_scans(game.sim_atk.tick, revision - 1, {id: prepared})
+	var fallback_neutral := ai._tribe_nearby(id)
+	return matched and fallback_neutral == inline_neutral and ai._near == inline_near \
+		and ai.worker_tribe_shore_count == 1
 
 func _check_battery_preparation(game) -> bool:
 	var tile: int = game.owner_map.find(2)

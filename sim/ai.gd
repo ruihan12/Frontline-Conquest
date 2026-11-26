@@ -288,15 +288,17 @@ static func collect_standings(world) -> Array:
 var scan_us := 0
 var scan_n := 0
 var worker_scan_count := 0
-func scan_border(id: int) -> void:
+var worker_tribe_shore_count := 0
+func scan_border(id: int, coast_scale := 0.0) -> Array:
 	var _t0 := Time.get_ticks_usec()
-	_scan_border(id)
+	var scan := _scan_border(id, coast_scale)
 	scan_us += Time.get_ticks_usec() - _t0
 	scan_n += 1
+	return scan
 
 # Source Sim.scan_border: a walk over the owner's border list (nations: at most 400 legacy tiles,
 # tribes: the whole border), recording the owners of the land next to it.
-func _scan_border(id: int) -> void:
+func _scan_border(id: int, coast_scale: float) -> Array:
 	var scan: Array
 	if _prepared_border_scans.has(id) and _border_scan_tick == g.sim_atk.tick \
 			and _border_scan_revision == g._attack_map_revision:
@@ -309,18 +311,21 @@ func _scan_border(id: int) -> void:
 					scan[4] = neutral_tiles[i]
 		_prepared_border_scans.erase(id)
 		worker_scan_count += 1
+		if coast_scale > 0.0 and scan.size() > 7:
+			worker_tribe_shore_count += 1
 	else:
-		scan = collect_border(g, id, R.legacy_lin, g.rng)
+		scan = collect_border(g, id, R.legacy_lin, g.rng, coast_scale)
 	sc_list = scan[0]
 	sc_count = scan[1]
 	sc_tile = scan[2]
 	sc_neutral = scan[3]
 	sc_neutral_tile = scan[4]
 	sc_fallout_tile = scan[5]
+	return scan
 
 # Speculative scans collect neutral candidates in the same order so the
 # calling AI can consume its gameplay RNG at the original point in the tick.
-static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberGenerator = null) -> Array:
+static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberGenerator = null, coast_scale := 0.0) -> Array:
 	var owners := []
 	var counts := {}
 	var contacts := {}
@@ -328,6 +333,7 @@ static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberG
 	var neutral_tile := -1
 	var fallout_tile := -1
 	var neutral_tiles := PackedInt32Array()
+	var coasts := []
 	if id >= world.border.size():
 		return [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
 	var bset: Dictionary = world.border[id]
@@ -336,11 +342,13 @@ static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberG
 	var fo: PackedByteArray = world.fallout
 	var W: int = world.W
 	var N := om.size()
+	var water: int = world.WATER
 	var seen := 0
 	for t in bset:
 		if seen >= cap: break
 		seen += 1
 		var x: int = t % W
+		var is_coast := false
 		# (unrolled 4-neighbourhood: no per-tile array allocation)
 		for d in 4:
 			var n: int
@@ -357,7 +365,10 @@ static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberG
 				n = t + W
 				if n >= N: continue
 			var o: int = om[n]
-			if o < 0 or o == id: continue
+			if o < 0:
+				if coast_scale > 0.0 and o == water: is_coast = true
+				continue
+			if o == id: continue
 			if o == 0:
 				if fo[n] == 1:
 					if fallout_tile < 0: fallout_tile = n
@@ -371,7 +382,11 @@ static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberG
 			if not counts.has(o):
 				owners.append(o); counts[o] = 0; contacts[o] = n
 			counts[o] += 1
-	return [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
+		if is_coast: coasts.append(t)
+	var result := [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
+	if coast_scale > 0.0:
+		result.append(collect_tribe_nearby(world, id, coast_scale, owners, neutral, coasts))
+	return result
 
 func _above(id: int, keep: float) -> float:
 	var troops := _troops(id)
@@ -1176,37 +1191,47 @@ func _think_tribe(id: int) -> void:
 # every SHORE_PROBE_EVERY-th coastal tile looks SHORE_PROBE_DIST tiles away in each direction whose
 # first step is water. True when free land (not fallout) is nearby.
 func _tribe_nearby(id: int) -> bool:
-	scan_border(id)
-	_near.clear()
+	var scan := scan_border(id, R.k_lin)
+	var result: Array = scan[7] if scan.size() > 7 else [[], false]
+	_near = result[0]
+	return result[1]
+
+const SHORE_PROBE_DIRECTIONS := [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]
+
+static func collect_tribe_nearby(world, id: int, scale: float, neighbors: Array, neutral_tiles: int, coasts: Array) -> Array:
+	var near := neighbors.duplicate()
 	var seen := {}
-	for p in sc_list:
-		_near.append(p); seen[p] = true
-	var tn := sc_neutral > 0
-	if tn:
-		_near.append(0); seen[0] = true
-	var coasts := own_coast_tiles(id)
-	if coasts.is_empty(): return tn
-	var every := maxi(1, int(floor(10.0 / R.k_lin + 0.5)))
-	var dist := maxi(2, int(floor(5.0 / R.k_lin + 0.5)))
-	var W: int = g.W; var H: int = g.H
-	var om: PackedInt32Array = g.owner_map
-	var k := 0
-	for c in coasts:
-		if k % every == 0:
-			var x: int = c % W; var y: int = c / W
-			for dd in [Vector2i(0, -1), Vector2i(0, 1), Vector2i(-1, 0), Vector2i(1, 0)]:
-				var x1: int = x + dd.x; var y1: int = y + dd.y
-				if x1 < 0 or x1 >= W or y1 < 0 or y1 >= H or om[y1 * W + x1] != g.WATER: continue
-				var nx: int = x + dd.x * dist; var ny: int = y + dd.y * dist
-				if nx < 0 or nx >= W or ny < 0 or ny >= H: continue
-				var n: int = ny * W + nx
-				var o: int = om[n]
-				if o < 0 or o == id or seen.has(o) or (o == 0 and g.fallout[n] == 1): continue
-				seen[o] = true
-				_near.append(o)
-				tn = tn or o == 0
-		k += 1
-	return tn
+	for owner in near:
+		seen[owner] = true
+	var has_neutral := neutral_tiles > 0
+	if has_neutral:
+		near.append(0)
+		seen[0] = true
+	if coasts.is_empty(): return [near, has_neutral]
+	var every := maxi(1, int(floor(10.0 / scale + 0.5)))
+	var dist := maxi(2, int(floor(5.0 / scale + 0.5)))
+	var width: int = world.W
+	var height: int = world.H
+	var water: int = world.WATER
+	var owners: PackedInt32Array = world.owner_map
+	var fallout: PackedByteArray = world.fallout
+	for i in range(0, coasts.size(), every):
+		var tile: int = coasts[i]
+		var pos := Vector2i(tile % width, tile / width)
+		for direction: Vector2i in SHORE_PROBE_DIRECTIONS:
+			var step := pos + direction
+			if step.x < 0 or step.x >= width or step.y < 0 or step.y >= height \
+					or owners[step.y * width + step.x] != water:
+				continue
+			var probe := pos + direction * dist
+			if probe.x < 0 or probe.x >= width or probe.y < 0 or probe.y >= height: continue
+			var target := probe.y * width + probe.x
+			var owner := owners[target]
+			if owner < 0 or owner == id or seen.has(owner) or (owner == 0 and fallout[target] == 1): continue
+			seen[owner] = true
+			near.append(owner)
+			has_neutral = has_neutral or owner == 0
+	return [near, has_neutral]
 
 func _tribe_traitor(id: int) -> int:
 	var pick := []

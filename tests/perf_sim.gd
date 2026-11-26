@@ -106,7 +106,7 @@ func _run():
 			tot_worst = 0
 	print("AI_SLICE_MAX_MS ", slice_max / 1000.0)
 	print("ATTACK_WORKER_TICKS ", worker_ticks)
-	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n)
+	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n, " TRIBE_SHORE ", m.sim_ai.worker_tribe_shore_count)
 	print("ECONOMY_WORKER_ROWS ", economy_rows)
 	print("NAVAL_WORKER_TICKS ", naval_job_ticks)
 	if m._naval_worker != null:

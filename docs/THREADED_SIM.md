@@ -268,3 +268,11 @@ The arsenal flag prepares missile trajectories and due SAM intercept plans using
 The native regression compares worker and inline plans, checks that a station upgrade invalidates a plan and intercepts a missile through the normal arsenal tick. All five seeded World checkpoints matched the inline reference over 3,000 ticks. The World run consumed no SAM plans, so it establishes overall parity and the focused fixture covers the SAM path.
 
 A Godot 4.3 Web export used a prepared SAM plan to intercept one missile in cross-origin-isolated software Chromium. The ICBM regression now seeds its map and checks the documented 20% evasion chance.
+
+## Tribal shoreline probes
+
+Scheduled tribe scans collect coastal border tiles on their first pass and probe them in the original border and direction order. The AI uses the prepared list while the map revision still matches. The fallback now collects coast and neighboring owners in the same pass too. Attack decisions and random draws retain their live order. The regression checks shoreline ordering, fallout exclusion, RNG parity and fallback after a revision change.
+
+The threaded 3,000-tick World run used 7,744 prepared tribe scans and matched all five reference checkpoints. A separate 600-tick inline run matched the first checkpoint.
+
+A cross-origin-isolated software Chromium fixture applied a prepared tribe scan.

@@ -3,6 +3,7 @@ extends RefCounted
 ## ordered journal for the caller to replay through the live ownership path.
 
 const TS := 2.0
+const WATER := -1
 const ConquestBorders = preload("res://sim/conquest_borders.gd")
 const RailGeometry = preload("res://sim/rail_geometry.gd")
 const RoutePosition = preload("res://sim/route_position.gd")
@@ -179,7 +180,8 @@ func run() -> void:
 		standings = SimAI.collect_standings(self)
 	pressure = SimAI.collect_pressure(self, transport_orders)
 	for id in _scan_ids:
-		border_scans[id] = SimAI.collect_border(self, id, _rules.legacy_lin)
+		var coast_scale := _rules.k_lin if kind_of(id) == SimRules.KIND_TRIBE else 0.0
+		border_scans[id] = SimAI.collect_border(self, id, _rules.legacy_lin, null, coast_scale)
 	if economy != null:
 		economy.update_after_attacks(nations)
 		economy.run()
