@@ -789,6 +789,9 @@ func _paint_pending_count() -> int:
 
 func _repaint(i: int) -> void:
 	if net_dedicated: return  # a headless server paints nothing
+	if _collect_presentation and tile_snapshot != null:
+		_record_repaint(i)
+		return
 	var N := W * H
 	if _rp_mark.size() != N:
 		_rp_mark.resize(N); _rp_mark.fill(0); _rp_list = PackedInt32Array(); _rp_head = 0
@@ -809,6 +812,47 @@ func _repaint(i: int) -> void:
 	j = i - W
 	if j >= 0 and _rp_mark[j] == 0 and (om[j] > 0 or (hasf and fallout[j] == 1)): _rp_mark[j] = 1; _rp_list.append(j)
 	dirty = true
+
+# During a fixed-tick slice, record only tile IDs and which neighbours were
+# eligible at emission time. Playback preserves the normal FIFO order.
+func _record_repaint(tile: int) -> void:
+	var n := W * H
+	var has_fallout := fallout.size() == n
+	var mask := 0
+	var offset := 1
+	for bit in 4:
+		var neighbor := tile + offset
+		if neighbor >= 0 and neighbor < n and (owner_map[neighbor] > 0 or (has_fallout and fallout[neighbor] == 1)):
+			mask |= 1 << bit
+		match bit:
+			0: offset = -1
+			1: offset = W
+			2: offset = -W
+	_repaint_events.append(tile * 16 + mask)
+
+func _publish_repaints() -> void:
+	if _repaint_events.is_empty():
+		return
+	var n := W * H
+	if _rp_mark.size() != n:
+		_rp_mark.resize(n)
+		_rp_mark.fill(0)
+		_rp_list = PackedInt32Array()
+		_rp_head = 0
+	var offsets := [1, -1, W, -W]
+	for event: int in _repaint_events:
+		var tile := event >> 4
+		_mark_repaint(tile)
+		for bit in 4:
+			if event & (1 << bit):
+				_mark_repaint(tile + int(offsets[bit]))
+	_repaint_events = PackedInt32Array()
+	dirty = true
+
+func _mark_repaint(tile: int) -> void:
+	if _rp_mark[tile] == 0:
+		_rp_mark[tile] = 1
+		_rp_list.append(tile)
 
 # Paints queued tiles until `budget_us` microseconds have passed (<= 0: all). True when some are left.
 func _flush_paint_budget(budget_us: int) -> bool:

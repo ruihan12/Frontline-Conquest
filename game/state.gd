@@ -91,8 +91,11 @@ const SimIntentQueue = preload("res://sim/intent_queue.gd")
 var sim_intents: SimIntentQueue
 var _tile_snapshot_valid := false
 var _tile_snapshot_dirty := PackedInt32Array()
+var _collect_presentation := false
+var _repaint_events := PackedInt32Array()
 
 func _reset_tile_snapshot() -> void:
+	_repaint_events = PackedInt32Array()
 	_render_records = null
 	_tile_snapshot_valid = false
 	_tile_snapshot_dirty = PackedInt32Array()

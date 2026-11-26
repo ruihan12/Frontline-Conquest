@@ -17,9 +17,11 @@ func _initialize() -> void:
 	print("attacker ", P, " land ", m.nations[P].land)
 	m.nations[P].troops = 5.0e6
 	for k in 600:
+		m._begin_presentation_batch()
 		m.sim_atk.begin_tick(); m.sim_atk.run_slice(-1)
 		if k % 15 == 0 and m.nations[P].troops > 100.0:
 			m.sim_atk.start(P, 0, minf(m.nations[P].troops * 0.2, 200000.0))
+		m._flush_presentation_batch()
 		m._flush_paint_budget(300)
 	# let all pending paint drain
 	m._flush_paint()

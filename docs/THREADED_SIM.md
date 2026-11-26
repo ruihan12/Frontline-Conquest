@@ -138,3 +138,9 @@ In a seeded native Europe loading smoke test, the worker and inline path produce
 `main.gd::_advance_fixed_ticks` now owns the time budget, tick accumulator, attack and AI resumption, and fixed-tick subsystem order. The frame loop calls it before frame-time simulation and the match-end checks. Host replication still runs after each completed tick. The regression test forces an attack pass and an AI pass to span frames and checks that input is consumed once and each subsystem runs in order.
 
 The scheduler still uses the game node. Its fixed-tick dependencies include ownership changes that queue painting, legacy build and diplomacy side effects, and the host callback. The loading worker remains the only job that runs off the scene thread.
+
+## Paint delivery boundary
+
+In snapshot mode, fixed-tick slices journal tile repaint requests and alliance recolour requests. The scene thread consumes those requests before painting. Tile requests carry the four neighbour eligibility bits from the time of the change, so another capture in the same slice cannot change the queued tile order or erase an earlier repaint requirement. The existing paint queue still handles deduplication. Default mode keeps the immediate path.
+
+The simulation still owns territory changes, border refreshes, and structure capture. The journal removes paint-queue mutation from the snapshot-mode fixed tick but leaves the tick and rendering on the scene thread.

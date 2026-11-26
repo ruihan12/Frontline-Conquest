@@ -777,7 +777,6 @@ func _struct_remove(st) -> void:
 
 # Collect value-only presentation messages while a simulation slice runs. Input,
 # headless helpers, and frame-time updates still use the immediate path.
-var _collect_presentation := false
 var _presentation_events: Array[Array] = []
 
 func _begin_presentation_batch() -> void:
@@ -786,6 +785,7 @@ func _begin_presentation_batch() -> void:
 
 func _flush_presentation_batch() -> void:
 	_collect_presentation = false
+	_publish_repaints()
 	var events := _presentation_events
 	_presentation_events = []
 	for event: Array in events:
@@ -806,6 +806,8 @@ func _map_effect(kind: String, values: Array) -> void:
 
 func _present_map_effect(kind: String, v: Array) -> void:
 	match kind:
+		"alliance_repaint":
+			if surface != null: surface.repaint_between(v[0], v[1])
 		"fallout":
 			if fallout_glow != null: fallout_glow.on_fallout(v[0])
 		"nuke":
