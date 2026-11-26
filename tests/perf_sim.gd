@@ -1,6 +1,6 @@
 # Headless sim tick profiler: World, 400 tribes. godot --headless -s tests/perf_sim.gd -- [--ticks=N] [--seed=S] [--worker-attacks]
 extends SceneTree
-const AttackJob = preload("res://tests/attack_worker_job.gd")
+const AttackJob = preload("res://sim/attack_worker_job.gd")
 
 class AttackTask extends RefCounted:
 	var job: AttackJob

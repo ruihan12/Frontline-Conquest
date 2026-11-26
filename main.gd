@@ -217,8 +217,24 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			nt += 1
 			_drain_sim_intents()
 			_rebuild_def_posts()
+			if _attack_worker != null and state == "play" and net_host == null and not net_remote \
+					and _attack_worker.submit(self):
+				_tick_stage = 3
+				break
 			sim_atk.begin_tick()
 			_tick_stage = 1
+		if _tick_stage == 3:
+			if not _attack_worker.ready():
+				break
+			if _attack_worker.take(self):
+				_attack_worker_applied += 1
+				_tick_stage = 2
+				_ai_place_budget = 24
+				sim_ai.begin_tick()
+			else:
+				_rebuild_def_posts()
+				sim_atk.begin_tick()
+				_tick_stage = 1
 		if _tick_stage == 1:
 			var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
 			prof.atk += Time.get_ticks_usec() - a0
@@ -252,6 +268,7 @@ func _advance_fixed_ticks(tdt: float) -> void:
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
+		if _attack_worker != null and state == "play" and net_host == null and not net_remote: break
 	_flush_presentation_batch()
 	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 
@@ -299,29 +316,34 @@ func _process_inner(dt: float) -> void:
 		if _at: tdt *= _attract_boost()
 		elapsed += tdt
 		_advance_fixed_ticks(tdt)
-		_advance_sim_frame(dt, tdt)
-		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
-		var _q2 := Time.get_ticks_usec()
-		var pl = nations[PLAYER]
-		if _at:
-			_attract_check()
-		elif net_host != null:
-			net_host.check_end()
-		elif dominates(PLAYER):
-			_game_over(true)
-		elif pl.land <= 0 and not spectating:
-			_game_over(false)
-		elif ticks_done % 10 == 0:
-			for id in range(2, nations.size()):
-				if dominates(id):
-					notify("%s controls 80%% of the land" % nations[id].name, "bad")
-					if spectating and client != null:
-						# the war ended while we watched: the result card, with no second award
-						spectating = false; state = "over"; client.show_over_watched(id)
-					else:
-						_game_over(false)
-					break
-		_pf_add("dominates", Time.get_ticks_usec() - _q2)
+		_held_sim_dt += dt
+		_held_sim_tdt += tdt
+		if _tick_stage != 3:
+			_advance_sim_frame(_held_sim_dt, _held_sim_tdt)
+			_held_sim_dt = 0.0
+			_held_sim_tdt = 0.0
+			# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
+			var _q2 := Time.get_ticks_usec()
+			var pl = nations[PLAYER]
+			if _at:
+				_attract_check()
+			elif net_host != null:
+				net_host.check_end()
+			elif dominates(PLAYER):
+				_game_over(true)
+			elif pl.land <= 0 and not spectating:
+				_game_over(false)
+			elif ticks_done % 10 == 0:
+				for id in range(2, nations.size()):
+					if dominates(id):
+						notify("%s controls 80%% of the land" % nations[id].name, "bad")
+						if spectating and client != null:
+							# the war ended while we watched: the result card, with no second award
+							spectating = false; state = "over"; client.show_over_watched(id)
+						else:
+							_game_over(false)
+						break
+			_pf_add("dominates", Time.get_ticks_usec() - _q2)
 	dt = rdt
 	var _q3 := Time.get_ticks_usec()
 	_pan(dt)

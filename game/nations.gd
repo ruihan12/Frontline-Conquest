@@ -56,6 +56,7 @@ func _load_progress(v: float) -> void:
 var nuke_queue: Array = []  # [due_tick, kind, tile, owner]: bulk nukes waiting their 0.2 s turn (game/economy.gd)
 
 func _clear_round_state() -> void:
+	_stop_attack_worker()
 	if unit_layer != null: unit_layer.reset_motion()
 	_reset_tile_snapshot()
 	if sim_intents != null: sim_intents.take()
@@ -136,6 +137,7 @@ func _start_game_ui() -> void:
 	if client != null: client.set_loading(false)
 
 func _start_game() -> void:
+	_stop_attack_worker()
 	if unit_layer != null: unit_layer.reset_motion()
 	if sim_intents != null: sim_intents.take()
 	_reset_tile_snapshot()

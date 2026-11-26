@@ -42,6 +42,9 @@ func _fit_scale() -> void:
 	w.content_scale_factor = (minf(px.x, px.y) / target) / base
 
 func _ready() -> void:
+	if "--sim-worker-attacks" in OS.get_cmdline_user_args():
+		_attack_worker = AttackWorker.new()
+		sim_intents = SimIntentQueue.new()
 	if "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
@@ -468,6 +471,7 @@ func _prepare_navigation_async() -> void:
 	sim_nav = result[2]
 
 func _exit_tree() -> void:
+	_stop_attack_worker()
 	if sim_ars != null:
 		sim_ars._join_blast_tasks()
 	if _navigation_thread != null:
