@@ -84,6 +84,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - In the threaded Web export on software Chromium, bypassing the simulation branch at tick 12 lowered median processing time from 45.65 to 15.90 ms/frame and reported FPS moved from 6.5 to 7.0 across six samples per run. The probe also let territory painting drain, so it measures a frozen scene and does not predict a worker's speedup. No hardware browser or phone was available.
 - The opt-in live attack worker now replays bot-only structure captures and handles ticks with pending attack merges. All five seeded World checkpoints matched the inline reference with 2,999 of 3,000 attack passes applied from the production worker.
 - The attack worker completes queued merges and prepares AI standings and attacker counts. `--sim-worker-ai-scan` also offloads scheduled AI border scans. Frame effects continue updating during worker execution.
+- `--sim-worker-economy` computes troop growth, gold and cooldowns off-thread. It shares the attack job when both flags are enabled and recomputes changed inputs before applying them.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

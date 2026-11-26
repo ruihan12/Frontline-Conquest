@@ -12,6 +12,8 @@ func _pf_line() -> String:
 		out += " attack_worker_passes=%d" % _attack_worker_applied
 		if _attack_worker.prepare_ai_scans and sim_ai != null:
 			out += " ai_worker_scans=%d" % sim_ai.worker_scan_count
+	if _economy_worker != null:
+		out += " economy_worker_rows=%d" % _economy_worker_rows
 	out += " dt_avg=%.1f dt_max=%.1f fps=%d drawcalls=%d" % [_pf.get("dt", 0.0) / f * 1000.0, _pf.get("dt_max", 0.0) * 1000.0, Engine.get_frames_per_second(), int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))]
 	for k2 in ["names", "names_place", "fronts", "fxl", "ranges", "fallout", "uploads", "flush_n", "labels_anim", "alliances", "dominates", "cam_paint", "tooltip", "anim_ui", "hud_proc", "client_proc", "notes", "pre", "c_world", "c_ranges", "c_advisor", "c_top", "c_hover", "c_feed", "c_bar_s", "c_nukes", "c_alert", "c_bar", "c_board", "c_attacks"]:
 		if _pf.has(k2): out += " %s=%.2f" % [k2, _pf[k2] / f / (1.0 if k2 in ["uploads", "flush_n"] else 1000.0)]
@@ -210,7 +212,7 @@ func _advance_frame_effects(dt: float, tdt: float) -> void:
 	_pf_add("fx", _fp.fx)
 
 func _advance_or_hold_sim_frame(dt: float, tdt: float) -> bool:
-	if _tick_stage == 3:
+	if _tick_stage == 3 or _tick_stage == 4:
 		_advance_frame_effects(dt, tdt)
 		_held_sim_frames.append(dt)
 		_held_sim_frames.append(tdt)
@@ -236,7 +238,6 @@ func _advance_fixed_ticks(tdt: float) -> void:
 	_begin_presentation_batch()
 	while (tick_acc >= 0.1 or _tick_stage > 0) and nt < MAX_TICKS_PER_FRAME:
 		if Time.get_ticks_usec() - loop_t0 > sim_budget: break
-		var a0 := Time.get_ticks_usec()
 		if _tick_stage == 0:
 			tick_acc -= 0.1
 			nt += 1
@@ -248,43 +249,36 @@ func _advance_fixed_ticks(tdt: float) -> void:
 				break
 			sim_atk.begin_tick()
 			_tick_stage = 1
-		if _tick_stage == 3:
-			if not _attack_worker.ready():
+		var a0 := Time.get_ticks_usec()
+		if _tick_stage != 4:
+			if not _advance_attacks_and_ai(loop_t0 + sim_budget):
 				break
-			if _attack_worker.take(self):
-				_attack_worker_applied += 1
-				_tick_stage = 2
-				_ai_place_budget = 24
-				sim_ai.begin_tick()
+			_tick_stage = 0
+			var naval_started := Time.get_ticks_usec()
+			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
+			if not OS.has_environment("NO_TRADE"): sim_naval.tick()
+			sim_naval.defer_paths = false
+			prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - naval_started
+			_pf_add("naval", Time.get_ticks_usec() - naval_started)
+			ticks_done += 1
+			a0 = Time.get_ticks_usec()
+			var prepared_economy := _prepared_economy
+			_prepared_economy = null
+			if _economy_worker != null and state == "play" and net_host == null and not net_remote:
+				_economy_begin()
+				if prepared_economy != null:
+					_economy_worker_rows += _economy_finish(0.1, prepared_economy)
+				elif _attack_worker == null and _economy_worker.submit(self, 0.1):
+					_tick_stage = 4
+				else:
+					_economy_finish(0.1)
 			else:
-				_rebuild_def_posts()
-				sim_atk.begin_tick()
-				_tick_stage = 1
-		if _tick_stage == 1:
-			var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
-			prof.atk += Time.get_ticks_usec() - a0
-			_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
-			if not atk_done: break
-			_tick_stage = 2
-			_ai_place_budget = 24
-			sim_ai.begin_tick()
-		# the AI pass is spread over frames too (same nations, same order)
-		a0 = Time.get_ticks_usec()
-		var ai_done := sim_ai.run_slice(loop_t0 + sim_budget)
-		var e_ai := Time.get_ticks_usec() - a0
-		_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
-		prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
-		if not ai_done: break
+				_economy(0.1)
+		if _tick_stage == 4:
+			if not _economy_worker.ready():
+				break
+			_economy_worker_rows += _economy_finish(0.1, _economy_worker.take())
 		_tick_stage = 0
-		a0 = Time.get_ticks_usec()
-		sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
-		if not OS.has_environment("NO_TRADE"): sim_naval.tick()
-		sim_naval.defer_paths = false
-		prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
-		_pf_add("naval", Time.get_ticks_usec() - a0)
-		ticks_done += 1
-		a0 = Time.get_ticks_usec()
-		_economy(0.1)
 		sim_ars.tick()
 		_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
 		_requests_tick()
@@ -293,9 +287,39 @@ func _advance_fixed_ticks(tdt: float) -> void:
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
-		if _attack_worker != null and state == "play" and net_host == null and not net_remote: break
+		if (_attack_worker != null or _economy_worker != null) and state == "play" and net_host == null and not net_remote: break
 	_flush_presentation_batch()
 	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+
+func _advance_attacks_and_ai(deadline: int) -> bool:
+	var a0 := Time.get_ticks_usec()
+	if _tick_stage == 3:
+		if not _attack_worker.ready():
+			return false
+		if _attack_worker.take(self):
+			_attack_worker_applied += 1
+			_tick_stage = 2
+			_ai_place_budget = 24
+			sim_ai.begin_tick()
+		else:
+			_rebuild_def_posts()
+			sim_atk.begin_tick()
+			_tick_stage = 1
+	if _tick_stage == 1:
+		var atk_done := sim_atk.run_slice(deadline)
+		prof.atk += Time.get_ticks_usec() - a0
+		_fp["t_atk"] = Time.get_ticks_usec() - a0; _pf_add("atk", _fp.t_atk)
+		if not atk_done: return false
+		_tick_stage = 2
+		_ai_place_budget = 24
+		sim_ai.begin_tick()
+	# the AI pass is spread over frames too (same nations, same order)
+	a0 = Time.get_ticks_usec()
+	var ai_done := sim_ai.run_slice(deadline)
+	var e_ai := Time.get_ticks_usec() - a0
+	_fp["t_ai"] = e_ai; _pf_add("ai", e_ai)
+	prof.ai += e_ai; prof.ai_max = maxi(prof.ai_max, e_ai)
+	return ai_done
 
 func _process_inner(dt: float) -> void:
 	var _qp := Time.get_ticks_usec()

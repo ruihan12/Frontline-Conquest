@@ -47,8 +47,9 @@ func _ready() -> void:
 	if "--sim-worker-attacks" in OS.get_cmdline_user_args():
 		_attack_worker = AttackWorker.new()
 		_attack_worker.prepare_ai_scans = "--sim-worker-ai-scan" in OS.get_cmdline_user_args()
-		sim_intents = SimIntentQueue.new()
-	if "--sim-queued-intents" in OS.get_cmdline_user_args():
+	if "--sim-worker-economy" in OS.get_cmdline_user_args():
+		_economy_worker = EconomyWorker.new()
+	if _attack_worker != null or _economy_worker != null or "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
 		tile_snapshot = TileSnapshot.new()
@@ -315,7 +316,7 @@ func _gt(lbl: String) -> void:
 	_gt_t = t
 
 func gen_map() -> void:
-	_stop_attack_worker()
+	_stop_sim_workers()
 	_reset_tile_snapshot()
 	_gt_t = Time.get_ticks_usec()
 	var mid := _upstream_id_for(map_tab, map_i)
@@ -475,7 +476,7 @@ func _prepare_navigation_async() -> void:
 	sim_nav = result[2]
 
 func _exit_tree() -> void:
-	_stop_attack_worker()
+	_stop_sim_workers()
 	if sim_ars != null:
 		sim_ars._join_blast_tasks()
 	if _navigation_thread != null:

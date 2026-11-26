@@ -209,4 +209,12 @@ All five seeded World checkpoints matched with the AI scan flag enabled. The wor
 
 The AI scans had little effect on throughput in this headless sample. Worker modes remain opt-in. GPU-backed browser and phone frame rates remain unmeasured.
 
+## Economy accrual
+
+`--sim-worker-economy` computes troop caps, troop growth, gold and reinforcement cooldowns from private per-nation values. When attack threading is enabled, the same job prepares economy values immediately after conquest. The scheduler checks those values after AI, naval, supply drops and queued launches. It recomputes individual nations whose inputs changed and runs the whole accrual inline if the attack job was unavailable or rejected.
+
+With only the economy flag, the fixed tick polls the economy job and resumes before arsenal, diplomacy, warships and trains. Resetting the round joins and discards pending work. Elimination, sounds and their gameplay RNG draws stay in the original order on the scene thread. Multiplayer hosts and viewers retain their existing paths.
+
+All five checkpoints matched in the 3,000-tick seeded World run with attack, AI scan and economy workers enabled. The scene thread accepted 626,645 per-nation economy results. The threaded Web export applied 8,761 economy results by tick 21 in software Chromium.
+
 The scene thread continues aging existing blast, shell, floating-text and fallout visuals while a worker task is pending. When the held simulation frames resume, effects only age for the new frame. This keeps the visual clock running and avoids advancing a new effect with earlier frame deltas.

@@ -33,6 +33,8 @@ func submit(game) -> bool:
 			_mirror_fallout[tile] = game.fallout[tile]
 	_dirty_tiles = PackedInt32Array()
 	_job = Job.new(game, _mirror_owners, _mirror_fallout, prepare_ai_scans)
+	if game._economy_worker != null:
+		_job.economy = EconomyWorker.capture(game, 0.1)
 	_mirror_owners = PackedInt32Array()
 	_mirror_fallout = PackedByteArray()
 	_task = WorkerThreadPool.add_task(_job.run)
@@ -77,6 +79,7 @@ func take(game) -> bool:
 		pressure = job.pressure
 	game.sim_ai.accept_tick_preparation(job.tick, job.standings, pressure)
 	game.sim_ai.accept_border_scans(job.tick, game._attack_map_revision, job.border_scans)
+	game._prepared_economy = job.economy
 	_mirror_owners = job.owner_map
 	_mirror_fallout = job.fallout
 	_dirty_tiles = PackedInt32Array()

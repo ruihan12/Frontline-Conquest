@@ -33,6 +33,11 @@ class HostProbe extends RefCounted:
 	func on_tick() -> void:
 		events.append("replicate")
 
+class EconomyProbe extends EconomyWorker:
+	var allow_publish := false
+	func ready() -> bool:
+		return allow_publish and super.ready()
+
 class GameProbe extends "res://main.gd":
 	var events := []
 	var frames := []
@@ -45,6 +50,9 @@ class GameProbe extends "res://main.gd":
 		events.append("defenses")
 	func _economy(_dt: float) -> void:
 		events.append("economy")
+	func _economy_begin() -> void:
+		events.append("economy_begin")
+		super._economy_begin()
 	func _tick_missiles(_dt := 0.0) -> void:
 		events.append("missiles")
 	func _requests_tick() -> void:
@@ -71,9 +79,56 @@ func _check_held_frames(game: GameProbe) -> bool:
 	game.frames.clear()
 	game._tick_stage = 3
 	game._advance_or_hold_sim_frame(0.5, 1.0)
-	game._stop_attack_worker()
+	game._stop_sim_workers()
 	game._advance_or_hold_sim_frame(0.01, 0.02)
 	return held and resumed and ordered and game.frames == [[0.01, 0.02]]
+
+func _check_economy_worker() -> bool:
+	var game := GameProbe.new()
+	var rules := SimRules.new()
+	game.sim_rules = rules
+	game.sim_atk = AttackProbe.new(game, rules)
+	game.sim_ai = AIProbe.new(game, rules)
+	game.sim_naval = NavalProbe.new(game, rules)
+	game.sim_ars = ArsenalProbe.new(game, rules)
+	game.sim_ws = WarshipProbe.new(game, rules)
+	game.state = "play"
+	game.tile_pop = PackedFloat32Array([1200.0])
+	game.nations = [{},
+		{"alive": true, "land": 20, "troops": 10000.0, "gold": 120.0, "reinf_cd": 1.0, "pop": 1200.0},
+		{"alive": true, "land": 12, "troops": 1000.0, "gold": 50.0, "reinf_cd": 0.02, "pop": 800.0}]
+	var worker := EconomyProbe.new()
+	game._economy_worker = worker
+	game._advance_fixed_ticks(0.1)
+	game._advance_fixed_ticks(0.0)
+	game._advance_fixed_ticks(0.0)
+	var suspended: bool = game._tick_stage == 4 and game.events.count("economy_begin") == 1 \
+		and not game.events.has("arsenal") and game.nations[1].gold == 120.0
+	var held := not game._advance_or_hold_sim_frame(0.01, 0.02) and game.frames.is_empty()
+	game.nations[2].gold += 200.0
+	var reference := GameProbe.new()
+	reference.sim_rules = rules
+	reference.state = game.state
+	reference.tile_pop = game.tile_pop.duplicate()
+	reference.nations = game.nations.duplicate(true)
+	reference._economy_finish(0.1)
+	worker.allow_publish = true
+	var deadline := Time.get_ticks_msec() + 2000
+	while not worker.ready() and Time.get_ticks_msec() < deadline:
+		OS.delay_usec(100)
+	game._advance_fixed_ticks(0.0)
+	var finished := game._tick_stage == 0 and game.events.count("economy_begin") == 1 \
+		and game.events.count("arsenal") == 1 and game.ticks_done == 1
+	var matches := game._economy_worker_rows == 1 and game.nations == reference.nations
+	reference.free()
+	var gold: float = game.nations[1].gold
+	var pending := worker.submit(game, 0.1)
+	game._tick_stage = 4
+	game._stop_sim_workers()
+	var discarded: bool = pending and game._tick_stage == 0 and not worker.ready() \
+		and game.nations[1].gold == gold and game._held_sim_frames.is_empty()
+	game.free()
+	return suspended and held and finished and matches and discarded
 
 func _initialize() -> void:
 	var game := GameProbe.new()
@@ -94,7 +149,8 @@ func _initialize() -> void:
 	if not OS.has_environment("NO_TRADE"):
 		expected.append("naval")
 	expected.append_array(["economy", "arsenal", "missiles", "requests", "warships", "trains", "replicate"])
-	var passed := attack_paused and ai_paused and complete and game.events == expected and _check_held_frames(game)
+	var passed := attack_paused and ai_paused and complete and game.events == expected \
+		and _check_held_frames(game) and _check_economy_worker()
 	print("FIXED_TICK_SCHEDULE ", "PASS" if passed else "FAIL")
 	if not passed: print(game.events)
 	game.free()

@@ -57,6 +57,9 @@ const ORANGE := Color(0.95, 0.52, 0.12)
 const AttackWorker = preload("res://sim/attack_worker.gd")
 var _attack_worker: AttackWorker
 var _attack_worker_applied := 0
+var _economy_worker: EconomyWorker
+var _prepared_economy: EconomyWorker.Job
+var _economy_worker_rows := 0
 var _attack_map_revision := 0
 var _held_sim_frames := PackedFloat64Array()
 
@@ -64,10 +67,13 @@ func _record_attack_tile(tile: int) -> void:
 	_attack_map_revision += 1
 	_attack_worker.record_tile(tile)
 
-func _stop_attack_worker() -> void:
+func _stop_sim_workers() -> void:
 	if _attack_worker != null:
 		_attack_worker.stop()
-	if _tick_stage == 3:
+	if _economy_worker != null:
+		_economy_worker.stop()
+	_prepared_economy = null
+	if _tick_stage == 3 or _tick_stage == 4:
 		_tick_stage = 0
 	_held_sim_frames.clear()
 
@@ -227,7 +233,7 @@ var start_tile := -1
 var rng := RandomNumberGenerator.new()
 var ai_timer := 0.0
 var ui_timer := 0.0
-var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass, 3 detached attack worker
+var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass, 3 detached attack worker, 4 detached economy worker
 var tick_acc := 0.0
 ## How far through the current sim tick the picture is, 0..1, for smooth motion between ticks. A tick that has
 ## begun (sliced over frames) already took its 0.1 s off tick_acc but has not moved anything yet, so it counts as

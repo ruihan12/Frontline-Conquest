@@ -21,6 +21,7 @@ var transport_orders: PackedInt32Array
 var standings: Array = []
 var pressure: Variant = null
 var _prepare_standings: bool
+var economy: EconomyWorker.Job
 var def_posts := {}
 var rng := RandomNumberGenerator.new()
 var captures := PackedInt32Array()
@@ -102,6 +103,9 @@ func run() -> void:
 	pressure = SimAI.collect_pressure(self, transport_orders)
 	for id in _scan_ids:
 		border_scans[id] = SimAI.collect_border(self, id, _rules.legacy_lin)
+	if economy != null:
+		economy.update_after_attacks(nations)
+		economy.run()
 
 func _set_owner(tile: int, owner: int) -> void:
 	var old := owner_map[tile]

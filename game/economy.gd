@@ -687,12 +687,25 @@ func _nuke_queue_tick() -> void:
 			i += 1
 
 func _economy(dt: float) -> void:
+	_economy_begin()
+	_economy_finish(dt)
+
+func _economy_begin() -> void:
 	if not nuke_queue.is_empty(): _nuke_queue_tick()
 	if supply_on: _supply_tick()
 	fallout_count = fallout_list.size()
+
+func _economy_city_levels() -> Dictionary:
 	var city_lv := {}
 	for st in structs:
 		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + mini(int(st.get("level", 1)), 1000)
+	return city_lv
+
+func _economy_finish(dt: float, job: EconomyWorker.Job = null) -> int:
+	var city_lv := _economy_city_levels()
+	var use_worker := job != null and job.dt == dt and job.settings == EconomyWorker.settings_for(self)
+	var use_population := not tile_pop.is_empty()
+	var reused := 0
 	for id in range(1, nations.size()):
 		var n = nations[id]
 		if not n.alive:
@@ -706,21 +719,28 @@ func _economy(dt: float) -> void:
 				if kind_of(id) != SimRules.KIND_TRIBE: stats["conq"] = int(stats.get("conq", 0)) + 1  # Stars: tribes don't count
 			if id != PLAYER and (is_prot(id) or rng.randf() < 0.15): notify("%s has been eliminated" % n.name, "info")
 			continue
-		# floats run to 1e308: keep a runaway number finite (NaN reads 0, infinity stops at the largest value)
-		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0 if is_nan(n.troops) else 1.0e300
-		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0 if is_nan(n.gold) else 1.0e300
-		var kd := kind_of(id)
-		var tk := troop_kind(id); var tdf := troop_diff(id)  # novice bot players: Easy nation numbers
-		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf) if tile_pop.is_empty() \
-			else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_lv.get(id, 0), tdf)
-		n.regen = sim_rules.troop_growth(tk, n.troops, cap, tdf) * 10.0
-		n.troops += sim_rules.troop_growth_applied(tk, n.troops, cap, tdf)
-		n.gold += sim_rules.gold_per_tick(kd)
-		n.reinf_cd = maxf(0.0, n.reinf_cd - dt)
+		var levels: int = city_lv.get(id, 0)
+		var cap: float
+		if use_worker and job.rows.has(id) and job.rows[id] == EconomyWorker.row_for(self, id, levels):
+			var result: Array = job.values[id]
+			n.troops = result[EconomyWorker.Result.TROOPS]
+			n.gold = result[EconomyWorker.Result.GOLD]
+			n.regen = result[EconomyWorker.Result.REGEN]
+			n.reinf_cd = result[EconomyWorker.Result.REINF_CD]
+			cap = result[EconomyWorker.Result.CAP]
+			reused += 1
+		else:
+			var kd := kind_of(id)
+			var tk := troop_kind(id)
+			var tdf := troop_diff(id)
+			cap = EconomyWorker.cap_for(sim_rules, tk, tdf, n.land, float(n.get("pop", 0.0)),
+				levels, use_population, tile_pop_avg)
+			EconomyWorker.accrue(n, sim_rules, kd, tk, tdf, cap, dt)
 		if id == PLAYER:
 			if god_mode or inf_gold: n.gold = maxf(n.gold, 999e6)
 			if god_mode: n.troops = maxf(n.troops, cap)
 			if god_mode or no_cd: n.reinf_cd = 0.0; rail_cd = 0.0
+	return reused
 
 func _ai(_dt: float) -> void:
 	_ai_place_budget = 24
