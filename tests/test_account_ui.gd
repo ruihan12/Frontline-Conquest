@@ -16,6 +16,7 @@ class MockSave extends Node:
 		"stats": {"wins": 1},
 	}
 	var writes := 0
+	var progress_sync = null
 
 	func write_save() -> void:
 		writes += 1
