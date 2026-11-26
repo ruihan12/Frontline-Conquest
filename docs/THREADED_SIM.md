@@ -199,6 +199,14 @@ The worker now completes queued attack merges with private copies of the relevan
 
 With `--sim-worker-attacks --sim-worker-ai-scan`, the same job scans borders for AI commanders scheduled to act this tick. When the AI uses a scan, it consumes random draws from the gameplay RNG in the original order. A map change after publication triggers an inline scan. AI decisions, naval, economy, arsenal, warships and trains continue on the scene thread.
 
-All five seeded World checkpoints matched with the AI scan flag enabled. The worker ran 2,999 of 3,000 attack passes and supplied 6,736 of the first 6,747 AI scans in a separate 600-tick coverage run. The Godot 4.3 Web export reached 20 completed worker passes in cross-origin-isolated software Chromium.
+All five seeded World checkpoints matched with the AI scan flag enabled. The worker ran 2,999 of 3,000 attack passes and supplied 6,736 of the first 6,747 AI scans in a separate 600-tick coverage run. The Godot 4.3 Web export reached 21 completed worker passes by tick 22 in cross-origin-isolated software Chromium.
+
+| Native 300-frame World smoke at 1× | Completed ticks/s | 95th-percentile frame interval |
+| --- | ---: | ---: |
+| Inline | 6.18 | 50.3 ms |
+| Attack worker | 7.12 | 64.5 ms |
+| Attack worker with AI scans | 7.14 | 64.8 ms |
+
+The AI scans had little effect on throughput in this headless sample. Worker modes remain opt-in. GPU-backed browser and phone frame rates remain unmeasured.
 
 The scene thread continues aging existing blast, shell, floating-text and fallout visuals while a worker task is pending. When the held simulation frames resume, effects only age for the new frame. This keeps the visual clock running and avoids advancing a new effect with earlier frame deltas.
