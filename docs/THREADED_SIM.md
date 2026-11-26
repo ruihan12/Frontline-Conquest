@@ -148,3 +148,7 @@ The simulation still owns territory changes, border refreshes, and structure cap
 ## Missile alert ownership
 
 Snapshot-mode host and solo alerts use a simulation-assigned launch ID and detached missile records. A separate interception journal lets the HUD resolve the alert after the missile leaves the next snapshot. IDs increase across round resets so a late alert cannot reuse a previous round's ID. The viewer keeps its existing replication and alert path.
+
+## Economy worker experiment
+
+Run the isolated accrual benchmark with `godot --headless --path . -s tests/perf_economy_worker.gd`. It uses the World owner count and synthetic seeded accrual inputs. It excludes city counting, elimination, live state application, and the other simulation passes. The inline and worker calculations produced identical results in 1,000 comparisons. On this machine the first run took 431 µs inline versus 494 µs via the worker at the median, and 557 versus 685 µs at the 95th percentile. This measures a worker that the tick must join immediately. It does not measure overlap with rendering. The current tick still needs updated balances before proceeding to arsenal and the rest of the simulation.
