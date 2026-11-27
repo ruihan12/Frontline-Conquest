@@ -76,6 +76,16 @@ func _blast_fixture():
 			"evade": true})
 	return game
 
+func _expanded_presentation(events: Array) -> Array:
+	var expanded := []
+	for event: Array in events:
+		if event[0] == "fallout_range":
+			for i in range(event[2], event[3]):
+				expanded.append(["map", "fallout", [event[1][i]]])
+		else:
+			expanded.append(event)
+	return expanded
+
 func _check_first_blast(change_rng: bool, change_fallout := false, warhead := false, change_troops := false) -> bool:
 	var game = _blast_fixture()
 	var reference = _blast_fixture()
@@ -112,7 +122,7 @@ func _check_first_blast(change_rng: bool, change_fallout := false, warhead := fa
 	var matches: bool = game.rng.state == reference.rng.state and game.missiles.is_empty() \
 		and game.fallout_list.size() > 0 and game.fallout_list == reference.fallout_list \
 		and game.owner_map == reference.owner_map and game.nations == reference.nations \
-		and game._presentation_events == reference._presentation_events \
+		and _expanded_presentation(game._presentation_events) == reference._presentation_events \
 		and game.attacks == reference.attacks and game.boats == reference.boats
 	var used_expected := worker.prepared_blasts_used == (0 if change_rng else 1) \
 		and worker.prepared_territory_used == (0 if change_rng or change_fallout else 1)
@@ -120,8 +130,14 @@ func _check_first_blast(change_rng: bool, change_fallout := false, warhead := fa
 	if warhead and not change_rng and not change_fallout:
 		expected_casualty_owners = 1 if change_troops else 2
 	used_expected = used_expected and game.sim_ars.prepared_warhead_owners == expected_casualty_owners
+	game.fallout_glow = FalloutGlow.new(game)
+	reference.fallout_glow = FalloutGlow.new(reference)
 	game._flush_presentation_batch()
 	reference._flush_presentation_batch()
+	var presentation_matches: bool = game.fallout_glow._order == reference.fallout_glow._order \
+		and game.fallout_glow._hot == reference.fallout_glow._hot and not game.fallout_glow._order.is_empty()
+	game.fallout_glow.free()
+	reference.fallout_glow.free()
 	game._publish_tile_snapshot()
 	reference._publish_tile_snapshot()
 	var map_matches: bool = game.border[2].keys() == reference.border[2].keys() \
@@ -131,7 +147,7 @@ func _check_first_blast(change_rng: bool, change_fallout := false, warhead := fa
 		and game.structs == reference.structs and game._sv == reference._sv
 	game.free()
 	reference.free()
-	return applied and isolated and matches and used_expected and map_matches
+	return applied and isolated and matches and used_expected and map_matches and presentation_matches
 
 func _mirv_fixture(allied_target: bool):
 	var game = _blast_fixture()

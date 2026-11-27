@@ -815,15 +815,23 @@ func _apply_blast_territory(tiles: PackedInt32Array, territory: Dictionary) -> v
 		_tile_snapshot_worker_packets.append(territory.snapshot)
 	_repaint_events.append_array(territory.paints)
 	var removed_at := 0
-	for tile in tiles:
+	var fallout_start := 0
+	for index in tiles.size():
+		var tile := tiles[index]
 		if removed_at < removed.size() and removed[removed_at] == tile:
 			removed_at += 2
 			if struct_at.has(tile):
+				_queue_fallout_range(tiles, fallout_start, index)
 				_struct_remove(struct_at[tile])
+				fallout_start = index
 		fallout_list[tile] = true
 		fallout_t[tile] = 60.0
 		fallout_hot[tile] = true
-		_map_effect("fallout", [tile])
+	_queue_fallout_range(tiles, fallout_start, tiles.size())
+
+func _queue_fallout_range(tiles: PackedInt32Array, start: int, end: int) -> void:
+	if start < end:
+		_presentation_events.append(["fallout_range", tiles, start, end])
 
 # Collect value-only presentation messages while a simulation slice runs. Input,
 # headless helpers, and frame-time updates still use the immediate path.
@@ -843,6 +851,9 @@ func _flush_presentation_batch() -> void:
 			"notice": _present_notice(event[1], event[2])
 			"float": _present_float(event[1], event[2], event[3])
 			"map": _present_map_effect(event[1], event[2])
+			"fallout_range":
+				if fallout_glow != null:
+					fallout_glow.on_fallout_range(event[1], event[2], event[3])
 			"ally_show": _present_ally_card(event[1], event[2])
 			"ally_close": _present_ally_close(event[1])
 			"legacy_sound": _present_legacy_sound(event[1], event[2], event[3], event[4])

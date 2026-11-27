@@ -388,3 +388,9 @@ Four 2,000 × 1,000 synthetic results matched the pre-refactor implementation fo
 For an eligible first warhead impact, the arsenal worker calculates troop losses for affected nations, attacks and transports. It uses the same casualty function as the inline path and uses the troop cap after the prepared territory change and removal of cities on lost tiles. After the territory commit, the scene checks each affected nation's actual cap and all relevant troop counts before accepting its result. A changed input recalculates casualties for that owner in the original order.
 
 The overlapping-impact regression covers two affected nations, a destroyed city, attack and transport losses, and an attack that changes after preparation. A five-sample synthetic benchmark with 38,354 affected tiles and 40 attack records measured median scene-thread impact and presentation at 2,935 ms before and 914 ms after. Median preparation wait rose from 515 ms to 2,430 ms on the loaded runner. This stress sample measures where the work ran. It does not establish a frame-rate or throughput gain.
+
+### Fallout presentation batching
+
+The scene hands the fallout layer ranges from the worker's packed tile list instead of allocating a presentation event for each tile. It splits the ranges at structure removals, preserving effect order. The regression compares the expanded event stream and the resulting sequence of hot visual blocks with the inline path.
+
+For a 30,769-tile synthetic impact with the fallout layer attached, median scene-thread impact plus presentation fell from 632 ms to 368 ms across five measured trials per mode on the loaded runner. The remaining publication work is still above the live frame budget.

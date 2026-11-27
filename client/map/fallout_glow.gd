@@ -183,16 +183,23 @@ static func blur_line(src: PackedFloat32Array, dst: PackedFloat32Array, start: i
 
 ## sim/arsenal.gd: a tile turned to fallout. A block's centre tile makes the block hot.
 func on_fallout(tile: int) -> void:
-	var w: int = g.W
-	var x := tile % w
+	var width: int = g.W
+	_mark_fallout(tile, width, maxi(1, width / SCALE))
+
+func on_fallout_range(tiles: PackedInt32Array, start: int, end: int) -> void:
+	var width: int = g.W
+	var blocks := maxi(1, width / SCALE)
+	for i in range(start, end):
+		_mark_fallout(tiles[i], width, blocks)
+
+func _mark_fallout(tile: int, width: int, blocks: int) -> void:
+	var x := tile % width
 	@warning_ignore("integer_division")
-	var y := tile / w
+	var y := tile / width
 	var half := SCALE / 2
 	if x % SCALE != half or y % SCALE != half:
 		return
-	@warning_ignore("integer_division")
-	var bw := maxi(1, w / SCALE)
-	var b := (y / SCALE) * bw + x / SCALE
+	var b := (y / SCALE) * blocks + x / SCALE
 	if not _hot.has(b):
 		_order.append(b)
 	_hot[b] = true
