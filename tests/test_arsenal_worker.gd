@@ -117,6 +117,44 @@ func _check_first_blast(change_rng: bool, change_fallout := false) -> bool:
 	reference.free()
 	return applied and isolated and matches and used_expected and map_matches
 
+func _mirv_fixture(allied_target: bool):
+	var game = _blast_fixture()
+	game.W = 240
+	game.H = 180
+	game.owner_map.resize(game.W * game.H)
+	game.owner_map.fill(2)
+	game.missiles = [{"nk": SimRules.N_MIRV, "k": 9, "o": 1, "dur": 1.0, "ft": 50,
+		"lt": 0, "from": Vector2(2, 2), "to": Vector2(120, 90), "tgt_o": 2,
+		"mirv_bus": true, "icbm": true, "evade": true}]
+	if allied_target:
+		game.allies = {4098: 1200}
+	return game
+
+func _check_mirv(allied_target: bool) -> bool:
+	var game = _mirv_fixture(allied_target)
+	var reference = _mirv_fixture(allied_target)
+	var worker := ArsenalWorker.new()
+	game._arsenal_worker = worker
+	var began := worker.submit(game)
+	worker.wait()
+	game._begin_presentation_batch()
+	reference._begin_presentation_batch()
+	var applied := began and worker.take(game)
+	reference.sim_ars.tick()
+	var isolated: bool = game.rng.state == reference.rng.state and game.missiles.size() == 1
+	game._tick_missiles()
+	reference._tick_missiles()
+	var matches: bool = game.missiles.size() > 1 and game.missiles == reference.missiles \
+		and game.rng.state == reference.rng.state and game._next_missile_id == reference._next_missile_id \
+		and game.allies == reference.allies and game.traitor == reference.traitor and game.nations == reference.nations \
+		and game._presentation_events == reference._presentation_events
+	var used_expected := worker.prepared_mirvs_used == (0 if allied_target else 1)
+	game._flush_presentation_batch()
+	reference._flush_presentation_batch()
+	game.free()
+	reference.free()
+	return applied and isolated and matches and used_expected
+
 func _run() -> void:
 	var game = _fixture()
 	var reference = _fixture()
@@ -164,9 +202,10 @@ func _run() -> void:
 	game.free()
 	reference.free()
 	var first_blast := _check_first_blast(false) and _check_first_blast(true) and _check_first_blast(false, true)
-	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast
+	var mirv := _check_mirv(false) and _check_mirv(true)
+	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast and mirv
 	if not passed:
 		print("arsenal held=", held, " isolated=", isolated, " applied=", applied, " parity=", parity,
-			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped, " first_blast=", first_blast)
+			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped, " first_blast=", first_blast, " mirv=", mirv)
 	print("ARSENAL_WORKER ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

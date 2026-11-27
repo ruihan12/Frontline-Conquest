@@ -117,7 +117,9 @@ func run(H) -> void:
 	H.expect(not _has(src, "_nuke_pill"), "no nuke countdown pill (upstream has none)")
 	H.expect(_has(src, "ICBM_FEE_PCT := 0.10") or _has(src, "ICBM_FEE_PCT := 0.1"), "ICBM +10% cost", "kept custom")
 	H.expect(_has(src, "icbm_mode"), "ICBM toggle present", "kept custom")
-	H.expect(_has(src, "func _split_mirv(") and _has(src, "SimRules.MIRV_WARHEADS"), "MIRV splits into up to 350 warheads at the aim (SimNukes._split_mirv)")
+	var mirv_source := FileAccess.get_file_as_string("res://sim/mirv_landing.gd")
+	H.expect(_has(src, "func _split_mirv(") and _has(src, "MirvLanding.prepare(") and _has(mirv_source, "SimRules.MIRV_WARHEADS"),
+		"MIRV splits into up to 350 warheads at the aim (SimNukes._split_mirv)")
 	H.expect(_has(src, "fx_layer.nuke("), "detonations use upstream FxLayer.nuke")
 
 	H.expect_eq(SimRules.nuke_cost_named("mirv", 0), 25000000.0, "first MIRV is 25M")

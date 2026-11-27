@@ -279,56 +279,23 @@ func _mirv_land_list() -> PackedInt32Array:
 			if owner_map[i] >= 0: _land_list.append(i)
 	return _land_list
 
-static func _mirv_cell(t: int, w: int, gap: int) -> int:
-	return ((t / w) / gap) * 65536 + ((t % w) / gap)
+const MirvLanding = preload("res://sim/mirv_landing.gd")
 
-func _mirv_overlaps(grid: Dictionary, t: int, gap: int) -> bool:
-	var gx := (t % W) / gap
-	var gy := (t / W) / gap
-	for dy in range(-1, 2):
-		for dx in range(-1, 2):
-			if gx + dx < 0 or gy + dy < 0: continue
-			var cell = grid.get((gy + dy) * 65536 + (gx + dx))
-			if cell == null: continue
-			for c in cell:
-				if absi(c % W - t % W) + absi(c / W - t / W) < gap: return true
-	return false
-
-func _split_mirv(ms) -> void:
+func _split_mirv(ms: Dictionary) -> void:
 	var o: int = ms.o
-	var to: Vector2 = ms.to
-	var to_tile := int(to.y) * W + int(to.x)
-	var tg: int = int(ms.get("tgt_o", 0))
-	if tg > 0 and allied(o, tg): break_alliance(o, tg)
-	var spread: float = float(sim_rules.mirv_spread())
-	var spread2 := spread * spread
-	var gap := int(ceil(55.0 / sim_rules.k_lin))
-	var grid := {}
-	var targets := [to_tile]
-	grid[_mirv_cell(to_tile, W, gap)] = [to_tile]
-	var land := _mirv_land_list()
-	var nlt := land.size()
-	var tx := to_tile % W; var ty := to_tile / W
-	for _i in 8000:
-		if targets.size() >= SimRules.MIRV_WARHEADS or nlt == 0: break
-		var c: int = land[g_randi() % nlt]
-		if owner_map[c] != tg or tg <= 0: continue
-		var dx := c % W - tx; var dy := c / W - ty
-		if float(dx * dx + dy * dy) > spread2: continue
-		if _mirv_overlaps(grid, c, gap): continue
-		targets.append(c)
-		var key := _mirv_cell(c, W, gap)
-		if grid.has(key): grid[key].append(c)
-		else: grid[key] = [c]
-	var from := _tc(to_tile, W)
-	for t in targets:
-		var dp := _tc(t, W)
-		var arc: Dictionary = sim_rules.nuke_arc(H, from, dp)
-		var ft: int = flight_ticks(sim_rules.nuke_arc_ticks(arc, SimRules.N_WARHEAD), bool(ms.get("icbm", false))) + rng.randi_range(0, 15)
-		_spawn_missile(o, 9, SimRules.N_WARHEAD, from, dp, ft, arc, {"mirv": true, "tgt_o": tg, "evade": bool(ms.get("evade", false)), "icbm": bool(ms.get("icbm", false))})
-
-func g_randi() -> int:
-	return rng.randi()
+	var target: int = ms.get("tgt_o", 0)
+	var icbm: bool = ms.get("icbm", false)
+	var warheads: Variant = null
+	if target > 0 and allied(o, target):
+		break_alliance(o, target)
+	elif _arsenal_worker != null:
+		warheads = _arsenal_worker.take_mirv(self, ms)
+	if warheads == null:
+		var speed := NUKE_SPEED_X * (ICBM_SPEED_X if icbm else 1.0)
+		warheads = MirvLanding.prepare(ms, W, H, owner_map, _mirv_land_list(), sim_rules, rng, speed)
+	for flight: Array in warheads:
+		_spawn_missile(o, 9, SimRules.N_WARHEAD, flight[0], flight[1], flight[2], flight[3],
+			{"mirv": true, "tgt_o": target, "evade": bool(ms.get("evade", false)), "icbm": icbm})
 
 # ---------------------------------------------------------------- detonation (SimNukes._detonate)
 # Inner disc + a random half of the outer ring -> fallout, nukeDeathFactor troop loss, everything inside
