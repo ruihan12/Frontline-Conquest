@@ -60,16 +60,38 @@ func _nat(ids: Array) -> PackedByteArray:
 		out.append(id); out.append(float(n.troops)); out.append(1.0 if n.alive else 0.0)
 	return out.to_byte_array()
 
-# what a whole attack pass reads (SimState.nat_all)
+# what a whole attack pass reads (SimState.nat_all). Built about 3 times a tick (attacks, naval, rails, warships,
+# arsenal). A dead nation's troops and gold never change (Step 5g: checked over 6000 ticks of two seeds, and by
+# tests/test_luau_world.gd after every phase), so once it is seen dead they come from the last build and only its
+# alive flag is read again (about 70% of the nations of a match are dead on average).
+var _wc_nats = null
+var _wc_tr := PackedFloat64Array()
+var _wc_gl := PackedFloat64Array()
+var _wc_dead: Array = []  # id -> the dead nation's Dictionary when its values are kept, else null
+var world_full := false  # tests: read every nation
+
 func _world() -> Array:
 	var nats: Array = g.nations
 	var nn := nats.size()
-	var tr := PackedFloat64Array(); tr.resize(nn)
-	var gl := PackedFloat64Array(); gl.resize(nn)
+	if not is_same(_wc_nats, nats) or _wc_dead.size() > nn:
+		_wc_nats = nats
+		_wc_tr = PackedFloat64Array(); _wc_gl = PackedFloat64Array(); _wc_dead = []
+	if _wc_dead.size() < nn:
+		_wc_tr.resize(nn); _wc_gl.resize(nn); _wc_dead.resize(nn)
+	var tr := _wc_tr
+	var gl := _wc_gl
+	var dd := _wc_dead
 	var al := PackedByteArray(); al.resize(nn)
+	var full := world_full
 	for id in range(1, nn):
 		var d: Dictionary = nats[id]
-		tr[id] = d.troops; gl[id] = d.gold; al[id] = 1 if d.alive else 0
+		if d.alive:
+			tr[id] = d.troops; gl[id] = d.gold; al[id] = 1
+			if dd[id] != null: dd[id] = null
+		elif full or not is_same(dd[id], d):
+			tr[id] = d.troops; gl[id] = d.gold
+			dd[id] = d
+	_wc_tr = tr; _wc_gl = gl  # (packed arrays are copied on write)
 	var kc: PackedInt32Array = g._kind_cache
 	if kc.size() != nn:
 		kc = PackedInt32Array(); kc.resize(nn)

@@ -546,6 +546,28 @@ What changed:
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 10/10,
 perf_sim 11.90 / 12.33 ms/tick.
 
+### Step 5g: a cheaper world() (sim/attacks.gd)
+
+`SimAttacks._world()` builds what every Luau module call reads through SimState.nat_all (troops, gold, alive, kind,
+teams, alliances, traitors, defence posts). It is built about 3.3 times a tick (the attack pass, naval, rails,
+warships, the arsenal) and cost about 0.75 ms/tick (seed 12345, 3000 ticks), most of it reading the nation
+Dictionaries: 473 nations, about 70% of them dead on average.
+
+What changed:
+- A dead nation's troops and gold are kept from the build that first saw it dead (keyed on its Dictionary, so a
+  replaced Dictionary is read again); only its alive flag is read each time. A nation that is alive again is read
+  in full. Checked first: over 6000 ticks of seeds 5516 and 12345 no dead nation's troops, gold, team or left
+  changed at any tick end. Teams, alliances, traitors and defence posts are built as before.
+- Cost: 0.75 to 0.61 ms/tick. The alive flags themselves (about 46 us a build) stay: nations come back alive in
+  online play (net/mp_host.gd), so every build reads them.
+- tests/test_luau_world.gd (6 checks): two seeds, 3000 ticks each: after every phase of every tick (begin, attack
+  pass, AI pass, end) the cached build equals a full read (`world_full`), and the match is identical, tick for
+  tick, to one played with full builds only.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_world 6/6,
+perf_sim 12.44 / 12.90 ms/tick. The machine was slower in this run: back to back right after, 12.69 / 13.00 with the
+change and 13.70 / 13.76 without it (5f3).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -569,6 +591,7 @@ perf_sim 11.90 / 12.33 ms/tick.
 | 5f1 | 271ac24 | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
 | 5f2 | 569510a | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
 | 5f3 | b064328 | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
+| 5g | see git log | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
 
 ## Customs touched per step
 
