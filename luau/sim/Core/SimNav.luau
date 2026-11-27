@@ -1702,6 +1702,11 @@ function M.water_path_px_t(id: number, from_tile: number, to_tile: number, ts: n
 	return p, nv.last_deferred
 end
 
+-- for Core/SimWarships (sim/nav.gd steer): the corners as a 1-based table, nothing copied
+function M.find_route_t(id: number, src: number, dst: number, urgent: boolean): { number }
+	return find_route(nav(id), src, dst, urgent)
+end
+
 function M.water_next_to(id: number, t: number, wb: number): number
 	return water_next_to(nav(id), t, wb)
 end

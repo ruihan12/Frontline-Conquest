@@ -416,6 +416,46 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
   before the call (about 0.2 ms). Ticks where no port rolls skip both. Planned fix, before Step 6: keep the ports'
   trade fields in Luau between ticks (only naval writes them) and send one world() per tick for all the modules.
 
+### Step 5d3: warships, shells and defense posts in Luau (Core/SimWarships.luau)
+
+What changed:
+- `luau/sim/Core/SimWarships.luau`: sim/warships.gd's tick line for line: healing near an own port and docked,
+  the repair retreat below 75 %, targeting (transport > warship > trade ship, safe-from-pirates along the shore),
+  shells and their landing, veterancy, patrols, trade ship captures and their new route to the captor's port, the
+  defense posts' shells, and sim/nav.gd `steer` (routes through Core/SimNav). Every Vector2 operation is rounded to
+  float32 like Godot's.
+- Nothing is kept in Luau between ticks except the trade ships' points (sent once per ship). The trade ships
+  come over only when a ship needs them that tick (a trade target, a scan that gets to trade ships): Luau stops
+  in the same coroutine, sim/warships.gd sends them and Luau goes on. Most ticks no ship needs them, and there
+  are a few hundred. The GDScript keeps the
+  ship Dictionaries, `shells`, `tref`, the posts' memory and the stats; each tick sends them and applies what comes
+  back: the ship fields (written only when changed, same types; the nav keys set and erased in steer's order), the
+  shells and targets (old entries kept by identity), and the events in order (shot / lost sounds, notes, hit marks,
+  sunk transports and warships, captured trade ships, which sim/warships.gd makes with the same cum, gold and key
+  order as before).
+- `game.ai_ship_loss` stays GDScript (AI, Step 5f). Where the tick calls it (a sunk transport, a capture), Luau
+  stops in a coroutine, the batch so far is applied, the AI runs (it may move or add warships and draws the rng)
+  and Luau goes on with the ships and the rng as they are then. Calls the AI returns from at once (the player's
+  ships, no owner) don't stop.
+- Transports and trade ships have no id field, so sim/warships.gd names them by identity across ticks (both lists
+  only lose entries or grow at the end); no keys are added to their Dictionaries (net/rep.gd sends them whole).
+- A target that left its list before the tick stays in `tref` until its ship looks again, as in GDScript.
+- Runs only while the nav is in Luau (5d1) on the same Luau state; otherwise `_tick_gd` as before. A tick with no
+  warships, no shells and no post that could fire makes no call. If a resume fails after a batch was applied the
+  link goes off for the rest of the match (the GDScript can't take over half a tick); not seen in the tests.
+- `SimNav.find_route_t` for steer (the corners as a table, no copy).
+- tests/test_luau_warships.gd (8 checks): the seeded match with Luau and with NO_LUAU_SIM for 5000 ticks: every
+  warship key in order, shells, targets, posts, stats, transports, trade ships, gold, notes and rng identical after
+  each tick (up to 17 warships, 177 shots, 71 ships sunk, 152 captures, 204 stops for the AI), and the capture
+  custom.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_warships
+8/8 (5000 ticks identical), perf_sim 13.25 / 13.05 ms/tick.
+- Cost: the first version sent all trade ships every tick and ran 15.3 / 15.5 ms/tick (bridge about 2 ms/tick at
+  t=3000: building the trade ship list 0.45, ships / ports / posts 0.22, flush + world() 0.27, the call 0.7).
+  Sending the trade ships only when a ship needs them brought it to the numbers above. flush + world() is still
+  paid on every tick with warships; the one-world()-per-tick fix planned under 5d2 covers it.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -433,10 +473,13 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | rails split | 662352f | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
 | 5b2 | 5dd163f | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
 | 5d1 | a61a285 | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
-| 5d2 | see git log | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
+| 5d2 | d412c8d | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
+| 5d3 | see git log | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
 
 ## Customs touched per step
 
+- Step 5d3: a warship capturing a trade ship plays no sound: SimWarships.luau capture_trade (`-- CUSTOM:`) pushes
+  notes only; test_luau_warships checks it. Warship 0.7 and boat 0.35 speeds still come from the game.
 - Step 5d2: none (trade ship spawns; boat 0.35 stays on the game).
 - Step 5d1: none (water routes only; boat 0.35 and warship 0.7 speeds stay on the game).
 - Step 5b2: none of the listed customs are in the rail / train sim (supply drops stay off; train gold and spawn

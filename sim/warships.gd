@@ -62,6 +62,10 @@ func _body_at(p: Vector2) -> int:
 	return b[t] if t < b.size() else 0
 
 func tick() -> void:
+	if _luau_tick(): return  # Step 5d3: luau/sim/Core/SimWarships.luau
+	_tick_gd()
+
+func _tick_gd() -> void:
 	var t := now()
 	for ws in g.warships.duplicate():
 		if not ws.has("uid"): init_ship(ws)
@@ -427,3 +431,422 @@ func _capture_trade(ws: Dictionary, tr, tp: Vector2) -> void:
 	var gold := floorf(R.trade_gold(sailed + cum[cum.size() - 1] / g.TS))
 	g.traders.append({"o": ws.o, "pts": pts, "cum": cum, "d": 0.0, "dst": best, "gold": gold, "orig": orig, "sailed": sailed})
 	stats.rerouted += 1
+
+
+# ------------------------------------------------------------------------------------------------
+# Step 5d3 (docs/LUAU_PORT.md): the tick in Luau
+# ------------------------------------------------------------------------------------------------
+# With the Luau link on (not a remote viewer, not NO_LUAU_SIM) and the water navigation in the same Luau state,
+# the tick runs in luau/sim/Core/SimWarships.luau, transliterated from the GDScript above. The GDScript keeps the
+# state (the ship dicts, shells, tref, the posts' memory, the stats) and sends it each tick; Luau sends back the
+# ship fields, the shells and targets as they are after the tick and the events (sounds, notes, hit marks, sunk
+# transports and warships, captured trade ships), applied here in the order the GDScript does them. Where the
+# GDScript calls game.ai_ship_loss in the middle of the tick, Luau stops, the batch so far is applied, the AI runs
+# here, and Luau goes on with the ships and the rng as they are then. Boats and trade ships have no id of their
+# own, so they get one here, kept by identity across ticks (both lists only grow at the end and lose entries).
+const LMOD := "Core/SimWarships"
+const KINDS := ["boat", "ws", "trade"]
+var luau_calls := 0
+var luau_resumes := 0  # tests: ticks that stopped for game.ai_ship_loss and went on
+var _bt_prev: Array = []
+var _bt_ids := PackedInt64Array()
+var _tr_prev: Array = []
+var _tr_ids := PackedInt64Array()
+var _next_id := 1
+var _tr_sent := {}          # trade ship ids whose points the Luau state holds
+var _lvm_sent: LuauVM = null
+
+# ids for `list` given the last call's list and ids (identity merge: entries only leave or come in at the end)
+func _ids_of(list: Array, prev: Array, prev_ids: PackedInt64Array) -> PackedInt64Array:
+	var ids := PackedInt64Array()
+	ids.resize(list.size())
+	var j := 0
+	var np := prev.size()
+	for i in list.size():
+		var x = list[i]
+		while j < np and not is_same(prev[j], x): j += 1
+		if j < np:
+			ids[i] = prev_ids[j]
+			j += 1
+		else:
+			ids[i] = _next_id
+			_next_id += 1
+	return ids
+
+static func _index_of(list: Array, x) -> int:
+	for i in list.size():
+		if is_same(list[i], x): return i
+	return -1
+
+func _ship_row(q: PackedFloat64Array, ws: Dictionary, lports: Array) -> void:
+	var pos: Vector2 = ws.pos
+	var tgt: Vector2 = ws.tgt
+	var pat: Vector2 = ws.patrol
+	var pk := -1
+	if ws.port != null:
+		pk = _index_of(lports, ws.port)
+	q.append(ws.uid); q.append(ws.o); q.append(pos.x); q.append(pos.y); q.append(tgt.x); q.append(tgt.y)
+	q.append(pat.x); q.append(pat.y); q.append(ws.hp); q.append(ws.max_hp); q.append(ws.vet); q.append(ws.vet_p)
+	q.append(ws.last_shot); q.append(ws.state); q.append(pk); q.append(ws.heal_rem); q.append(ws.manual)
+	q.append(1.0 if ws.near_port else 0.0); q.append(ws.np_tick)
+	var fl := 0
+	if ws.has("nav_r"): fl += 1
+	if ws.has("nav_t"): fl += 2
+	if ws.has("nav_i"): fl += 4
+	q.append(fl)
+	var nt: Vector2 = ws.get("nav_t", Vector2(-1e9, -1e9))
+	q.append(nt.x); q.append(nt.y); q.append(ws.get("nav_i", 0))
+	var route: PackedVector2Array = ws.get("nav_r", PackedVector2Array())
+	q.append(route.size())
+	for p in route: q.append(p.x); q.append(p.y)
+	var sh: Dictionary = ws.shelled
+	q.append(sh.size())
+	for u in sh: q.append(u)
+
+func _ships_buf(lports: Array) -> PackedByteArray:
+	var q := PackedFloat64Array()
+	for ws in g.warships:
+		# a port a ship still points at but no longer finished (or replaced) goes in as not finished
+		if ws.port != null and _index_of(lports, ws.port) < 0:
+			lports.append(ws.port)
+		_ship_row(q, ws, lports)
+	return q.to_byte_array()
+
+func _ports_buf(lports: Array, nfin: int) -> PackedByteArray:
+	var q := PackedFloat64Array()
+	for i in lports.size():
+		var p: Dictionary = lports[i]
+		q.append(p.tile); q.append(p.o); q.append(int(p.get("level", 1)))
+		q.append(1.0 if is_same(g.struct_at.get(p.tile), p) else 0.0)
+		q.append(1.0 if i < nfin else 0.0)
+	return q.to_byte_array()
+
+func _luau_tick() -> bool:
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
+	var nav = g.sim_nav
+	if nav == null or not nav.ready or not nav.on_luau(): return false
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on or not is_same(lu.vm, nav._lvm): return false
+	var t := now()
+	if g.warships.is_empty() and shells.is_empty() and not (defense_posts_shoot and t % 10 == 0 and not g.boats.is_empty()):
+		return true  # the GDScript tick would do nothing
+	var vm: LuauVM = lu.vm
+	if not is_same(vm, _lvm_sent): _tr_sent.clear()
+	# trade ships Luau has not seen: their points must be something Luau takes, or the GDScript tick runs
+	var tr_ids := _ids_of(g.traders, _tr_prev, _tr_ids)
+	for i in g.traders.size():
+		if _tr_sent.has(tr_ids[i]): continue
+		var tr: Dictionary = g.traders[i]
+		var pts: PackedVector2Array = tr.pts
+		var cum: PackedFloat32Array = tr.cum
+		if pts.size() != cum.size(): return false
+	if not vm.require_module(LMOD) or not lu.flush(g):
+		if lu.on: lu._fail(g, vm.last_error)
+		return false
+	if vm.call_fn("Core/SimArsenal", "world", g.sim_atk._world()) == null:
+		lu._fail(g, vm.last_error)
+		return false
+	# the GDScript inits ships in the tick's loop, before the alive check: same order here
+	for ws in g.warships:
+		if not ws.has("uid"): init_ship(ws)
+	var bt_ids := _ids_of(g.boats, _bt_prev, _bt_ids)
+	# id -> dict for everything a shell, a target or an event can name (kept when it leaves the lists this tick);
+	# trade ships by their place in tr_ids, the ones gone this tick in tr_gone
+	var boat_by := {}
+	var ws_by := {}
+	var lports: Array = []
+	var lposts: Array = []
+	var qb := PackedFloat64Array()
+	for s in g.structs:
+		var sk: int = s.k
+		if (sk != 1 and sk != 3) or float(s.get("bt", 0.0)) > 0.0: continue
+		if sk == 1:
+			lports.append(s)
+		else:
+			qb.append(s.tile); qb.append(s.o); qb.append(lposts.size())
+			lposts.append(s)
+	var nfin := lports.size()
+	var sb := _ships_buf(lports)
+	for ws in g.warships: ws_by[int(ws.uid)] = ws
+	var bb := PackedFloat64Array()
+	for i in g.boats.size():
+		var bt: Dictionary = g.boats[i]
+		boat_by[bt_ids[i]] = bt
+		var bp: Vector2 = g._boat_pos(bt)[0]
+		bb.append(bt_ids[i]); bb.append(bt.a); bb.append(int(bt.get("uid", -1))); bb.append(bp.x); bb.append(bp.y)
+	var shb := PackedFloat64Array()
+	for s in shells:
+		var post: bool = s.get("post", false)
+		var tg: Dictionary = s.target
+		var tid := -1
+		if tg.kind == "boat":
+			var bi := _index_of(g.boats, tg.ref)
+			if bi >= 0: tid = bt_ids[bi]
+		else:
+			tid = int(tg.ref.get("uid", -1))
+		var from: Vector2 = s.from
+		shb.append(-1 if post else int(s.shooter.get("uid", -1))); shb.append(s.o); shb.append(0 if tg.kind == "boat" else 1)
+		shb.append(tid); shb.append(s.t1); shb.append(s.dmg); shb.append(from.x); shb.append(from.y)
+		shb.append(int(s.get("t0", 0))); shb.append(1.0 if post else 0.0)
+	var trb := PackedFloat64Array()
+	for uid in tref:
+		var tg: Dictionary = tref[uid]
+		var kind: int = KINDS.find(tg.kind)
+		var id := -1
+		if kind == 0:
+			var bi := _index_of(g.boats, tg.ref)
+			if bi >= 0: id = bt_ids[bi]
+		elif kind == 1:
+			id = int(tg.ref.get("uid", -1))
+		else:
+			var ti := _index_of(g.traders, tg.ref)
+			if ti >= 0: id = tr_ids[ti]
+		trb.append(uid); trb.append(kind); trb.append(id)
+	var plb := PackedFloat64Array()
+	for pt in _post_last: plb.append(pt); plb.append(_post_last[pt])
+	var psb := PackedFloat64Array()
+	for k in _post_shelled: psb.append(k)
+	var stb := PackedFloat64Array([stats.shots, stats.sunk_transports, stats.sunk_warships, stats.captures,
+		stats.post_shots, stats.rerouted])
+	var wsp: float = float(g.get("warship_speed")) if g.get("warship_speed") != null else 1.0
+	var hdr := PackedFloat64Array([t, nav._lid, g.TS, g.W, g.H, g.PLAYER, g.boat_speed, wsp,
+		1.0 if defense_posts_shoot else 0.0, _next_id, int(_capture_msg.get(g.PLAYER, -1000))])
+	var rf := PackedFloat64Array()
+	for k in SimAttacks.RULE_FIELDS: rf.append(float(R.get(k)))
+	var rg := LuauLink.rng_args(g)
+	var out = vm.call_fn(LMOD, "tick", [rg[0], rg[1], hdr.to_byte_array(), rf.to_byte_array(), sb,
+		bb.to_byte_array(), _ports_buf(lports, nfin), qb.to_byte_array(),
+		shb.to_byte_array(), trb.to_byte_array(), plb.to_byte_array(), psb.to_byte_array(), stb.to_byte_array()])
+	if out == null:
+		lu._fail(g, vm.last_error)
+		return false
+	luau_calls += 1
+	_lvm_sent = vm
+	var st := {"bt_ids": bt_ids, "tr_ids": tr_ids, "boat_by": boat_by, "tr_gone": {}, "ws_by": ws_by,
+		"lports": lports, "lposts": lposts}
+	while true:
+		if not _lapply(out, st):
+			vm.call_fn(LMOD, "abort", [])
+			lu._fail(g, "SimWarships: the Luau tick and the lists here no longer match (check %d, tick %d)" % [_why, t])
+			break
+		if bool(out.done): break
+		if bool(out.need_tr):
+			# a ship needs the trade ships: Luau holds their points from earlier calls, the rest comes now
+			var tb := PackedFloat64Array()
+			var tp := PackedFloat64Array()
+			var ids: PackedInt64Array = st.tr_ids
+			var sent := {}
+			for i in g.traders.size():
+				var tr: Dictionary = g.traders[i]
+				var id: int = ids[i]
+				var dst_o: int = int(tr.dst.get("o", 0)) if tr.dst is Dictionary else 0
+				tb.append(id); tb.append(tr.o); tb.append(dst_o); tb.append(tr.d)
+				tb.append(int(tr.get("orig", 0))); tb.append(float(tr.get("sailed", 0.0)))
+				if not _tr_sent.has(id):
+					var pts: PackedVector2Array = tr.pts
+					var cum: PackedFloat32Array = tr.cum
+					tp.append(id); tp.append(pts.size())
+					for p in pts: tp.append(p.x); tp.append(p.y)
+					for c in cum: tp.append(c)
+				sent[id] = true
+			_tr_sent = sent  # Luau keeps the points of the ships it was sent now and drops the rest
+			rg = LuauLink.rng_args(g)
+			out = vm.call_fn(LMOD, "resume", [rg[0], rg[1], PackedByteArray(), tb.to_byte_array(), tp.to_byte_array()])
+		else:
+			var ai: PackedFloat64Array = (out.ai as PackedByteArray).to_float64_array()
+			g.ai_ship_loss(int(ai[0]), int(ai[1]), int(ai[2]))
+			for ws in g.warships:
+				if not ws_by.has(int(ws.uid)): ws_by[int(ws.uid)] = ws
+			rg = LuauLink.rng_args(g)
+			luau_resumes += 1
+			out = vm.call_fn(LMOD, "resume", [rg[0], rg[1], _ships_buf(lports)])
+		if out == null:
+			# half a tick is applied: the GDScript can't take over from here
+			lu._fail(g, vm.last_error)
+			break
+	_bt_prev = g.boats.duplicate()
+	_bt_ids = st.bt_ids
+	_tr_prev = g.traders.duplicate()
+	_tr_ids = st.tr_ids
+	return true
+
+func _tr_ref(st: Dictionary, id: int):
+	var i: int = (st.tr_ids as PackedInt64Array).find(id)
+	if i >= 0: return g.traders[i]
+	return st.tr_gone.get(id)
+
+var _why := 0
+func _no(k: int) -> bool:
+	_why = k
+	return false
+
+const NOTES := ["%s's warship sank your transport", "Your warship sank a transport from %s",
+	"%s's warship sank your warship", "You sank a warship from %s", "Your warship reached veterancy %d",
+	"%s's warships are capturing your trade ships", "Your warship captured a trade ship from %s"]
+const NOTE_KIND := ["bad", "good", "bad", "good", "good", "bad", "good"]
+
+# one batch: the rng, the events in order, the ships, shells, targets, posts and stats
+func _lapply(out: Dictionary, st: Dictionary) -> bool:
+	var hi: int = int(out.rhi)
+	if hi >= 0x80000000: hi -= 0x100000000
+	g.rng.state = hi * 0x100000000 + int(out.rlo)
+	var bt_ids: PackedInt64Array = st.bt_ids
+	var tr_ids: PackedInt64Array = st.tr_ids
+	var lports: Array = st.lports
+	var ev: PackedFloat64Array = (out.ev as PackedByteArray).to_float64_array()
+	var ntp: PackedFloat64Array = (out.ntp as PackedByteArray).to_float64_array()
+	var npk := 0
+	var k := 0
+	while k < ev.size():
+		var code := int(ev[k])
+		match code:
+			1:
+				g.sfx("warship_shot", -4.0, 0.06, g.PLAYER); k += 1
+			2:
+				g.sfx("warship_lost"); k += 1
+			3:
+				var n := int(ev[k + 1]) - 1
+				var arg := int(ev[k + 2])
+				g.notify(NOTES[n] % (arg if n == 4 else g._nname(arg)), NOTE_KIND[n]); k += 3
+			4:
+				g.shells.append({"pos": Vector2(ev[k + 1], ev[k + 2]), "t": 0.0}); k += 3
+			5:
+				var i := bt_ids.find(int(ev[k + 1]))
+				if i < 0: return _no(1)
+				g.boats.remove_at(i); bt_ids.remove_at(i); k += 2
+			6:
+				var uid := int(ev[k + 1])
+				var i := -1
+				for j in g.warships.size():
+					if int(g.warships[j].uid) == uid: i = j; break
+				if i < 0: return _no(2)
+				g.warships.remove_at(i); k += 2
+			7:
+				var i := tr_ids.find(int(ev[k + 1]))
+				if i < 0: return _no(3)
+				st.tr_gone[tr_ids[i]] = g.traders[i]
+				g.traders.remove_at(i); tr_ids.remove_at(i); k += 2
+			8:
+				var id := int(ev[k + 1])
+				var n := int(ev[k + 6])
+				var pts := PackedVector2Array()
+				pts.resize(n)
+				for m in n: pts[m] = Vector2(ntp[npk + 2 * m], ntp[npk + 2 * m + 1])
+				npk += 2 * n
+				var cum := PackedFloat32Array([0.0])
+				for m in range(1, pts.size()): cum.append(cum[m - 1] + pts[m].distance_to(pts[m - 1]))
+				var sailed: float = ev[k + 5]
+				var gold := floorf(R.trade_gold(sailed + cum[cum.size() - 1] / g.TS))
+				var tr := {"o": int(ev[k + 3]), "pts": pts, "cum": cum, "d": 0.0, "dst": lports[int(ev[k + 2])],
+					"gold": gold, "orig": int(ev[k + 4]), "sailed": sailed}
+				g.traders.append(tr); tr_ids.append(id); _tr_sent[id] = true  # Luau made its points
+				k += 7
+			_:
+				return _no(4)
+	# the ships, in the list's order
+	var so: PackedFloat64Array = (out.ships as PackedByteArray).to_float64_array()
+	var ws_by: Dictionary = st.ws_by
+	k = 0
+	var wi := 0
+	while k < so.size():
+		if wi >= g.warships.size(): return _no(5)
+		var ws: Dictionary = g.warships[wi]
+		wi += 1
+		if int(ws.uid) != int(so[k]): return _no(6)
+		var pos := Vector2(so[k + 1], so[k + 2])
+		if ws.pos != pos: ws.pos = pos
+		var tgt := Vector2(so[k + 3], so[k + 4])
+		if ws.tgt != tgt: ws.tgt = tgt
+		if float(ws.hp) != so[k + 5]: ws.hp = so[k + 5]
+		if int(ws.max_hp) != int(so[k + 6]): ws.max_hp = int(so[k + 6])
+		if int(ws.vet) != int(so[k + 7]): ws.vet = int(so[k + 7])
+		if int(ws.vet_p) != int(so[k + 8]): ws.vet_p = int(so[k + 8])
+		if int(ws.last_shot) != int(so[k + 9]): ws.last_shot = int(so[k + 9])
+		if int(ws.state) != int(so[k + 10]): ws.state = int(so[k + 10])
+		var pk := int(so[k + 11])
+		var port = lports[pk] if pk >= 0 else null
+		if not is_same(ws.port, port): ws.port = port
+		if float(ws.heal_rem) != so[k + 12]: ws.heal_rem = so[k + 12]
+		var near: bool = so[k + 13] != 0.0
+		if bool(ws.near_port) != near: ws.near_port = near
+		if int(ws.np_tick) != int(so[k + 14]): ws.np_tick = int(so[k + 14])
+		var fl := int(so[k + 15])
+		var nt := Vector2(so[k + 16], so[k + 17])
+		var ni := int(so[k + 18])
+		var nr := int(so[k + 19])
+		k += 20
+		var route = null
+		if nr >= 0:
+			var r := PackedVector2Array()
+			r.resize(nr)
+			for m in nr: r[m] = Vector2(so[k + 2 * m], so[k + 2 * m + 1])
+			route = r
+			k += 2 * nr
+		# the keys in the order sim/nav.gd steer() leaves them: nav_r, nav_t, nav_i set together, nav_r erased alone
+		if fl & 1:
+			if route != null: ws["nav_r"] = route
+			elif not ws.has("nav_r"): return _no(7)
+		if fl & 2 and (not ws.has("nav_t") or ws.nav_t != nt): ws["nav_t"] = nt
+		if fl & 4 and (not ws.has("nav_i") or int(ws.nav_i) != ni): ws["nav_i"] = ni
+		if not (fl & 1) and ws.has("nav_r"): ws.erase("nav_r")
+		var ns := int(so[k])
+		k += 1
+		var sh: Dictionary = ws.shelled
+		for m in range(sh.size(), ns): sh[int(so[k + m])] = true
+		k += ns
+	if wi != g.warships.size(): return _no(8)
+	# shells: an index into the list before this batch, or a new one
+	var old := shells.duplicate()
+	shells.clear()
+	var sho: PackedFloat64Array = (out.shells as PackedByteArray).to_float64_array()
+	k = 0
+	while k < sho.size():
+		var src := int(sho[k])
+		if src >= 0:
+			if src >= old.size(): return _no(9)
+			shells.append(old[src])
+			k += 1
+			continue
+		var post: bool = sho[k + 11] != 0.0
+		var shooter = st.lposts[int(sho[k + 2])] if post else ws_by.get(int(sho[k + 1]))
+		var tid := int(sho[k + 5])
+		var tg: Dictionary
+		if int(sho[k + 4]) == 0: tg = {"kind": "boat", "ref": st.boat_by.get(tid)}
+		else: tg = {"kind": "ws", "ref": ws_by.get(tid)}
+		if shooter == null or tg.ref == null: return _no(10)
+		var s := {"shooter": shooter, "o": int(sho[k + 3]), "target": tg, "t1": int(sho[k + 6]), "dmg": int(sho[k + 7]),
+			"from": Vector2(sho[k + 8], sho[k + 9]), "t0": int(sho[k + 10])}
+		if post: s["post"] = true
+		shells.append(s)
+		k += 12
+	# targets
+	var oldt := tref.duplicate()
+	tref.clear()
+	var tro: PackedFloat64Array = (out.tref as PackedByteArray).to_float64_array()
+	k = 0
+	while k < tro.size():
+		var uid := int(tro[k])
+		var kind := int(tro[k + 1])
+		var id := int(tro[k + 2])
+		var o = oldt.get(uid)
+		var ref = null
+		if id >= 0: ref = st.boat_by.get(id) if kind == 0 else (ws_by.get(id) if kind == 1 else _tr_ref(st, id))
+		if ref == null:
+			# a target that left its list before this tick: the GDScript keeps it until the ship looks again
+			if o == null or o.kind != KINDS[kind]: return _no(11)
+			ref = o.ref
+		if o != null and o.kind == KINDS[kind] and is_same(o.ref, ref): tref[uid] = o
+		else: tref[uid] = {"kind": KINDS[kind], "ref": ref}
+		k += 3
+	var pl: PackedFloat64Array = (out.pl as PackedByteArray).to_float64_array()
+	k = 0
+	while k < pl.size():
+		_post_last[int(pl[k])] = int(pl[k + 1]); k += 2
+	for key in (out.ps as PackedByteArray).to_float64_array(): _post_shelled[int(key)] = true
+	var sv: PackedFloat64Array = (out.st as PackedByteArray).to_float64_array()
+	stats.shots = int(sv[0]); stats.sunk_transports = int(sv[1]); stats.sunk_warships = int(sv[2])
+	stats.captures = int(sv[3]); stats.post_shots = int(sv[4]); stats.rerouted = int(sv[5])
+	_next_id = int(out.next_tid)
+	var cm := int(out.cap_msg)
+	if cm != int(_capture_msg.get(g.PLAYER, -1000)): _capture_msg[g.PLAYER] = cm
+	return true
