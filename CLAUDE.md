@@ -91,6 +91,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - `--sim-worker-train-pass` runs eligible solo rail routing, train spawning, movement and payouts on detached state.
 - `--sim-worker-arsenal-pass` runs eligible solo construction, reloads, artillery, strike impacts and SAM interceptions on detached state. With `--sim-snapshot`, the worker also prepares territory, fallout and border updates for the first eligible missile impact each tick. The worker can also plan the first eligible MIRV split and calculate warhead troop losses.
 - Combined workers lowered the median headless World frame interval from 30.23 ms to 19.53 ms. The 95th-percentile interval rose from 39.06 ms to 45.45 ms. See [threaded simulation timings](docs/THREADED_SIM.md).
+- A later native World sample with the combined worker flags measured 69.29 ms at the 95th percentile and 6.24 ticks/s, versus 43.43 ms and 7.42 ticks/s inline. The flags remain opt-in.
 
 ## What's left
 1. Measure fps of the vanilla-merge web build in a real browser; target steady 60fps at 1x on World (user measured ~30fps before fix-perf). Name relabel spike still to check.

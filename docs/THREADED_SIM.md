@@ -394,3 +394,5 @@ The overlapping-impact regression covers two affected nations, a destroyed city,
 The scene hands the fallout layer ranges from the worker's packed tile list instead of allocating a presentation event for each tile. It splits the ranges at structure removals, preserving effect order. The regression compares the expanded event stream and the resulting sequence of hot visual blocks with the inline path.
 
 For a 30,769-tile synthetic impact with the fallout layer attached, median scene-thread impact plus presentation fell from 632 ms to 368 ms across five measured trials per mode on the loaded runner. The remaining publication work is still above the live frame budget.
+
+A separate 300-frame native headless World run at 1× compared inline play with the combined worker flags. The median frame interval was 32.07 ms inline and 33.36 ms with workers. The 95th percentile was 43.43 and 69.29 ms, and throughput was 7.42 and 6.24 ticks/s. The worker run committed 68 attack phases and used 86 tribe probes. This sample measured the whole loop, with no deliberate large impacts. The flags remain opt-in.
