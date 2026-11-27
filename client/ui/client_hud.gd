@@ -123,6 +123,8 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	title.open_account.connect(func() -> void: account.open())
 	title.open_multiplayer.connect(func() -> void: lobby.open())
 
+	if ctx.touch_device:
+		root.add_child(MemOverlay.new(main))  # phones/tablets: memory readout (iOS tab kills), see client/ui/mem_overlay.gd
 	top = TopStatus.new(ctx)
 	root.add_child(top)
 	top.visible = false
