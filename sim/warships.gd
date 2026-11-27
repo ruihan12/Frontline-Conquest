@@ -14,9 +14,10 @@ var shells := []   # {shooter, o, target, kind ("boat"/"ws"), t1, dmg, from:Vect
 var next_uid := 1
 var tref := {}          # ship uid -> current target {kind, ref} (kept off the ship dict: no reference cycles)
 var stats := {"shots": 0, "sunk_transports": 0, "sunk_warships": 0, "captures": 0, "post_shots": 0, "rerouted": 0}
-# Upstream Rules.DEFENSE_POST_SHOOTS is false (a match option, "defense_posts_shoot"); on here because the
-# coastal-defense behaviour was asked for. Set false for the upstream default.
-var defense_posts_shoot := true
+# Upstream Rules.DEFENSE_POST_SHOOTS is false (a match option, "defense_posts_shoot"). It was on here from the
+# coastal-defense request until 2026-11-26: posts shelled transports but the sinking message said "warship"
+# (an upstream wording bug too), so it is off again (owner request). The code stays dormant.
+var defense_posts_shoot := SimRules.DEFENSE_POST_SHOOTS
 var _post_last := {}     # post tile -> tick of its last shell
 var _post_shelled := {}  # post tile * 2^20 + transport uid -> true
 
