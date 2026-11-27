@@ -715,3 +715,16 @@ back right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.2
    the decisions anyway? Until answered, the AI stays as it is and the ports' perf fix (one world() per tick, the
    ports' trade fields kept in Luau, planned in 5d2) goes first.
    Answer (Ruihan, Nov 27 2026): stop at perception. The decision code stays GDScript.
+6. Step 6 (delete the dead GDScript sim). After 5a to 5g2 no GDScript sim code is unreachable: every ported tick
+   body is still the path taken when the Luau extension is not loaded, and three things depend on that:
+   - Platforms: luau/ext/gdluau.gdextension has Linux x86_64 / arm64 and web libraries only. The Godot editor or a
+     desktop export on Windows or macOS runs the GDScript sim. The web side module (libgdluau.wasm) has never been run
+     in a browser (Step 1); if it fails to load, the site keeps working on the GDScript sim.
+   - Tests: every test_luau_* plays the match with Luau and with NO_LUAU_SIM and compares them tick by tick; without
+     the GDScript path they can only compare hashes.
+   - Parity: the upstream source checks (tests/upstream/_harness.gd) read main.gd and game/*.gd, so deleting sim code
+     there needs those checks moved to the Luau files (PARITY.md).
+   The speed condition holds (12.29 / 12.29 ms/tick at 5g2, 12.94 / 13.28 on a slower run at 5d4, against 13.31).
+   Delete the fallback now (Luau required everywhere: Windows / macOS libraries or no sim there, the web build checked
+   in a browser first, tests reduced to hashes, parity checks moved), or keep it and do only Step 6's doc updates
+   (PARITY.md, MULTIPLAYER.md, CLAUDE.md) with the fallback-only code marked? Until answered, nothing is deleted.
