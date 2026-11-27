@@ -41,6 +41,52 @@ func _fixture():
 	game.missiles.append(inbound)
 	return game
 
+func _blast_fixture():
+	var game = _fixture()
+	game.sim_ars.munitions.clear()
+	game.sim_ars.sam_shots.clear()
+	game.attacks.clear()
+	game.boats.clear()
+	game.structs.clear()
+	game.struct_at.clear()
+	game.missiles.clear()
+	game.fallout.resize(game.W * game.H)
+	game.fallout_t.resize(game.W * game.H)
+	game.nations[2].merge({"land": game.W * game.H - 1, "sx": 0, "sy": 0})
+	for offset in [0, 9]:
+		game.missiles.append({"nk": SimRules.N_ATOM, "k": 7, "o": 1, "dur": 1.0, "ft": 50,
+			"lt": 0, "from": Vector2(2, 2), "to": Vector2(40 + offset, 15), "r": 13.0,
+			"evade": true})
+	return game
+
+func _check_first_blast(change_rng: bool) -> bool:
+	var game = _blast_fixture()
+	var reference = _blast_fixture()
+	var worker := ArsenalWorker.new()
+	game._arsenal_worker = worker
+	var began := worker.submit(game)
+	worker.wait()
+	game._begin_presentation_batch()
+	reference._begin_presentation_batch()
+	var applied := began and worker.take(game)
+	reference.sim_ars.tick()
+	var isolated: bool = game.rng.state == reference.rng.state and game.fallout_list.is_empty()
+	if change_rng:
+		game.rng.randi()
+		reference.rng.randi()
+	game._tick_missiles()
+	reference._tick_missiles()
+	var matches: bool = game.rng.state == reference.rng.state and game.missiles.is_empty() \
+		and game.fallout_list.size() > 0 and game.fallout_list == reference.fallout_list \
+		and game.owner_map == reference.owner_map and game.nations == reference.nations \
+		and game._presentation_events == reference._presentation_events
+	var used_expected := worker.prepared_blasts_used == (0 if change_rng else 1)
+	game._flush_presentation_batch()
+	reference._flush_presentation_batch()
+	game.free()
+	reference.free()
+	return applied and isolated and matches and used_expected
+
 func _run() -> void:
 	var game = _fixture()
 	var reference = _fixture()
@@ -87,9 +133,10 @@ func _run() -> void:
 	var stopped := pending and not worker.ready()
 	game.free()
 	reference.free()
-	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped
+	var first_blast := _check_first_blast(false) and _check_first_blast(true)
+	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast
 	if not passed:
 		print("arsenal held=", held, " isolated=", isolated, " applied=", applied, " parity=", parity,
-			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped)
+			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped, " first_blast=", first_blast)
 	print("ARSENAL_WORKER ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

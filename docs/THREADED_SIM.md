@@ -364,3 +364,9 @@ All five 3,000-tick World territory and troop checkpoints matched, with 2,019 ar
 The flight regression test now includes the existing 0.9× missile speed in its expectations. It passes with the arsenal worker enabled.
 
 A sequential 300-frame native headless sample with 40 active buildings moved the median frame interval from 28.82 to 25.50 ms and the 95th percentile from 69.56 to 56.41 ms. Throughput moved from 6.63 to 6.37 ticks/s. The worker completed 56 phases with zero retries. The flag remains opt-in.
+
+### First missile impact
+
+The arsenal worker also selects fallout tiles for the first eligible nuclear missile arrival of a tick. It scans detached territory in the existing tile order and records the RNG state before and after selection. The scene accepts the selection for the same missile, tick, geometry and RNG state. It applies fallout, casualties and effects in the original order. Later arrivals use the established impact path because earlier arrivals and MIRV splits can change the terrain or advance the RNG.
+
+The overlapping-impact fixture matched the inline territory, casualties, presentation events and RNG. It also verifies that an intervening RNG draw discards the prepared selection. A synthetic 2,000 × 1,000 map impact selected 30,769 fallout tiles. Across nine measured runs per mode, median scene-thread impact time moved from 731 to 643 ms. The worker spent a median 34 ms on its job. Applying the large blast on the scene thread remains well above the frame budget.

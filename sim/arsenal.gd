@@ -402,11 +402,29 @@ static func land_in_disk(c: int, r: float, owners: PackedInt32Array, W: int, H: 
 	return out
 
 # ---------------------------------------------------------------- nuke blasts (SimNukes._detonate)
+# Pick fallout tiles in blast order using the detached gameplay RNG.
+static func select_blast_fallout(center: Vector2, radius: float, kind: int, owners: PackedInt32Array,
+		width: int, height: int, rng: RandomNumberGenerator) -> PackedInt32Array:
+	var cx := int(center.x)
+	var cy := int(center.y)
+	var tile := clampi(cy, 0, height - 1) * width + clampi(cx, 0, width - 1)
+	var inner := radius * SimRules.inner_frac(kind)
+	var inner_squared := inner * inner
+	var geometry := BlastGeometry.new()
+	geometry.prepare(radius)
+	var selected := PackedInt32Array()
+	for candidate in geometry.land_tiles(tile, width, height, owners):
+		var dx := candidate % width - cx
+		var dy := candidate / width - cy
+		if float(dx * dx + dy * dy) <= inner_squared or rng.randi() % 2 != 0:
+			selected.append(candidate)
+	return selected
+
 # Every land tile of the inner radius and a random half of the outer ring is relinquished and left as
 # fallout; each hit owner loses troops by nukeDeathFactor (its attacks and transports too); every
 # structure and unit inside the outer radius is destroyed. `r`: the outer radius (Rules.nuke_radii, or a
 # console-edited NUKE_R); the inner disc is the source's inner/outer share for that kind.
-func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
+func nuke_blast(o: int, c: Vector2, r: float, nk: int, prepared_tiles: Variant = null) -> Dictionary:
 	var W: int = g.W; var H: int = g.H
 	var cx := int(c.x); var cy := int(c.y)
 	var ct := clampi(cy, 0, H - 1) * W + clampi(cx, 0, W - 1)
@@ -416,9 +434,11 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 	var lost := {}
 	var before := {}
 	var fallout_n := 0
-	for tt in _blast_tiles(ct, r):
-		var dx := tt % W - cx; var dy := tt / W - cy
-		if float(dx * dx + dy * dy) > inner2 and g.rng.randi() % 2 == 0: continue
+	var blast_tiles: PackedInt32Array = _blast_tiles(ct, r) if prepared_tiles == null else prepared_tiles
+	for tt in blast_tiles:
+		if prepared_tiles == null:
+			var dx := tt % W - cx; var dy := tt / W - cy
+			if float(dx * dx + dy * dy) > inner2 and g.rng.randi() % 2 == 0: continue
 		var ow: int = g.owner_map[tt]
 		if ow > 0:
 			if not before.has(ow):

@@ -28,6 +28,7 @@ class Job extends RefCounted:
 	var result: SimArsenal
 	var events: Array = []
 	var visibility_checks := {}
+	var first_blast := {}
 	var canvas: Transform2D
 	var viewport: Vector2
 	var has_viewport: bool
@@ -67,6 +68,26 @@ class Job extends RefCounted:
 	func run() -> void:
 		result.tick()
 		result.g = null
+		_prepare_first_blast()
+
+	func _prepare_first_blast() -> void:
+		for missile: Dictionary in missiles:
+			if not missile.has("lt") or tick < int(missile.lt) + int(missile.ft):
+				continue
+			# MIRV splitting and audiovisual callbacks can consume RNG before subsequent arrivals.
+			if missile.nk == SimRules.N_MIRV or owner_map.is_empty():
+				return
+			var radius: float = missile.r
+			var point: Vector2 = missile.to
+			var tile := int(point.y) * W + int(point.x)
+			if radius <= 0.0 or radius > 4096.0 or not is_finite(radius) or tile < 0 or tile >= W * H:
+				return
+			var before := rng.state
+			var tiles := SimArsenal.select_blast_fallout(point, radius, missile.nk, owner_map, W, H, rng)
+			first_blast = {"missile": missile, "tick": tick, "center": point, "radius": radius,
+				"kind": missile.nk, "rng_before": before, "rng_after": rng.state, "tiles": tiles}
+			rng.state = before
+			return
 
 	func reload_mult() -> float:
 		return reload
@@ -120,6 +141,8 @@ var _job: Job
 var _expected := {}
 var _records: RecordCopies
 var _map_changed := false
+var _blast_plan := {}
+var prepared_blasts_used := 0
 var _start_structures: Array = []
 var _start_missiles: Array = []
 var applied_ticks := 0
@@ -128,6 +151,8 @@ var inline_retries := 0
 func invalidate_owner_map() -> void:
 	if _task >= 0:
 		_map_changed = true
+	elif not _blast_plan.is_empty():
+		_blast_plan.clear()
 
 static func _troops(pack: Array) -> Array:
 	var rows := []
@@ -167,6 +192,7 @@ var _samples_territory := false
 
 func submit(game) -> bool:
 	assert(_task == -1)
+	_blast_plan.clear()
 	if game.state != "play" or game.net_host != null or game.net_remote or game.team_mode:
 		return false
 	var arsenal: SimArsenal = game.sim_ars
@@ -183,7 +209,9 @@ func submit(game) -> bool:
 	# A battery that completes construction or gains a shot timer this tick cannot fire yet.
 	_samples_territory = impact_due or game.structs.any(func(st):
 		return st.k == 10 and float(st.get("bt", 0.0)) <= 0.0 and int(st.get("next_fire", tick + 1)) <= tick)
-	var owners: PackedInt32Array = game.owner_map.duplicate() if _samples_territory else PackedInt32Array()
+	var pending_blast: bool = game.missiles.any(func(m):
+		return m.has("lt") and m.nk != SimRules.N_MIRV and tick >= int(m.lt) + int(m.ft))
+	var owners: PackedInt32Array = game.owner_map.duplicate() if _samples_territory or pending_blast else PackedInt32Array()
 	_records = RecordCopies.new()
 	var inputs := _records.copy_fields(_inputs(game, _strike_due, _samples_territory))
 	_expected = inputs.duplicate(true)
@@ -230,6 +258,9 @@ func take(game) -> bool:
 			inline_retries += 1
 			return false
 	_commit(game, job, records, structures, missiles)
+	if not job.first_blast.is_empty():
+		_blast_plan = job.first_blast
+		_blast_plan.missile = records.rebind(_blast_plan.missile)
 	applied_ticks += 1
 	return true
 
@@ -277,9 +308,21 @@ static func _commit(game, job: Job, records: RecordCopies, structures: Array, mi
 			"sound": game.sfx(event[1], event[2], event[3], event[4], event[5])
 			"intercept": game._record_missile_intercept({"sim_uid": event[1]})
 
+func take_blast_fallout(game, missile: Dictionary) -> Variant:
+	var plan := _blast_plan
+	_blast_plan = {}
+	if plan.is_empty() or not is_same(plan.missile, missile) or plan.tick != game.sim_atk.tick:
+		return null
+	if plan.rng_before != game.rng.state or plan.center != missile.to or plan.radius != missile.r or plan.kind != missile.nk:
+		return null
+	game.rng.state = plan.rng_after
+	prepared_blasts_used += 1
+	return plan.tiles
+
 func stop() -> void:
 	wait()
 	_clear()
+	_blast_plan.clear()
 
 func _clear() -> void:
 	_task = -1
