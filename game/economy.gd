@@ -694,6 +694,7 @@ func _economy(dt: float) -> void:
 	var city_lv := {}
 	for st in structs:
 		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + mini(int(st.get("level", 1)), 1000)
+	# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 	var lu_on := not net_remote and luau_link != null and luau_link.on and not OS.has_environment("NO_LUAU_SIM")
 	var lu_rows := PackedFloat64Array()
 	for id in range(1, nations.size()):

@@ -667,6 +667,7 @@ var _cur_ft := PackedInt32Array()
 var _warned_foreign := false
 
 ## the link when Luau runs the arsenal (not on a remote viewer, not with NO_LUAU_SIM)
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func lu_on() -> LuauLink:
 	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
 	var lu = g.get("luau_link")

@@ -616,6 +616,31 @@ arrivals (pay, notes) are about 0.011 ms/tick and the transports are too few to 
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.94 / 13.28; 5g2 back to
 back right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier).
 
+### Step 6: the GDScript sim stays as the fallback; docs
+
+Answer to Question 6 (Ruihan, Nov 27 2026): keep the GDScript sim as the fallback. Nothing is deleted. Step 6 is the
+docs and checks only:
+- What runs where, at the end of the port: in Luau when the extension loads (Linux x86_64 / arm64, web): attacks
+  (5a), structures (5b), arsenal and nukes (5c), rails and trains (5b2), water routes (5d1), trade ports (5d2),
+  warships (5d3), economy (5e), the AI's perception (5f1 to 5f3). GDScript always: the AI's decisions (Question 5),
+  transport and trade ship movement (5d4), rendering, UI, audio, input, networking, accounts, party. Everywhere else
+  (Windows / macOS editor and desktop builds, a web build whose libgdluau.wasm does not load, NO_LUAU_SIM=1) the
+  GDScript bodies in sim/*.gd and game/*.gd run, and the tests keep them equal to Luau tick for tick.
+- Each module's Luau gate (the function that says whether Luau runs it: sim/attacks.gd `_L`, structures.gd and
+  nav.gd `_lu`, arsenal.gd and rails.gd `lu_on`, naval.gd `_luau_ports`, warships.gd `_luau_tick`, ai.gd `_ai_luau`,
+  game/economy.gd's `lu_on`) carries a `# FALLBACK` comment: past it, the module's GDScript code is the fallback.
+- Both paths checked at this step: parity 467 / 0 / 5 with Luau and with NO_LUAU_SIM=1; sim_hash owner=3480782660
+  whole and sliced, with Luau and with NO_LUAU_SIM=1 (troops, gold and counts equal too).
+- docs/PARITY.md: its generator (tests/upstream/_harness.gd) now says which sim the run used and which cases depend
+  on it (committed with the header line only: two live-case notes in this run, a warship's hp and a bot's base, differ
+  from the committed table, both still pass). CLAUDE.md: what runs in Luau and what stays GDScript, the fallback, the luau-sim branch line, and a rule for
+  agents (change both paths; test_luau_* and sim_hash must hold). docs/MULTIPLAYER.md: the host ticks Luau or
+  GDScript, viewers neither, packets unchanged, the server needs the arm64 library next to Godot 4.5.1.
+- Speed: 13.31 ms/tick before the port (pre-A, seed 12345); 12.29 / 12.29 at 5g2, 12.94 / 13.28 at 5d4 on a slow run
+  (with 13.60 / 13.65 for 5g2 right after). This step changes no game code (comments only).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.37 / 10.84 (the machine's speed moves about 1 ms between runs).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -641,10 +666,12 @@ back right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.2
 | 5f3 | b064328 | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
 | 5g | cbc8e22 | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
 | 5g2 | a1b2c71 | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
-| 5d4 | see git log | 467/0/5 | 3480782660 | 12.94 / 13.28 (5g2 right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)) | same |
+| 5d4 | d4b44e8 | 467/0/5 | 3480782660 | 12.94 / 13.28 (5g2 right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)) | same |
+| 6 (docs) | see git log | 467/0/5 | 3480782660 | 12.37 / 10.84 | same |
 
 ## Customs touched per step
 
+- Step 6: none (docs and the PARITY.md header only).
 - Step 5d4: none (ship speed is unchanged: boat_speed and upstream's 1 tile per tick, the same product).
 - Step 5g2: none (what Luau calls are sent, not values; the hash is unchanged).
 - Step 5g: none (a cache; the hash is unchanged).
@@ -728,3 +755,4 @@ back right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.2
    Delete the fallback now (Luau required everywhere: Windows / macOS libraries or no sim there, the web build checked
    in a browser first, tests reduced to hashes, parity checks moved), or keep it and do only Step 6's doc updates
    (PARITY.md, MULTIPLAYER.md, CLAUDE.md) with the fallback-only code marked? Until answered, nothing is deleted.
+   Answer (Ruihan, Nov 27 2026): keep it as the fallback. Step 6 is docs only; nothing is deleted.

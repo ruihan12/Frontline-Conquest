@@ -257,6 +257,7 @@ var _lgen_sent := -1
 var _lvm_sent: LuauVM = null
 var luau_calls := 0  # ports ticks that ran in Luau (tests)
 
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func _luau_ports(t: int) -> bool:
 	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
 	var nav = g.sim_nav

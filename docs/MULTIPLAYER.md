@@ -60,3 +60,15 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 - 2026-11-25: The long-range input regression test rechecks its pointer after the deployment-camera hover frames and verifies the exact land intent. Simulation behavior is unchanged.
 
 - 2026-11-26: Waiting room and shared spawn phase (see CLAUDE.md). Server flow: lobby (LOBBY_SECS, vote to start) -> spawn (SPAWN_SECS, autoplace for anyone who did not choose) -> play -> end screen -> next lobby. Joins are only accepted in the lobby; a match in progress answers match_started. One match at a time still: people arriving mid-match wait for the next room.
+
+## Status 2026-11-27: Luau sim (branch luau-sim)
+- The host (dedicated server or "Host on this PC") ticks the sim in Luau when the extension loads (docs/LUAU_PORT.md),
+  else in GDScript (a "Host on this PC" on Windows or macOS: the extension has no library there); both give the same
+  match (tests/test_luau_*). Viewers never tick the sim and call no Luau.
+- Nothing on the wire changed: net/rep.gd packets and the boat, trader and warship dictionaries keep their keys
+  (tests/test_net_rep.gd, tests/test_net_match.gd pass on luau-sim).
+- A joining player's slot is set alive again (net/mp_host.gd); the Luau world reads every alive flag at each build
+  and reads a nation that is alive again in full (sim/attacks.gd _world).
+- Server deploy for this branch: Godot 4.5.1 arm64 and bin/libgdluau.linux.arm64.so next to it (server/deploy/README.md).
+  Without the library, or with NO_LUAU_SIM=1 in the service env, the server runs the GDScript sim. Measured in this
+  container (x86, seed 12345, headless): about 12.3 ms/tick with Luau; the VM's arm64 cores are not measured.

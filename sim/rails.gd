@@ -379,6 +379,7 @@ var _nb_n := 0
 var luau_calls := 0  # tests
 
 ## the link when Luau runs the rails (not on a remote viewer, not with NO_LUAU_SIM)
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func lu_on() -> LuauLink:
 	if g.net_remote or _no_luau: return null
 	var lu = g.get("luau_link")

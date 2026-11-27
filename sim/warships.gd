@@ -521,6 +521,7 @@ func _ports_buf(lports: Array, nfin: int) -> PackedByteArray:
 		q.append(1.0 if i < nfin else 0.0)
 	return q.to_byte_array()
 
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func _luau_tick() -> bool:
 	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
 	var nav = g.sim_nav

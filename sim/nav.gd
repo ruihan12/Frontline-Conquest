@@ -1050,6 +1050,7 @@ var _gd_used := false   # a stateful query ran in GDScript: stay there
 func luau_attach(main) -> void:
 	_lg = main
 
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func _lu() -> LuauVM:
 	if _lg == null or _lg.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
 	var link = _lg.get("luau_link")

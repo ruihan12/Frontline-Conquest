@@ -4,7 +4,15 @@ Godot port of upstream RoWorld (lukechatton/roworld, AGPL). Engine: Godot 4.5.1.
 docs/LUAU_PORT.md); `multiplayer`, `vanilla` and the live VM are still Godot 4.3.stable. A 4.5.1 pack does not load in 4.3.
 Luau runtime (branch luau-sim): luau/ext/gdluau.gdextension, libraries in luau/ext (web) and server_build/<arch>
 (Linux), built by tools/luau_ext/build.sh; bridge sim/luau_vm.gd; sim modules in luau/sim. Progress: docs/LUAU_PORT.md.
-Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
+Luau sim (branch luau-sim, Step 6 of docs/LUAU_PORT.md, 2026-11-27): in Luau when the extension loads: attacks, structures,
+arsenal and nukes, rails and trains, water routes, trade ports, warships, economy, the AI's perception (border scans,
+nearby owners, coast tiles). Stays GDScript (owner's calls): the AI's decisions, transport and trade ship movement,
+rendering, UI, audio, input, networking, accounts, party. sim/*.gd are the facades: each ported tick has a Luau call
+and its GDScript body. The GDScript bodies stay as the fallback (owner, 2026-11-27): they run wherever the extension is
+not loaded (Windows / macOS editor and desktop builds: the .gdextension has Linux and web libraries only; a web build
+whose libgdluau.wasm fails to load) and with NO_LUAU_SIM=1. Remote viewers never tick the sim. Each module's Luau gate
+is marked `# FALLBACK` (grep it).
+Last updated: 2026-11-27 (Luau sim, branch luau-sim).
 
 ## Direction
 As of Nov 21 2026 the game is "100% vanilla" (matches upstream RoWorld) except for these customs:
@@ -41,6 +49,8 @@ SAM range 150 - 480/(level+5), reload 90 ticks, fallout until recaptured, tribe 
 World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILLA.md and docs/PARITY.md.
 
 ## Branches
+- luau-sim: the sim in Luau (see the top), off `multiplayer`, Godot 4.5.1. Parity 467 / 0 / 5, sim_hash owner=3480782660
+  (seed 5516, 6000 ticks) on both paths. Not merged.
 - vanilla (e623664): main vanilla line. Parity 464 pass / 0 fail / 5 intentional (seeded 5516).
 - density-test (164babe): old real-population 1:1 mode, kept for reference only.
 - fix-gfx (f512577): DONE. Upstream terrain palette (0 px mismatch), tribe grey #d1cdc7 (dummy RNG calls kept for determinism), upstream name placement, StyleBox AA = exactly 1 screen px (UITheme.smooth()). Parity 464/0.
@@ -93,7 +103,8 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 3. Run parity solo (must be 0 fail), plus test_input_world, test_client_clicks, test_tutorial, test_map_camera, test_console_spawn, test_nav.
 4. Web export (threads on -> needs COOP/COEP; serve.py on port 8060 sends them, serve.bat runs it). Zip and deliver.
 5. Later: multiplayer. Phase 1 LAN with host-run sim (ENet desktop, relay for web). Phase 2 online dedicated headless Godot server on the Oracle VM (WebSocket + ENet, lobby, server-authoritative sim, console disabled online, maybe rofront.henrymc.org).
-6. Luau experiment (2026-11-23): tools/luau_proto shows Luau runs in a Godot 4.5 web export (~3x GDScript on the attack kernel). Not integrated; needs Godot 4.5 and Luau-owned hot state.
+6. Luau sim: integrated on branch luau-sim (2026-11-27, docs/LUAU_PORT.md). Not yet run in a browser: the web build's
+   libgdluau.wasm (the GDScript sim takes over if it fails to load). Deploying it needs Godot 4.5.1 on the VM.
 7. Paused backlog: batch 3 UI / ships / nukes-SAM-reinforce-SFX, custom cargo + transport planes.
 
 ## Rules for agents
@@ -101,3 +112,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - Every Web release zip must include release/serve.py and release/serve.bat (owner's rule): copy both next to index.html before zipping.
 - Push to GitHub after every large update (feature, fix batch, or release build), on the current working branch only. Never push to `vanilla` or force-push without the owner saying so. Verify with `git ls-remote origin <branch>` == HEAD.
 - Keep the vanilla customs list above as the only deviations from upstream.
+- Sim changes on luau-sim: change the Luau module and its GDScript fallback the same way (sim/*.gd facade, luau/sim/Core).
+  tests/test_luau_* play the seeded match on both paths and must stay identical tick for tick; tests/sim_hash.gd
+  (whole and `-- --sliced`) must stay owner=3480782660 unless the owner approves a gameplay change. Mark customs
+  `-- CUSTOM:` / `# CUSTOM:` and list them in docs/LUAU_PORT.md.

@@ -43,6 +43,7 @@ func reset() -> void:
 		_mir.clear()
 
 ## Luau runs the attacks (not on a remote viewer: there the host's list arrives through net/rep.gd)
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func _L() -> bool:
 	return lu != null and lu.on and not g.net_remote
 

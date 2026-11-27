@@ -289,6 +289,7 @@ var luau_nears := 0  # tests
 # Steps 5f1 and 5f2 of docs/LUAU_PORT.md: the same walks in luau/sim/Core/SimAI.luau over Luau's copy of the tile
 # layer and the border sets (equal to these after the flush). null when Luau isn't running the sim: the GDScript walk
 # runs. Leaves the sim rng where the GDScript walk would.
+# FALLBACK (docs/LUAU_PORT.md Step 6): when this returns no Luau, this module's GDScript code runs (no extension, NO_LUAU_SIM).
 func _ai_luau(fn: String, args: Array):
 	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
 	var lu = g.get("luau_link")
