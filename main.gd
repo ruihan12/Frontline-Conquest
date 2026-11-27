@@ -258,7 +258,7 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			sim_atk.begin_tick()
 			_tick_stage = 1
 		var a0 := Time.get_ticks_usec()
-		if _tick_stage != 6:
+		if _tick_stage < 6:
 			if _tick_stage != 4:
 				if _tick_stage != 5 and not _advance_attacks_and_ai(loop_t0 + sim_budget):
 					break
@@ -286,9 +286,10 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			sim_ars.tick()
 			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
 			_requests_tick()
-		if not _advance_warship_phase():
+		if _tick_stage != TRAIN_PHASE_PENDING and not _advance_warship_phase():
 			break
-		_trains_tick()
+		if not _advance_train_phase():
+			break
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
@@ -308,6 +309,19 @@ func _advance_warship_phase() -> bool:
 		_tick_stage = 6
 		return false
 	sim_ws.tick()
+	return true
+
+func _advance_train_phase() -> bool:
+	if _tick_stage == TRAIN_PHASE_PENDING:
+		if not _train_worker.ready():
+			return false
+		_tick_stage = 0
+		if _train_worker.take(self):
+			return true
+	elif _train_worker != null and _train_worker.submit(self):
+		_tick_stage = TRAIN_PHASE_PENDING
+		return false
+	_trains_tick()
 	return true
 
 func _advance_naval(defer_paths: bool) -> bool:

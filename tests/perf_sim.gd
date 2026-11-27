@@ -89,7 +89,13 @@ func _run():
 				m.sim_ws.tick()
 		else:
 			m.sim_ws.tick()
-		ts.append(Time.get_ticks_usec()); m._trains_tick()
+		ts.append(Time.get_ticks_usec())
+		if m._train_worker != null and m._train_worker.submit(m):
+			m._train_worker.wait()
+			if not m._train_worker.take(m):
+				m._trains_tick()
+		else:
+			m._trains_tick()
 		ts.append(Time.get_ticks_usec()); m._requests_tick()
 		ts.append(Time.get_ticks_usec()); m._tick_missiles(SimArsenal.DT_TICK)
 		ts.append(Time.get_ticks_usec()); m._tick_boats(0.1)
@@ -129,6 +135,8 @@ func _run():
 	print("NAVAL_WORKER_TICKS ", naval_job_ticks)
 	if m._warship_worker != null:
 		print("WARSHIP_PHASE_WORKER_TICKS ", m._warship_worker.applied_ticks, " retries=", m._warship_worker.inline_retries)
+	if m._train_worker != null:
+		print("TRAIN_PHASE_WORKER_TICKS ", m._train_worker.applied_ticks, " retries=", m._train_worker.inline_retries)
 	if m._naval_worker != null:
 		print("NAVAL_WORKER_GRAPH_QUERIES ", m._naval_worker.graph_queries)
 	if worker_enabled and m._attack_worker.prepare_batteries:

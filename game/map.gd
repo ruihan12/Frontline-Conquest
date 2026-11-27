@@ -56,7 +56,9 @@ func _ready() -> void:
 		_naval_worker = NavalWorker.new()
 	if "--sim-worker-warship-pass" in OS.get_cmdline_user_args():
 		_warship_worker = WarshipWorker.new()
-	if _attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null \
+	if "--sim-worker-train-pass" in OS.get_cmdline_user_args():
+		_train_worker = TrainWorker.new()
+	if _attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null or _train_worker != null \
 			or "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
@@ -967,8 +969,9 @@ func _set_owner(i: int, o: int, replay_worker := false, record_snapshot := true)
 	var old: int = om[i]
 	if _warship_worker != null and (old == WATER) != (o == WATER):
 		_warship_worker.invalidate_water_map()
-	if not _prepared_rail_curves.is_empty() and (old < 0) != (o < 0):
+	if (old < 0) != (o < 0):
 		_prepared_rail_curves.clear()
+		if _train_worker != null: _train_worker.invalidate_land_map()
 	var x := i % W
 	var y := i / W
 	if old > 0 and old < border.size(): border[old].erase(i)

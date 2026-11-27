@@ -91,7 +91,7 @@ func _draw_world_fx(z: float) -> void:
 	if client != null:
 		# the edge list changes only when structures do: rebuilt twice a second, not every frame
 		var now_r := FrameClock.now()
-		if now_r - _rail_edges_t >= 0.5 or _rail_edges_sv != _sv or _rail_pending:
+		if _tick_stage != TRAIN_PHASE_PENDING and (now_r - _rail_edges_t >= 0.5 or _rail_edges_sv != _sv or _rail_pending):
 			_rail_edges_t = now_r
 			_rail_edges_sv = _sv
 			var seen := {}

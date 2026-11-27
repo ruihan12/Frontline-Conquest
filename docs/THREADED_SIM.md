@@ -344,3 +344,13 @@ The ordinary 3,000-tick World run matched all five reference checkpoints and use
 The phase now runs the same AI retaliation code as inline play. It commits recruitment costs, newly deployed ships and patrol orders together with the losses that triggered them. The focused test forces a successful retaliation draw and checks that the worker and inline paths spend the same gold, deploy the same ship, and leave the same RNG state. A cross-origin-isolated Chromium fixture also verified recruitment after a transport loss. The 3,000-tick World rerun matched all five checkpoints and committed 558 worker phases with zero inline retries.
 
 A native 300-frame sample of the initial dedicated phase at 1× on World with 16 ships compared attack threading alone with attack threading plus the dedicated warship phase. Median frame interval moved from 24.16 to 18.53 ms and the 95th percentile from 61.26 to 45.33 ms. Completed ticks per second moved from 7.39 to 7.93. The run covered 55 worker warship phases. This is a single headless sample. The warship phase remains opt-in.
+
+## Dedicated train phase
+
+`--sim-worker-train-pass` runs the complete solo train tick on detached state. The worker uses the same rail rules as inline play for route searches, factory spawn rolls, movement, and payouts. The scene validates the input records and land topology before publishing the RNG, balances, rail caches and train state. It resolves station references to their live records and emits ordered payout events. An invalidated result runs inline before the tick completes.
+
+While the job is pending, drawing uses previously published rail data and leaves route budgets alone. The worker starts with the budget of the submission frame. When its result arrives on a later frame, the scene keeps the new frame's allowance. The integration tests cover cache visibility, payouts, train and station identity, topology changes, and cancellation.
+
+The 20-station fixture matched all four territory, train and gameplay RNG checkpoints across 600 ticks, with 598 train phases committed from the worker and zero inline retries. The ordinary 3,000-tick World run also matched all five checkpoints. That seed had no eligible train phases.
+
+A cross-origin-isolated Chromium smoke verified route creation and a payout at the end of a train leg. In a 300-frame native headless sample with four initial trains, enabling the dedicated phase moved the median frame interval from 16.72 to 18.02 ms, the 95th percentile from 43.65 to 42.74 ms, and throughput from 8.88 to 8.33 ticks/s. The worker completed 54 train phases with zero retries. The flag remains opt-in.

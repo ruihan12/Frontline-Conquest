@@ -49,6 +49,18 @@ class WarshipWorkerProbe extends "res://sim/warship_worker.gd":
 		game.events.append("warship_apply")
 		return true
 
+class TrainWorkerProbe extends "res://sim/train_worker.gd":
+	var allow_publish := false
+	var commit := true
+	func submit(game) -> bool:
+		game.events.append("train_submit")
+		return true
+	func ready() -> bool:
+		return allow_publish
+	func take(game) -> bool:
+		game.events.append("train_apply")
+		return commit
+
 class GameProbe extends "res://main.gd":
 	var events := []
 	var frames := []
@@ -282,6 +294,32 @@ func _check_warship_worker_schedule() -> bool:
 	game.free()
 	return submitted and held and ordered
 
+func _check_train_worker_schedule(commit: bool) -> bool:
+	var game := GameProbe.new()
+	var rules := SimRules.new()
+	game.state = "play"
+	game.sim_atk = AttackProbe.new(game, rules)
+	game.sim_ai = AIProbe.new(game, rules)
+	game.sim_naval = NavalProbe.new(game, rules)
+	game.sim_ars = ArsenalProbe.new(game, rules)
+	game.sim_ws = WarshipProbe.new(game, rules)
+	var worker := TrainWorkerProbe.new()
+	worker.commit = commit
+	game._train_worker = worker
+	game._advance_fixed_ticks(0.1)
+	game._advance_fixed_ticks(0.0)
+	game._advance_fixed_ticks(0.0)
+	var submitted := game._tick_stage == game.TRAIN_PHASE_PENDING and game.events.slice(-2) == ["warships", "train_submit"]
+	game._advance_fixed_ticks(0.0)
+	var held := not game._advance_or_hold_sim_frame(0.01, 0.02) and game.frames.is_empty()
+	worker.allow_publish = true
+	game._advance_fixed_ticks(0.0)
+	var tail := ["train_submit", "train_apply"] if commit else ["train_apply", "trains"]
+	var ordered: bool = game._tick_stage == 0 and game.events.count("warships") == 1 \
+		and game.events.count("requests") == 1 and game.events.slice(-2) == tail
+	game.free()
+	return submitted and held and ordered
+
 func _initialize() -> void:
 	var game := GameProbe.new()
 	var rules := SimRules.new()
@@ -302,7 +340,7 @@ func _initialize() -> void:
 		expected.append("naval")
 	expected.append_array(["economy", "arsenal", "missiles", "requests", "warships", "trains", "replicate"])
 	var passed := attack_paused and ai_paused and complete and game.events == expected \
-		and _check_held_frames(game) and _check_economy_worker() and _check_warship_worker_schedule() \
+		and _check_held_frames(game) and _check_economy_worker() and _check_warship_worker_schedule() and _check_train_worker_schedule(true) and _check_train_worker_schedule(false) \
 		and (OS.has_environment("NO_TRADE") or (_check_naval_worker() and _check_naval_graph_search()))
 	print("FIXED_TICK_SCHEDULE ", "PASS" if passed else "FAIL")
 	if not passed: print(game.events)
