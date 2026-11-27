@@ -76,6 +76,13 @@ func _detect_touch() -> bool:
 	return OS.has_feature("mobile")
 
 
+## Web: the browser reports touch points (an iPad in desktop-site mode or with a trackpad still does).
+func _has_touch_points() -> bool:
+	if not OS.has_feature("web"):
+		return false
+	return bool(JavaScriptBridge.eval("(navigator.maxTouchPoints||0)>1", true))
+
+
 func setup(main, layer: Node, at_index: int = -1) -> void:
 	g = main
 	ctx = UICtx.new()
@@ -123,7 +130,7 @@ func setup(main, layer: Node, at_index: int = -1) -> void:
 	title.open_account.connect(func() -> void: account.open())
 	title.open_multiplayer.connect(func() -> void: lobby.open())
 
-	if ctx.touch_device:
+	if ctx.touch_device or _has_touch_points():  # iPadOS asks for the desktop site and may report a fine pointer (trackpad)
 		root.add_child(MemOverlay.new(main))  # phones/tablets: memory readout (iOS tab kills), see client/ui/mem_overlay.gd
 	top = TopStatus.new(ctx)
 	root.add_child(top)
