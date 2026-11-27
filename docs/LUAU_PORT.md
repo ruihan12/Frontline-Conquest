@@ -354,6 +354,40 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 --sliced; test list unchanged plus test_luau_rails 8/8; perf AVG 11.46 / 11.84 ms/tick (rails split 11.76 / 11.74;
 the trains cost well under 0.4 ms/tick, so the change is within run-to-run noise).
 
+### Step 5d1: water navigation in Luau (Core/SimNav.luau)
+
+What changed:
+- `luau/sim/Core/SimNav.luau`: sim/nav.gd line for line. The region graph build (regions, clusters, edges with
+  float32 costs, portals, coasts), the heap A* with its tie rules, the region and route caches with the same caps,
+  line of sight, raster, BFS stitch, smoothing, the Chaikin `to_points`, `find_route`, `boat_route`,
+  `nearest_own_coast`, `water_path_px` and the per-tick search budget. Float32 storage and Vector2 math are
+  emulated, so the answers are byte for byte GDScript's.
+- `sim/nav.gd` is the face: `find_route`, `boat_route` and `water_path_px` go to Luau once the game's link is on
+  (not a remote viewer, not NO_LUAU_SIM); `begin_tick` forwards the budget. The old bodies are `*_gd` and stay the
+  fallback. The pure helpers (to_points, dense, los, seg_water, region_of, water_next_to) and `steer` stay
+  GDScript; steer searches through `find_route`, so it follows. game/map.gd calls `sim_nav.luau_attach(self)` after
+  both nav builds.
+- The graph is built in Luau on the first query after the link is up, and only if this nav has not answered a
+  stateful query in GDScript yet (the caches and the budget history would differ). In the seeded runs nothing
+  queries before the link exists, so the whole match runs in Luau.
+- `boat_route` with the game's own owner map sends nothing and Luau reads SimState's copy after `flush`. The only
+  owner_map writes that skip `_set_owner` are map generation (before the link) and the main.gd showcase, which
+  calls `_set_owner` on the same tile right after.
+- Known costs and gaps: the map's nav is built twice (GDScript about 235 ms, Luau about 196 ms at load on the
+  seed 5516 map), because the link starts after map build. The GDScript counters on the match nav (searches,
+  fails, cache hits) go stale in Luau mode; `luau_stats()` has Luau's. `last_deferred` is set only by the facade
+  calls. If the link fails mid-match the nav falls back to GDScript with cold caches (still a valid game, but it
+  leaves the pure GDScript run). tests/test_nav.gd builds its own navs without `luau_attach`, so it still tests
+  the GDScript code.
+- tests/test_luau_nav.gd (14 checks): the Luau graph against a fresh GDScript build of the same map (regions,
+  centres, edges, costs, portals, coasts, clusters) and 3000 find_route, 800 water_path_px and 600 boat_route
+  queries against GDScript, with the deferral flags and the search / fail counters.
+- Drafted in a separate worktree (luau-nav-draft, never pushed) and taken over unchanged.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged plus test_luau_nav 14/14; perf AVG 12.39 / 11.85 ms/tick (5b2 11.46 / 11.84; the Luau
+searches cost about what the GDScript ones did, the difference is within run-to-run noise).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -369,10 +403,12 @@ the trains cost well under 0.4 ms/tick, so the change is within run-to-run noise
 | 5b | 88bb160 | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
 | 5c | b89e9f7 | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
 | rails split | 662352f | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
-| 5b2 | see git log | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
+| 5b2 | 5dd163f | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
+| 5d1 | see git log | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
 
 ## Customs touched per step
 
+- Step 5d1: none (water routes only; boat 0.35 and warship 0.7 speeds stay on the game).
 - Step 5b2: none of the listed customs are in the rail / train sim (supply drops stay off; train gold and spawn
   rates are upstream's). Nothing to add a custom test for.
 - Rails split: none (code moved, values unchanged).

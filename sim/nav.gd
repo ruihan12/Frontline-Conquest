@@ -516,6 +516,8 @@ func coast_body(t: int) -> int:
 # ------------------------------------------------------------------------------------------------
 func begin_tick() -> void:
 	_spent = 0
+	var vm := _lu()
+	if vm != null: vm.call_fn(LMOD, "begin_tick", [_lid, budget_n])
 
 func budget_left() -> bool:
 	return _spent < budget_n
@@ -525,7 +527,8 @@ func budget_left() -> bool:
 # ------------------------------------------------------------------------------------------------
 # Corner tiles (string-pulled) of a water route src -> dst (both water, same body); [] if none.
 # Consecutive corners are joined by straight water lines (see raster()). urgent ignores the budget.
-func find_route(src: int, dst: int, urgent := true) -> PackedInt32Array:
+func find_route_gd(src: int, dst: int, urgent := true) -> PackedInt32Array:
+	_gd_used = true
 	last_deferred = false
 	if not ready or src < 0 or dst < 0 or src >= N or dst >= N: return PackedInt32Array()
 	var b: int = body[src]
@@ -882,7 +885,8 @@ func nearest_own_coast(owner_map: PackedInt32Array, a: int, wd: int, max_tiles :
 # corner tiles from a water tile next to a's nearest coast (by sea) to a water tile next to dest.
 # max_tiles caps the sea search like the old BFS max_nodes (water tiles searched from the landing), so
 # AI transports (12000 nodes) stay as local as before.
-func boat_route(owner_map: PackedInt32Array, a: int, dest: int, max_tiles := 1 << 30) -> PackedInt32Array:
+func boat_route_gd(owner_map: PackedInt32Array, a: int, dest: int, max_tiles := 1 << 30) -> PackedInt32Array:
+	_gd_used = true
 	if not ready or dest < 0 or dest >= N: return PackedInt32Array()
 	var t0 := Time.get_ticks_usec()
 	var out := PackedInt32Array()
@@ -974,12 +978,12 @@ func seg_water(p0: Vector2, p1: Vector2) -> bool:
 	return true
 
 # Drop-in for main.gd _water_path(from_tile, to_tile): pixel route between two coastal tiles (trade).
-func water_path_px(from_tile: int, to_tile: int, ts: float, urgent := true) -> PackedVector2Array:
+func water_path_px_gd(from_tile: int, to_tile: int, ts: float, urgent := true) -> PackedVector2Array:
 	var wa := water_next_to(from_tile) if body_of(from_tile) == 0 else from_tile
 	if wa < 0: return PackedVector2Array()
 	var wb := water_next_to(to_tile, body[wa]) if body_of(to_tile) == 0 else to_tile
 	if wb < 0: return PackedVector2Array()
-	var r := find_route(wa, wb, urgent)
+	var r := find_route_gd(wa, wb, urgent)
 	if r.is_empty(): return PackedVector2Array()
 	# like the old BFS route: starts on the water next to from_tile, ends on to_tile's centre
 	return to_points(r, to_tile if body_of(to_tile) == 0 else -1, ts)
@@ -1023,3 +1027,95 @@ func steer(ws: Dictionary, step: float) -> bool:
 			pos = np; left = 0.0
 	ws.pos = pos; ws["nav_i"] = i
 	return true
+
+
+# ------------------------------------------------------------------------------------------------
+# Step 5d (docs/LUAU_PORT.md, draft): the same searches in Luau
+# ------------------------------------------------------------------------------------------------
+# With the Luau link on (not a remote viewer, not NO_LUAU_SIM), the stateful queries (find_route, boat_route,
+# water_path_px, the per-tick budget) run in luau/sim/Core/SimNav.luau, which holds its own copy of the graph and
+# the caches and answers byte for byte as the GDScript above (tests/test_luau_nav.gd). The graph is built in
+# Luau on the first query after the link is up, and only if this nav has not answered a stateful query in
+# GDScript yet (the caches and the budget history would differ): a nav that started in GDScript stays there.
+# The pure helpers (to_points, dense, los, seg_water, region_of, water_next_to) stay GDScript. steer() keeps its
+# per-ship state on the ship and searches through find_route, so it follows. The counters (searches, fails,
+# cache_hits, deferred) stay GDScript's; luau_stats() reads Luau's.
+const LMOD := "Core/SimNav"
+var _lg = null          # the game (luau_attach), null: GDScript only
+var _lvm: LuauVM = null # the link's Luau state this nav's graph was built in
+var _lid := -1          # handle of the graph there
+var _gd_used := false   # a stateful query ran in GDScript: stay there
+
+## map.gd, after build(): queries may run in Luau once the game's link is on
+func luau_attach(main) -> void:
+	_lg = main
+
+func _lu() -> LuauVM:
+	if _lg == null or _lg.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
+	var link = _lg.get("luau_link")
+	if link == null or not link.on: return null
+	if _lvm != null and is_same(_lvm, link.vm): return _lvm
+	if _gd_used or not ready: return null
+	var vm: LuauVM = link.vm
+	if not vm.require_module(LMOD):
+		link._fail(_lg, vm.last_error)
+		return null
+	var id = vm.call_fn(LMOD, "build", [body.to_byte_array(), W, H])
+	if id == null:
+		link._fail(_lg, vm.last_error)
+		return null
+	_lvm = vm
+	_lid = int(id)
+	vm.call_fn(LMOD, "begin_tick", [_lid, budget_n])
+	return _lvm
+
+func _lfail() -> void:
+	var link = _lg.get("luau_link")
+	if link != null: link._fail(_lg, _lvm.last_error)
+	_lvm = null
+
+func find_route(src: int, dst: int, urgent := true) -> PackedInt32Array:
+	var vm := _lu()
+	if vm == null: return find_route_gd(src, dst, urgent)
+	var out = vm.call_fn(LMOD, "find_route", [_lid, src, dst, urgent])
+	if out == null:
+		_lfail()
+		return PackedInt32Array()
+	last_deferred = bool(out.d)
+	return (out.r as PackedByteArray).to_int32_array()
+
+func boat_route(owner_map: PackedInt32Array, a: int, dest: int, max_tiles := 1 << 30) -> PackedInt32Array:
+	var vm := _lu()
+	if vm == null: return boat_route_gd(owner_map, a, dest, max_tiles)
+	# the game's owner map is Luau's SimState copy once the link has flushed (no 4 bytes per tile per call);
+	# any other map goes across whole
+	var om = null
+	if owner_map.size() != N or not _lg.luau_link.flush(_lg) or owner_map != _lg.owner_map: om = owner_map.to_byte_array()
+	var out = vm.call_fn(LMOD, "boat_route", [_lid, om, a, dest, max_tiles])
+	if out == null:
+		_lfail()
+		return PackedInt32Array()
+	return (out as PackedByteArray).to_int32_array()
+
+func water_path_px(from_tile: int, to_tile: int, ts: float, urgent := true) -> PackedVector2Array:
+	var vm := _lu()
+	if vm == null: return water_path_px_gd(from_tile, to_tile, ts, urgent)
+	var out = vm.call_fn(LMOD, "water_path_px", [_lid, from_tile, to_tile, ts, urgent])
+	if out == null:
+		_lfail()
+		return PackedVector2Array()
+	last_deferred = bool(out.d)
+	var f: PackedFloat32Array = (out.p as PackedByteArray).to_float32_array()
+	var pts := PackedVector2Array()
+	pts.resize(f.size() / 2)
+	for k in pts.size(): pts[k] = Vector2(f[2 * k], f[2 * k + 1])
+	return pts
+
+## Luau's counters (tests); {} when the nav runs in GDScript
+func luau_stats() -> Dictionary:
+	if _lvm == null: return {}
+	var s = _lvm.call_fn(LMOD, "stats", [_lid])
+	return s if s != null else {}
+
+func on_luau() -> bool:
+	return _lvm != null

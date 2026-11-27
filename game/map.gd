@@ -353,6 +353,7 @@ func gen_map() -> void:
 		sim_naval.body = _gen_cache.body; sim_naval.coast_list = _gen_cache.cl; sim_naval.trade_cache.clear()
 		sim_nav = _gen_cache.get("nav", null)
 		if sim_nav == null or not sim_nav.ready: sim_nav = SimNavS.new(); sim_nav.build(sim_naval.body, W, H)
+		sim_nav.luau_attach(self)  # Step 5d draft: searches in Luau once the link is up
 		_gt("cache")
 		if _async_gen: await get_tree().process_frame
 		_redraw_all()
@@ -437,6 +438,7 @@ func gen_map() -> void:
 	sim_naval.compute_bodies()
 	sim_nav = SimNavS.new()  # new object per map: the gen cache keeps the previous one
 	sim_nav.build(sim_naval.body, W, H)
+	sim_nav.luau_attach(self)  # Step 5d draft: searches in Luau once the link is up
 	_gt("bodies")
 	if _async_gen: _load_progress(0.65); await get_tree().process_frame
 	sim_naval.trade_cache.clear()
