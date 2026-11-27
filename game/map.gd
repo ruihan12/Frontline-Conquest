@@ -99,6 +99,7 @@ func _ready() -> void:
 	_tick_stage = 0
 	sim_struct = SimStructures.new(self, sim_rules)
 	sim_ars = SimArsenal.new(self, sim_rules)
+	sim_rails = SimRails.new(self)
 	sim_ws = SimWarships.new(self, sim_rules)
 	apply_settings(false)
 	_init_audio()

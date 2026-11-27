@@ -362,6 +362,7 @@ var sim_naval: SimNaval
 const SimNavS := preload("res://sim/nav.gd")
 var sim_nav = null  # SimNav (sim/nav.gd): water pathfinding graph for the current map
 var sim_ars: SimArsenal
+var sim_rails: SimRails
 var sim_ws: SimWarships
 var fallout_count := 0
 var real_nations := []

@@ -294,6 +294,23 @@ tests/test_icbm_evade.gd and tests/test_nuke_flight.gd (not in the VERIFY list) 
 their expectations predate the 0.9x nuke speed and the 20% ICBM roll, and their scenes run on frames, so their
 numbers differ from run to run with either sim.
 
+### Rails split (before Step 5b2, GDScript only)
+
+What changed:
+- The rail / train sim moved out of game/rails.gd into `sim/rails.gd` (class SimRails, `game.sim_rails`): rail paths
+  (A* on the minimap), station links (_build_rail_mst / _rail_hops), the link cache with its per-tick budgets,
+  routes, destinations, train spawns, legs and train gold. The code is the same, with `g.` in front of the game's
+  members (W, H and owner_map read into typed locals once per call).
+- game/rails.gd keeps the drawing side (`_rail_neighbors_view`, the land-path helpers, the fx and notes ticks) and
+  forwards the old names (`_rail_curve`, `_rail_neighbors`, `_has_rail_link`, `spawn_train_from`, `_trains_tick`)
+  so the renderer, main.gd, game/audio.gd and tests/upstream/test_live.gd are unchanged.
+- The state stays on the game (rail_cache, _rail_nb_cache, _rail_mst, trains, the budgets): road_layer, planes_fx,
+  unit_layer and game/nations.gd read or clear it there.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged; perf AVG 11.76 / 11.74 ms/tick (5c 11.36 / 11.07; the code path is the same plus one
+forward per call, so most of the gap is run-to-run noise).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -307,10 +324,12 @@ numbers differ from run to run with either sim.
 | 4 | d85a762 | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
 | 5a | e33428f | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
 | 5b | 88bb160 | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
-| 5c | see git log | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
+| 5c | b89e9f7 | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
+| rails split | see git log | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
 
 ## Customs touched per step
 
+- Rails split: none (code moved, values unchanged).
 - Step 5c: the 0.9x nuke speed (all bombs, warheads included), ICBM 1.2x speed and the 20% seeded SAM-ignore roll
   for the player's launches with the toggle on, MIRV and Scattershot warheads sharing the carrier's roll and speed:
   copied into SimArsenal.luau (`-- CUSTOM:`), the constants checked against game/nukes.gd and game/state.gd by
