@@ -31,6 +31,14 @@ var applied_ev := 0
 
 
 func _init() -> void:
+	_start()
+	# one line per game in the log / browser console: which sim runs (docs/LUAU_PORT.md Step 6)
+	if not on: print("Luau sim: off, GDScript fallback (%s)" % error)
+	elif OS.has_environment("NO_LUAU_SIM"): print("Luau sim: off, GDScript fallback (NO_LUAU_SIM)")
+	else: print("Luau sim: on")
+
+
+func _start() -> void:
 	if not LuauVM.available():
 		error = "Luau extension not loaded"
 		return

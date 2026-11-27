@@ -641,6 +641,17 @@ docs and checks only:
 
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.37 / 10.84 (the machine's speed moves about 1 ms between runs).
 
+### Web build check: which sim runs
+
+Ruihan asked (Nov 27 2026) to run the luau-sim web build in headless Chromium. The web export works (Godot 4.5.1,
+libgdluau.wasm in the build), but no Chromium could run here: the container has no browser, browser downloads are
+blocked, and installing one was refused. So sim/luau_link.gd now prints one line when a game starts, in the log and
+the browser console: `Luau sim: on`, `Luau sim: off, GDScript fallback (NO_LUAU_SIM)`, or
+`Luau sim: off, GDScript fallback (<why the link failed>)`. Open the web build, press F12 and look for that line.
+No game code changed.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.22 / 13.28.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -667,7 +678,8 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5g | cbc8e22 | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
 | 5g2 | a1b2c71 | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
 | 5d4 | d4b44e8 | 467/0/5 | 3480782660 | 12.94 / 13.28 (5g2 right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)) | same |
-| 6 (docs) | see git log | 467/0/5 | 3480782660 | 12.37 / 10.84 | same |
+| 6 (docs) | 7c87e52 | 467/0/5 | 3480782660 | 12.37 / 10.84 | same |
+| web log line | see git log | 467/0/5 | 3480782660 | 12.22 / 13.28 | same |
 
 ## Customs touched per step
 
