@@ -503,6 +503,29 @@ What changed:
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 6/6
 (3000 ticks identical), perf_sim 12.43 / 13.04 ms/tick.
 
+### Step 5f2: the tribes' nearby owners in Luau (Core/SimAI.luau near)
+
+After 5f1 the AI pass was about 2.3 ms/tick (seed 12345, 3000 ticks). Per function (timing wrappers around
+sim/ai.gd): the nations' think 1.2, the tribes' think 0.76, of which `_tribe_nearby` 0.57 (its whole-border scan
+plus the shore probes over `own_coast_tiles`); then the transport choice 0.3 and builds 0.2. The rest is under
+0.1 each.
+
+What changed:
+- `luau/sim/Core/SimAI.luau` `near`: the tribe's whole-border scan (the 5f1 walk, same rng draws), then the shore
+  probes in border order: every `every`-th coastal tile (a 4-neighbour is water, -1, as game/economy.gd `_coastal`)
+  looks `dist` tiles out up, down, left and right where the first step is water; an owner there that is not water
+  or ice, not the tribe, not seen yet and not fallout land is added. `every` and `dist` come from sim/ai.gd
+  (10 / k_lin and 5 / k_lin rounded, at least 1 and 2).
+- sim/ai.gd `_tribe_nearby` fills `sc_*` and `_near` from it in the GDScript's order (scan owners, 0 when the
+  scan saw free land, then the probe finds) and returns the same flag. `_scan_luau` and the new `_near_luau` share
+  one call path (`_ai_luau`). `NO_LUAU_SIM` or a remote viewer runs the GDScript as before.
+- Cost: `_tribe_nearby` 0.57 to 0.21 ms/tick, the AI pass about 2.3 to 1.9.
+- tests/test_luau_ai.gd (8 checks): adds every 100 ticks each live tribe's nearby list both ways from the same
+  rng state (flag, owners in order, scan fields, rng; 4518 lists, all equal, 41 with probe finds).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 8/8,
+perf_sim 12.14 / 12.17 ms/tick.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -523,7 +546,8 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5d2 | d412c8d | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
 | 5d3 | fee8c12 | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
 | 5e | 5c58c85 | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
-| 5f1 | see git log | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
+| 5f1 | 271ac24 | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
+| 5f2 | see git log | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
 
 ## Customs touched per step
 

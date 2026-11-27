@@ -284,23 +284,24 @@ func _scan_border(id: int) -> void:
 			sc_count[o] += 1
 
 var luau_scans := 0  # tests
+var luau_nears := 0  # tests
 
-# Step 5f1 of docs/LUAU_PORT.md: the same walk in luau/sim/Core/SimAI.luau over Luau's copy of the tile layer and the
-# border sets (equal to these after the flush). False when Luau isn't running the sim: the GDScript walk runs.
-func _scan_luau(id: int, cap: int) -> bool:
-	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
+# Steps 5f1 and 5f2 of docs/LUAU_PORT.md: the same walks in luau/sim/Core/SimAI.luau over Luau's copy of the tile
+# layer and the border sets (equal to these after the flush). null when Luau isn't running the sim: the GDScript walk
+# runs. Leaves the sim rng where the GDScript walk would.
+func _ai_luau(fn: String, args: Array):
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
 	var lu = g.get("luau_link")
-	if lu == null or not lu.on: return false
+	if lu == null or not lu.on: return null
 	var vm: LuauVM = lu.vm
 	if not vm.require_module("Core/SimAI") or not lu.flush(g):
 		if lu.on: lu._fail(g, vm.last_error)
-		return false
+		return null
 	var rg := LuauLink.rng_args(g)
-	var out = vm.call_fn("Core/SimAI", "scan", [rg[0], rg[1], id, cap])
+	var out = vm.call_fn("Core/SimAI", fn, [rg[0], rg[1]] + args)
 	if out == null:
 		lu._fail(g, vm.last_error)
-		return false
-	luau_scans += 1
+		return null
 	var hi: int = int(out.rhi)
 	if hi >= 0x80000000: hi -= 0x100000000
 	g.rng.state = hi * 0x100000000 + int(out.rlo)
@@ -309,6 +310,11 @@ func _scan_luau(id: int, cap: int) -> bool:
 		var o := int(sc[k])
 		sc_list.append(o); sc_count[o] = int(sc[k + 1]); sc_tile[o] = int(sc[k + 2])
 	sc_neutral = int(out.nt); sc_neutral_tile = int(out.ntile); sc_fallout_tile = int(out.ftile)
+	return out
+
+func _scan_luau(id: int, cap: int) -> bool:
+	if _ai_luau("scan", [id, cap]) == null: return false
+	luau_scans += 1
 	return true
 
 func _above(id: int, keep: float) -> float:
@@ -1114,6 +1120,10 @@ func _think_tribe(id: int) -> void:
 # every SHORE_PROBE_EVERY-th coastal tile looks SHORE_PROBE_DIST tiles away in each direction whose
 # first step is water. True when free land (not fallout) is nearby.
 func _tribe_nearby(id: int) -> bool:
+	var every := maxi(1, int(floor(10.0 / R.k_lin + 0.5)))
+	var dist := maxi(2, int(floor(5.0 / R.k_lin + 0.5)))
+	var lt := _near_luau(id, every, dist)
+	if lt >= 0: return lt == 1  # Step 5f2
 	scan_border(id)
 	_near.clear()
 	var seen := {}
@@ -1124,8 +1134,6 @@ func _tribe_nearby(id: int) -> bool:
 		_near.append(0); seen[0] = true
 	var coasts := own_coast_tiles(id)
 	if coasts.is_empty(): return tn
-	var every := maxi(1, int(floor(10.0 / R.k_lin + 0.5)))
-	var dist := maxi(2, int(floor(5.0 / R.k_lin + 0.5)))
 	var W: int = g.W; var H: int = g.H
 	var om: PackedInt32Array = g.owner_map
 	var k := 0
@@ -1145,6 +1153,24 @@ func _tribe_nearby(id: int) -> bool:
 				tn = tn or o == 0
 		k += 1
 	return tn
+
+# Step 5f2: the scan and the shore probes in one Luau call (luau/sim/Core/SimAI.luau near). -1 when Luau isn't
+# running the sim, else 1 / 0 as _tribe_nearby returns; sc_* and _near are filled as the GDScript would.
+func _near_luau(id: int, every: int, dist: int) -> int:
+	if id >= g.border.size(): return -1
+	sc_list.clear(); sc_count.clear(); sc_tile.clear()
+	sc_neutral = 0; sc_neutral_tile = -1; sc_fallout_tile = -1
+	var u0 := Time.get_ticks_usec()
+	var out = _ai_luau("near", [id, every, dist])
+	if out == null: return -1
+	luau_nears += 1
+	scan_us += Time.get_ticks_usec() - u0
+	scan_n += 1
+	_near.clear()
+	for p in sc_list: _near.append(p)
+	if sc_neutral > 0: _near.append(0)
+	for o in (out.ex as PackedByteArray).to_float64_array(): _near.append(int(o))
+	return int(out.tn)
 
 func _tribe_traitor(id: int) -> int:
 	var pick := []
