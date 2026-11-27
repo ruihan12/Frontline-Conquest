@@ -13,7 +13,8 @@ var client: ClientHud  # client/ui/client_hud.gd: the remade client (parts porte
 const WATER := -1
 const ICE := -2
 const NEUTRAL := 0
-const PLAYER := 1
+## The nation this program plays (1 solo; a variable so the sim never bakes it in: Step A of docs/LUAU_PORT.md).
+var PLAYER := 1
 const SHARES := [0.10, 0.25, 0.35, 0.50, 0.75]
 const DIFFS := [["Relaxed", 300.0], ["Standard", 180.0], ["Brutal", 120.0]]  # RoWorld HUMAN_GRACE_TICKS / 10
 const MAPS := [
@@ -122,6 +123,8 @@ var diff_i := 1
 var map_i := 0
 var start_tile := -1
 var rng := RandomNumberGenerator.new()
+## Draws for sounds and hover previews only: never the sim's rng, so what plays or is hovered can't change the match.
+var fx_rng := RandomNumberGenerator.new()
 var ai_timer := 0.0
 var ui_timer := 0.0
 var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass (one tick can span several frames)
@@ -464,7 +467,7 @@ var _rail_nb_cache := {}
 var _own_sv := {}
 var _rail_calc_left := 40
 var _rail_frame := 0
-var _rail_bfs_left := 40  # route searches allowed per frame (A* on a minimap, ~0.25 ms each)
+var _rail_bfs_left := 40  # route searches allowed per sim tick (A* on a minimap, ~0.25 ms each)
 var _rail_pending := false
 var rail_cache := {}  # rail geometry, separate from boat path_cache (which is flushed at 400 entries)
 var _rail_nb_ver := ""

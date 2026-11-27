@@ -223,7 +223,7 @@ func _test_map(m, name: String, gen_ms: float) -> void:
 	if not wsr.is_empty(): s = wsr[0]; g = wsr[wsr.size() - 1]
 	var ws := {"pos": Vector2(s % nav.W + 0.5, s / nav.W + 0.5), "tgt": Vector2(g % nav.W + 0.5, g / nav.W + 0.5)}
 	var on_land := 0; var ticks := 0; var trail := PackedVector2Array()
-	nav.budget_us = 3000
+	nav.budget_n = 12
 	while ticks < 40000 and ws.pos.distance_to(ws.tgt) > 0.01:
 		nav.begin_tick()
 		if not nav.steer(ws, 0.5): break
@@ -237,13 +237,13 @@ func _test_map(m, name: String, gen_ms: float) -> void:
 	_draw(img, nav, trail, Color(0.1, 0.7, 0.1))
 	# budget: 60 non-urgent cold queries in one tick
 	nav._route_cache.clear(); nav._reg_cache.clear()
-	nav.budget_us = 3000; nav.begin_tick()
+	nav.budget_n = 12; nav.begin_tick()
 	var done := 0; var defer0: int = nav.deferred
 	var tq := Time.get_ticks_usec()
 	for k in 60:
 		var pr = pairs[k]
 		if not nav.find_route(pr[0], pr[1], false).is_empty(): done += 1
-	print("  budget 3000us: 60 requests -> %d solved, %d deferred, tick_us=%d" % [done, nav.deferred - defer0, Time.get_ticks_usec() - tq])
+	print("  budget 12 searches: 60 requests -> %d solved, %d deferred, tick_us=%d" % [done, nav.deferred - defer0, Time.get_ticks_usec() - tq])
 	img.save_png("%s/nav_%s.png" % [shots, name])
 
 func _base_image(nav) -> Image:

@@ -76,9 +76,6 @@ func net_host_local(port := 8070, bots := 40, max_humans := 8) -> Node:
 	return node
 
 func _process(dt: float) -> void:
-	_rail_bfs_left = 40
-	_rail_calc_left = 40
-	_rail_frame += 1
 	var _t0 := Time.get_ticks_usec()
 	map_t += dt
 	if map_mat: map_mat.set_shader_parameter("t_anim", fmod(map_t, 1000.0))
@@ -225,7 +222,6 @@ func _process_inner(dt: float) -> void:
 		# RoWorld runs 10 ticks per second at 1x (SPEED_BASE only slows the visual unit motion)
 		var tdt := (0.0 if sim_paused else rdt) * sim_speed / SPEED_BASE
 		if _at: tdt *= _attract_boost()
-		elapsed += tdt
 		tick_acc += tdt
 		tick_acc = minf(tick_acc, 0.1 * MAX_TICKS_PER_FRAME)
 		var nt := 0
@@ -240,8 +236,7 @@ func _process_inner(dt: float) -> void:
 			if _tick_stage == 0:
 				tick_acc -= 0.1
 				nt += 1
-				_rebuild_def_posts()
-				sim_atk.begin_tick()
+				_sim_tick_begin()
 				_tick_stage = 1
 			if _tick_stage == 1:
 				var atk_done := sim_atk.run_slice(loop_t0 + sim_budget)
@@ -260,38 +255,18 @@ func _process_inner(dt: float) -> void:
 			if not ai_done: break
 			_tick_stage = 0
 			a0 = Time.get_ticks_usec()
-			sim_naval.defer_paths = Time.get_ticks_usec() - loop_t0 > sim_budget / 2
-			if not OS.has_environment("NO_TRADE"): sim_naval.tick()
-			sim_naval.defer_paths = false
-			prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
-			_pf_add("naval", Time.get_ticks_usec() - a0)
-			ticks_done += 1
-			a0 = Time.get_ticks_usec()
-			_economy(0.1)
-			sim_ars.tick()
-			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
-			_requests_tick()
-			sim_ws.tick()
-			_trains_tick()
+			_sim_tick_end()
 			prof.eco += Time.get_ticks_usec() - a0
 			_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
-			if net_host != null: net_host.on_tick()
 		_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
 		var u0 := Time.get_ticks_usec()
-		_fp["missiles"] = 0; u0 = Time.get_ticks_usec()
-		_tick_trade(tdt); _fp["ships"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
-		_fp["trains"] = Time.get_ticks_usec() - u0; u0 = Time.get_ticks_usec()
+		_fp["missiles"] = 0; _fp["ships"] = 0; _fp["trains"] = 0
 		_tick_fx(dt, tdt); _fp["fx"] = Time.get_ticks_usec() - u0; _pf_add("fx", _fp.fx); u0 = Time.get_ticks_usec()
 		_tick_meta(dt, tdt); _fp["meta"] = Time.get_ticks_usec() - u0
-		donate_troop_cd = maxf(0.0, donate_troop_cd - dt)
-		donate_gold_cd = maxf(0.0, donate_gold_cd - dt)
 		var _q1 := Time.get_ticks_usec()
-		if ai_timer == 0.0 or rng.randf() < 0.2: _tick_alliances()
+		# the alliance-expiry card (UI only): a few times a second, never from the sim's rng
+		if ai_timer == 0.0 or Engine.get_process_frames() % 5 == 0: _tick_alliances()
 		_pf_add("alliances", Time.get_ticks_usec() - _q1)
-		var b0 := Time.get_ticks_usec()
-		_tick_boats(tdt)
-		prof.boat += Time.get_ticks_usec() - b0
-		_pf_add("boats", Time.get_ticks_usec() - b0)
 		ai_timer += dt
 		# RoWorld win: Sim.luau:1699  tiles >= WIN_SHARE * (contestable_count - fallout_count)
 		var _q2 := Time.get_ticks_usec()

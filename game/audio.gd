@@ -221,9 +221,9 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	if p == null:  # steal the oldest-started voice
 		p = sfx_pool[0]; sfx_pool.remove_at(0); sfx_pool.append(p)
 	var arr: Array = sfx_streams[key]
-	p.stream = arr[rng.randi() % arr.size()]
+	p.stream = arr[fx_rng.randi() % arr.size()]
 	p.volume_db = vol_db
-	p.pitch_scale = 1.0 + rng.randf_range(-pitch_jitter, pitch_jitter)
+	p.pitch_scale = 1.0 + fx_rng.randf_range(-pitch_jitter, pitch_jitter)
 	p.play()
 
 func _play_music() -> void:
@@ -1074,18 +1074,7 @@ func _pt_rearm() -> void:
 
 func _pt_ticks(n: int) -> void:
 	for _i in n:
-		_tick_attacks()
-		_ai(0.1)
-		sim_naval.tick()
-		ticks_done += 1
-		_economy(0.1)
-		sim_ars.tick()
-		sim_ws.tick()
-		_trains_tick()
-		_requests_tick()
-		_tick_missiles(SimArsenal.DT_TICK)
-		_tick_boats(0.1)
-		if net_host != null: net_host.on_tick()
+		_sim_tick_whole()  # main.gd: the same tick the frame loop runs
 
 func _pt_free_land_near(o: int, c: int, r: int) -> int:
 	var cx := c % W; var cy := c / W
@@ -1458,6 +1447,51 @@ func _portshot() -> void:
 	_shot("47_world_antarctica.png")
 	get_tree().quit()
 
+
+# ---------- one sim tick (Step A of docs/LUAU_PORT.md: tick-deterministic) ----------
+# A tick is _sim_tick_begin, the attack pass, the AI pass, then _sim_tick_end, in this order everywhere: the frame
+# loop above spreads the two passes over frames, sim_step / the tests / tests/perf_sim.gd run it whole. Nothing that
+# changes the match runs per frame or from real time any more: budgets are counts per tick, the match clock
+# (elapsed) moves 0.1 s per tick, transports and trade ships move 0.1 s per tick (the unit layer draws them
+# in between), and sounds / hover previews draw from fx_rng.
+func _sim_tick_begin() -> void:
+	elapsed += 0.1
+	_rail_bfs_left = 40
+	_rail_calc_left = 40
+	_rail_frame += 1
+	_rebuild_def_posts()
+	sim_atk.begin_tick()
+
+func _sim_tick_end() -> void:
+	var a0 := Time.get_ticks_usec()
+	if not OS.has_environment("NO_TRADE"): sim_naval.tick()
+	prof["naval"] = prof.get("naval", 0) + Time.get_ticks_usec() - a0
+	_pf_add("naval", Time.get_ticks_usec() - a0)
+	ticks_done += 1
+	_economy(0.1)
+	sim_ars.tick()
+	_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
+	_requests_tick()
+	sim_ws.tick()
+	_trains_tick()
+	_tick_trade(0.1)
+	a0 = Time.get_ticks_usec()
+	_tick_boats(0.1)
+	prof.boat += Time.get_ticks_usec() - a0
+	_pf_add("boats", Time.get_ticks_usec() - a0)
+	# donation cooldowns: same length as before (they ran on the visual clock, SPEED_BASE x game time)
+	donate_troop_cd = maxf(0.0, donate_troop_cd - 0.1 * SPEED_BASE)
+	donate_gold_cd = maxf(0.0, donate_gold_cd - 0.1 * SPEED_BASE)
+	if net_host != null: net_host.on_tick()
+
+## One whole tick, no slicing (sim_step, tests).
+func _sim_tick_whole() -> void:
+	_sim_tick_begin()
+	sim_atk.run_slice(-1)
+	_ai_place_budget = 24
+	sim_ai.begin_tick()
+	sim_ai.run_slice(0)
+	_sim_tick_end()
 
 # ================= headless Sim entry (sim/headless_sim.gd wraps these; tests/upstream live cases) =================
 # Starts a match without the menu: map_tab 0 real maps / 1 random / 2 RoWorld maps. `at` is the player's

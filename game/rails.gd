@@ -274,12 +274,23 @@ func _rail_neighbors(st) -> Array:
 	var ver := "%d|%d|%d|%d" % [st.o, _own_sv.get(st.o, 0), allies.size(), embargoes.size()]
 	var ce = _rail_nb_cache.get(st.tile)
 	if ce != null and ce[0] == ver and elapsed - float(ce[1]) < 6.0: return ce[2]
-	if _rail_calc_left <= 0 and ce != null: return ce[2]  # over this frame's budget: reuse the stale list
+	if _rail_calc_left <= 0 and ce != null: return ce[2]  # over this tick's budget: reuse the stale list
 	_rail_calc_left -= 1
 	_rail_pending = false
 	var r := _rail_neighbors_calc(st)
 	if not _rail_pending: _rail_nb_cache[st.tile] = [ver, elapsed, r]
 	return r
+
+# The cached links of a station for drawing: never searches, so the picture can't change what the sim
+# builds or when (the tick fills the cache: _trains_tick warms every station each second).
+func _rail_neighbors_view(st) -> Array:
+	if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: return []
+	var ce = _rail_nb_cache.get(st.tile)
+	return ce[2] if ce != null else []
+
+func _rail_warm() -> void:
+	for st in structs:
+		if st.k in RAIL_KINDS and st.get("bt", 0.0) <= 0.0: _rail_neighbors(st)
 
 func _factories_covering(o: int, p: Vector2) -> Array:
 	var out := []
@@ -435,6 +446,7 @@ func _train_done(tr) -> void:
 
 func _trains_tick() -> void:
 	var tick := sim_atk.tick
+	if tick % 10 == 0: _rail_warm()
 	var units_w := trains.size() * SimRules.TRAIN_UNITS
 	var fac_lv := {}
 	for st in structs:

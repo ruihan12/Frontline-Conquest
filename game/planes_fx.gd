@@ -98,7 +98,7 @@ func _draw_world_fx(z: float) -> void:
 			_rail_edges_cache = []
 			for st in structs:
 				if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
-				for c in _rail_neighbors(st):
+				for c in _rail_neighbors_view(st):
 					var rk := (mini(st.tile, c.tile) << 22) | maxi(st.tile, c.tile)
 					if seen.has(rk): continue
 					seen[rk] = true
@@ -109,7 +109,7 @@ func _draw_world_fx(z: float) -> void:
 		for st in structs:
 			if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: continue
 			if not vr.has_point(_screen_of(Vector2(st.tile % W + 0.5, st.tile / W + 0.5) * TS)): continue
-			for c in _rail_neighbors(st):
+			for c in _rail_neighbors_view(st):
 				var rkey := "%d:%d" % [mini(st.tile, c.tile), maxi(st.tile, c.tile)]
 				if drawn_rails.has(rkey): continue
 				drawn_rails[rkey] = true

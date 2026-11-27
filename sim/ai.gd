@@ -186,6 +186,8 @@ func run_slice(deadline_us: int) -> bool:
 		id += 1
 		var n = g.nations[cur]
 		if not n.alive or n.land <= 0 or not st.has(cur): continue
+		# people play their own nations: the AI never thinks for the local player or a remote human (Step A)
+		if cur == g.PLAYER or n.get("human", false): continue
 		var s: Dictionary = st[cur]
 		if g.kind_of(cur) == SimRules.KIND_TRIBE:
 			if t % s.attack_rate == s.attack_tick:

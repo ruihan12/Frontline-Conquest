@@ -116,7 +116,18 @@ const ViewerMotion := preload("res://client/map/viewer_motion.gd")
 
 
 func _draw_boat_pos(boat: Dictionary) -> Array:
-	if not g.net_remote or not boat.has("_draw_previous"):
+	if not g.net_remote:
+		# transports and trade ships move once per sim tick (tick-deterministic sim): draw them part way
+		# into the next tick's move so they glide instead of stepping 10 times a second
+		var cum: PackedFloat32Array = boat.cum
+		var step: float = 0.1 * g.sim_rules.ship_tiles_per_s() * g.boat_speed * g.TS
+		var vd := minf(float(boat.d) + g.sub_tick() * step, cum[cum.size() - 1])
+		if vd == float(boat.d):
+			return g._boat_pos(boat)
+		var lv := boat.duplicate(false)
+		lv.d = vd
+		return g._boat_pos(lv)
+	if not boat.has("_draw_previous"):
 		return g._boat_pos(boat)
 	var visual := boat.duplicate(false)
 	visual.d = ViewerMotion.sample(boat, "d")

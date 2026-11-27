@@ -11,7 +11,8 @@
 # - full-water cells are one region and are never flood-filled or stored per tile (cell_reg);
 # - region-pair edges are gathered as sorted int64 keys instead of a table of lists;
 # - region-path A* results and finished routes are cached; searches can be budgeted per sim tick
-#   (begin_tick / budget_us), urgent queries (player orders) ignore the budget;
+#   (begin_tick / budget_n, a count of searches so the sim stays tick-deterministic), urgent queries
+#   (player orders) ignore the budget;
 # - transports: nearest own coast found by a region BFS from the landing (nearest by sea, which keeps
 #   boat targeting local: the landing tile itself is still chosen by the caller), not a Euclidean scan;
 # - helpers return tile corners, pixel polylines (main.gd boats / trade ships) and a warship steering
@@ -87,9 +88,11 @@ var _route_cache := {}
 const REG_CACHE_MAX := 4096
 const ROUTE_CACHE_MAX := 2048
 
-# per-tick budget (microseconds of search time); begin_tick() resets it
-var budget_us := 3000
-var _spent_us := 0
+# per-tick budget: cold route searches (A* + stitch + smooth, or a transport route) a tick may start;
+# begin_tick() resets it. Counted, not timed, so two runs of the same match make the same choices
+# (was 3000 us of search time, which solved about 13-31 of 60 cold test queries).
+var budget_n := 12
+var _spent := 0
 
 # stats
 var build_ms := 0.0
@@ -512,10 +515,10 @@ func coast_body(t: int) -> int:
 # budget
 # ------------------------------------------------------------------------------------------------
 func begin_tick() -> void:
-	_spent_us = 0
+	_spent = 0
 
 func budget_left() -> bool:
-	return _spent_us < budget_us
+	return _spent < budget_n
 
 # ------------------------------------------------------------------------------------------------
 # paths
@@ -536,7 +539,7 @@ func find_route(src: int, dst: int, urgent := true) -> PackedInt32Array:
 		var straight := PackedInt32Array([src, dst])
 		_cache_route(key, straight)
 		return straight
-	if not urgent and _spent_us >= budget_us:
+	if not urgent and _spent >= budget_n:
 		deferred += 1
 		last_deferred = true
 		return PackedInt32Array()
@@ -552,7 +555,7 @@ func find_route(src: int, dst: int, urgent := true) -> PackedInt32Array:
 			if raw.size() > 0: out = _smooth(raw, b)
 			usec_smooth += Time.get_ticks_usec() - t2
 	var dt := Time.get_ticks_usec() - t0
-	_spent_us += dt; usec += dt; usec_max = maxi(usec_max, dt)
+	_spent += 1; usec += dt; usec_max = maxi(usec_max, dt)
 	if out.is_empty(): fails += 1
 	_cache_route(key, out)
 	return out
@@ -891,7 +894,7 @@ func boat_route(owner_map: PackedInt32Array, a: int, dest: int, max_tiles := 1 <
 		out = _boat_route_body(owner_map, a, wd, max_tiles)
 		if not out.is_empty(): break
 	var dt := Time.get_ticks_usec() - t0
-	usec += dt; usec_max = maxi(usec_max, dt); _spent_us += dt
+	usec += dt; usec_max = maxi(usec_max, dt); _spent += 1
 	if out.is_empty(): fails += 1
 	return out
 

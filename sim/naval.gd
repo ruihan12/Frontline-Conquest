@@ -76,17 +76,15 @@ func water_next_to(t: int) -> int:
 		if j >= 0 and j < body.size() and body[j] > 0: return j
 	return -1
 
-var defer_paths := false
 func tick() -> void:
 	var t: int = g.sim_atk.tick
-	if g.sim_nav != null: g.sim_nav.begin_tick()  # SimNav per-tick search budget (budget_us)
+	if g.sim_nav != null: g.sim_nav.begin_tick()  # SimNav per-tick search budget (budget_n searches)
 	if t % 10 == 0:
 		tokens.clear()
-	# trade-route searches: SimNav A* is cheap and time-budgeted per tick (budget_us), so up to 2 per tick;
-	# the old BFS fallback (no nav graph) keeps 1 per 4 ticks. None in a frame already past half its sim
-	# budget (main sets defer_paths).
+	# trade-route searches: 2 per tick (upstream Sim.step path_budget = 2); the old BFS fallback (no nav
+	# graph) keeps 1 per 4 ticks. Counted per tick only (no frame-time deferral), so runs are repeatable.
 	var nav_ok: bool = g.sim_nav != null and g.sim_nav.ready
-	path_budget = 0 if defer_paths else (2 if nav_ok else (1 if t % 4 == 0 else 0))
+	path_budget = 2 if nav_ok else (1 if t % 4 == 0 else 0)
 	_ports_tick(t)
 
 func take_token(id: int) -> bool:

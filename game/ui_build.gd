@@ -923,7 +923,7 @@ func _update_tooltip() -> void:
 		var hit := {}
 		var cx := t % W; var cy := t / W
 		for k in 200:
-			var pp := Vector2(cx, cy) + Vector2.from_angle(rng.randf() * TAU) * rng.randf() * r
+			var pp := Vector2(cx, cy) + Vector2.from_angle(fx_rng.randf() * TAU) * fx_rng.randf() * r
 			var xx := int(pp.x); var yy := int(pp.y)
 			if xx >= 0 and yy >= 0 and xx < W and yy < H and owner_map[yy * W + xx] > 0: hit[owner_map[yy * W + xx]] = true
 		var sam_risk := false
