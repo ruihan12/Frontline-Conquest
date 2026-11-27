@@ -1,23 +1,33 @@
 class_name LuauLink
 extends RefCounted
-## Keeps Luau's tile layer (luau/sim/Core/SimState.luau) equal to the GDScript one while the sim is half ported
-## (docs/LUAU_PORT.md, Step 4). The match's GDScript side records every owner / fallout change it makes
-## (map.gd _set_owner and sim/arsenal.gd nuke_blast append (tile, value) pairs to luau_dirty / luau_fdirty).
-## flush() sends them to Luau, pull() writes back what Luau modules changed. A Luau module call is wrapped in
-## flush() before and pull() after (so writes of both sides land in the order they happened), and sync() =
-## flush + pull runs at the end of each tick, so at every tick boundary both copies hold the same tiles.
-## A new map (sim_epoch) starts Luau from full copies.
-## Without the extension the link stays off and the sim runs as before.
+## Keeps Luau's world state (luau/sim/Core/SimState.luau) equal to the GDScript one while the sim is half ported
+## (docs/LUAU_PORT.md, Steps 4 and 5), and runs the Luau sim modules' calls.
+## The match's GDScript side records every owner / fallout change it makes (map.gd _set_owner and
+## sim/arsenal.gd nuke_blast append (tile, value) pairs to luau_dirty / luau_fdirty). flush() sends them to Luau,
+## which replays them through its own set_owner (land counts, bounding boxes, border sets follow, in order).
+## apply() writes back what a Luau call did, in the order it did it: owner changes through the game's own
+## _set_owner (borders, land / pop / bounding box, structure capture, net replication and the fallout clear all
+## follow, and the border dicts end in the order Luau's lists have), fallout like nuke_blast sets it, events
+## (viewer events, attacked_tick / grudges, conquests), then the troops of every nation the call changed.
+## lcall() = flush -> the Luau function -> apply, so writes of both sides land in the order they happened.
+## sync() = flush + pull runs at the end of each tick, so at every tick boundary both copies hold the same state.
+## A new map (sim_epoch) starts Luau from full copies. Without the extension the link stays off and the sim runs
+## in GDScript as before.
 
 const STATE := "Core/SimState"
+const MODULES := ["Core/SimState", "Core/SimAttacks"]
+const EV_VIEWER_ATTACK := 1
+const EV_HOSTILE := 2
+const EV_CONQUEST := 3
 
 var vm: LuauVM = null
 var on := false
 var epoch := -1
 var error := ""
-## out pairs applied last sync (tests)
+## ops applied by the last apply (tests)
 var applied_owner := 0
 var applied_fall := 0
+var applied_ev := 0
 
 
 func _init() -> void:
@@ -25,10 +35,15 @@ func _init() -> void:
 		error = "Luau extension not loaded"
 		return
 	vm = LuauVM.new()
-	if not vm.boot() or not vm.require_module(STATE):
+	if not vm.boot():
 		error = vm.last_error
 		vm = null
 		return
+	for m in MODULES:
+		if not vm.require_module(m):
+			error = vm.last_error
+			vm = null
+			return
 	on = true
 
 
@@ -37,14 +52,14 @@ func sync(g) -> void:
 	if flush(g): pull(g)
 
 
-## GDScript's changes since the last flush -> Luau. False when the link is off (or just started).
+## GDScript's changes since the last flush -> Luau (a new map: full copies first). False when the link is off.
 func flush(g) -> bool:
 	if not on: return false
 	if epoch != g.sim_epoch or not g.luau_rec:
 		_begin(g)
-		return false
+		return on
 	if g.luau_dirty.is_empty() and g.luau_fdirty.is_empty(): return true
-	var ok: Variant = vm.call_fn(STATE, "push", [g.luau_dirty.to_byte_array(), g.luau_fdirty.to_byte_array()])
+	var ok: Variant = vm.call_fn(STATE, "push", [g.luau_dirty.to_byte_array(), g.luau_fdirty.to_byte_array(), g.nations.size()])
 	g.luau_dirty.clear()
 	g.luau_fdirty.clear()
 	if ok == null:
@@ -53,42 +68,127 @@ func flush(g) -> bool:
 	return true
 
 
-## Luau modules' changes since the last pull -> GDScript: owners through the game's _set_owner (borders, land
-## counts, structures, net replication and fallout clearing follow), fallout through the fields nuke_blast sets.
-## Owner recording is off meanwhile (Luau has those values); a fallout clear _set_owner makes is recorded and
-## goes to Luau with the next flush, before any Luau module runs again.
+## Luau modules' changes since the last take -> GDScript.
 func pull(g) -> void:
 	if not on: return
 	var out: Variant = vm.call_fn(STATE, "take", [])
 	if out == null:
 		_fail(g, vm.last_error)
 		return
-	var ob: PackedByteArray = out.owner
-	var fb: PackedByteArray = out.fallout
-	applied_owner = ob.size() / 8
-	applied_fall = fb.size() / 8
-	if ob.is_empty() and fb.is_empty(): return
-	g.luau_rec = false
-	var oi := ob.to_int32_array()
-	for k in range(0, oi.size(), 2):
-		g._set_owner(oi[k], oi[k + 1])
-	g.luau_rec = true
-	var fi := fb.to_int32_array()
-	for k in range(0, fi.size(), 2):
-		var t: int = fi[k]
-		var v: int = fi[k + 1]
-		g.fallout[t] = v
-		if v == 1: g.fallout_list[t] = true
-		else: g.fallout_list.erase(t)
+	apply(g, out)
+
+
+## flush -> module.fn(args) -> apply. Returns the call's result table (a Dictionary), null when the link failed.
+func lcall(g, module: String, fn: String, args: Array) -> Variant:
+	if not flush(g): return null
+	var out: Variant = vm.call_fn(module, fn, args)
+	if out == null:
+		_fail(g, vm.last_error)
+		return null
+	apply(g, out)
+	return out
+
+
+## A Luau call's result -> GDScript, in stream order (see SimState.take). Owner recording is off meanwhile (Luau
+## has those values); a fallout clear _set_owner makes is recorded and goes to Luau with the next flush.
+func apply(g, out: Dictionary) -> void:
+	var oi: PackedInt32Array = (out.ops as PackedByteArray).to_int32_array()
+	var ev: PackedFloat64Array = (out.evs as PackedByteArray).to_float64_array()
+	applied_owner = 0
+	applied_fall = 0
+	applied_ev = 0
+	if not oi.is_empty():
+		g.luau_rec = false
+		for k in range(0, oi.size(), 2):
+			var i: int = oi[k]
+			var v: int = oi[k + 1]
+			if i >= 0:
+				g._set_owner(i, v)
+				applied_owner += 1
+			elif i == -1:
+				_event(g, ev, v * 5)
+				applied_ev += 1
+			else:
+				var t: int = -2 - i
+				g.fallout[t] = v
+				if v == 1: g.fallout_list[t] = true
+				else: g.fallout_list.erase(t)
+				applied_fall += 1
+		g.luau_rec = true
+	var tr: PackedFloat64Array = (out.troops as PackedByteArray).to_float64_array()
+	if not tr.is_empty():
+		var nats: Array = g.nations
+		for k in range(0, tr.size(), 2):
+			nats[int(tr[k])].troops = tr[k + 1]
+	if out.has("rhi"):
+		var hi: int = int(out.rhi)
+		if hi >= 0x80000000: hi -= 0x100000000
+		g.rng.state = hi * 0x100000000 + int(out.rlo)
+	if out.has("pf_atk") and int(out.pf_atk) > 0:
+		g._pf_add("tiles", float(out.pf_tiles)); g._pf_add("atk_n", float(out.pf_atk))
+
+
+func _event(g, ev: PackedFloat64Array, k: int) -> void:
+	var kind := int(ev[k])
+	var a := int(ev[k + 1])
+	var b := int(ev[k + 2])
+	match kind:
+		EV_VIEWER_ATTACK:
+			g._viewer_event({"type": "attack", "actor": a, "target": b}, [b])
+		EV_HOSTILE:
+			var n: Dictionary = g.nations[a]
+			n["attacked_tick"] = int(ev[k + 3])
+			var gk: String = "grudge_" + str(b)
+			n[gk] = maxi(int(n.get(gk, 0)), int(ev[k + 4]))  # add_grudge keeps the later expiry
+		EV_CONQUEST:
+			var taken: float = ev[k + 3]
+			var nv: Dictionary = g.nations[a]
+			g.nations[b].gold += taken
+			nv.gold = 0.0
+			if g.has_method("_on_conquest"): g._on_conquest(a, b, taken)  # (the view: a victory flag)
+			nv["last_by"] = b
+			nv["killer"] = b
+
+
+## The rng state of the sim (shared by the attack pass and the AI) as two uint32 halves for Luau.
+static func rng_args(g) -> Array:
+	var s: int = g.rng.state
+	return [(s >> 32) & 0xFFFFFFFF, s & 0xFFFFFFFF]
 
 
 func _begin(g) -> void:
 	g.luau_dirty.clear()
 	g.luau_fdirty.clear()
-	var ok: Variant = vm.call_fn(STATE, "begin", [g.W, g.H, g.owner_map.to_byte_array(), g.fallout])
+	var nats: Array = g.nations
+	var nn := nats.size()
+	var land := PackedInt32Array(); land.resize(nn)
+	var bb := PackedInt32Array(); bb.resize(nn * 4)
+	var lb := PackedInt32Array(); lb.resize(nn)
+	var borders := PackedInt32Array()
+	var bd: Array = g.border
+	for id in nn:
+		var n: Dictionary = nats[id]
+		land[id] = int(n.get("land", 0))
+		var r: Rect2i = n.get("bb", Rect2i())
+		bb[id * 4] = r.position.x; bb[id * 4 + 1] = r.position.y; bb[id * 4 + 2] = r.size.x; bb[id * 4 + 3] = r.size.y
+		lb[id] = int(n.get("last_by", 0))
+		if id < bd.size():
+			var keys := PackedInt32Array(bd[id].keys())
+			borders.append(keys.size())
+			borders.append_array(keys)
+		else:
+			borders.append(0)
+	var mt: PackedByteArray = g.mtn if g.mtn.size() == g.W * g.H else PackedByteArray()
+	var ok: Variant = vm.call_fn(STATE, "begin", [g.W, g.H, g.owner_map.to_byte_array(), g.fallout, mt,
+		nn, land.to_byte_array(), bb.to_byte_array(), lb.to_byte_array(), borders.to_byte_array()])
 	if ok == null:
 		_fail(g, vm.last_error)
 		return
+	ok = vm.call_fn("Core/SimAttacks", "reset", [])
+	if ok == null:
+		_fail(g, vm.last_error)
+		return
+	if g.get("sim_atk") != null: g.sim_atk.luau_reset()
 	epoch = g.sim_epoch
 	g.luau_rec = true
 	g.luau_frec = true

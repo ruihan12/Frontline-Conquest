@@ -249,8 +249,7 @@ func strike(m: Dictionary) -> void:
 		n.troops = troops - kill
 		stats.killed += int(kill)
 		if nk != SimRules.N_SHELL:
-			for a in g.attacks:
-				if a.a == o: a.troops *= keep
+			g.sim_atk.scale_owner(o, keep)
 			for bt in g.boats:
 				if bt.a == o: bt.troops *= keep
 			n["grudge_" + str(shooter)] = now() + SimRules.HOSTILE_TICKS
@@ -354,8 +353,7 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 	if nk != SimRules.N_WARHEAD:
 		var f := pow(maxf(0.0, tiles_before - n_lost) / maxf(tiles_before, 1), 5.0)
 		n.troops = float(n.troops) * f
-		for a in g.attacks:
-			if a.a == o: a.troops *= f
+		g.sim_atk.scale_owner(o, f)
 		for bt in g.boats:
 			if bt.a == o: bt.troops *= f
 		return
@@ -366,14 +364,14 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 		if d <= 0.0: break
 		tr -= d
 	n.troops = tr
-	for a in g.attacks:
+	for a in g.attacks.duplicate():
 		if a.a != o: continue
 		var at: float = a.troops
 		for _i in n_lost:
 			var d2 := minf(k * SimRules.warhead_death(at, cap, R.ts), maxf(0.0, at - 0.03 * cap))
 			if d2 <= 0.0: break
 			at -= d2
-		a.troops = at
+		g.sim_atk.set_troops(a, at)
 	for bt in g.boats:
 		if bt.a != o: continue
 		var bt_t: float = bt.troops

@@ -201,6 +201,38 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 test_luau_state 12/12; perf AVG 13.53 ms/tick (Step 3 12.58, Step 2 13.52: the link's cost is inside this
 machine's ~1 ms run-to-run spread).
 
+### Step 5a: Attacks in Luau (Core/SimAttacks.luau)
+
+What changed:
+- `luau/sim/Core/SimAttacks.luau`: sim/attacks.gd transliterated (attack list, per-attack front heaps, the conquest
+  budget loop, merges, annexation, retreats). Same draw order on the shared sim rng: the rng state goes in as two
+  uint32 halves with every call and comes back with the result.
+- `luau/sim/Core/SimState.luau`: now also owns per-nation land, bounding box, last_by and the border sets (global
+  per-tile linked lists, so a nation's border iterates in the same insertion order as GDScript's border Dictionary).
+  One set_owner core (map.gd `_set_owner` + `_upd_border_fast`, same neighbour order) runs both for GDScript's
+  recorded changes and Luau's own. Per call it is pushed only what the attack code reads: per nation troops, gold,
+  alive, kind (team / left in team games), the ally keys, traitors, finished defense posts, fallout_count, land_total.
+  Results stream back in order as i32 pairs: owner changes, fallout writes, and events (viewer attack notice,
+  hostile = attacked_tick + grudge, conquest = gold hand-over + `_on_conquest` + last_by / killer), then the final
+  troops of every nation the call touched.
+- `sim/attacks.gd` is the GDScript face: start / end_attack / retreat / begin_tick / run_slice call Luau through
+  `luau_link.lcall` (flush -> call -> apply). g.attacks holds one mirror Dictionary per attack (aid, a, t, troops,
+  pend, retreat_at, frozen_from, started, counter, last, sent, tgt, plus the view's disp / shown / vel), updated in
+  place so references held by the AI, HUD and net/rep.gd stay live. attack_between / troops_in_attacks /
+  count_attacks_by read the mirror. New `scale_owner` / `set_troops` for the arsenal's troop cuts
+  (sim/arsenal.gd: strike kills, nuke troop loss, warhead loss). The time slice is kept: GDScript passes the
+  remaining microseconds and Luau checks os.clock every 8 attacks.
+- The GDScript attack code is still there and runs when the extension is missing, on a remote viewer, or with the
+  env var NO_LUAU_SIM set (A/B runs). It goes in Step 6.
+- tests/test_luau_attacks.gd (12 checks): land / bb / last_by / border order equal to GDScript every 100 ticks over
+  600 ticks; g.attacks mirrors Luau's list; no border-set anomalies; start, retreat, end_attack (troops back),
+  scale_owner, set_troops through Luau; still equal on the next tick.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced, and the same with NO_LUAU_SIM=1; test list unchanged plus test_luau_attacks 12/12 (lobby_ui 3 and
+account_ui 55 as before); perf AVG 11.11 / 10.93 ms/tick over two runs (Step 4 13.53). The attack pass in the
+first minute went 19.72 -> 12.75 ms/tick even with the Luau rng about 12x slower per draw than the native one.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -211,10 +243,13 @@ machine's ~1 ms run-to-run spread).
 | 1 | a43b116 | 467/0/5 | 3480782660 | 13.22 | same + luau_bridge 10/10 |
 | 2 | 9b35211 | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
 | 3 | 0c719e1 | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
-| 4 | see git log | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
+| 4 | d85a762 | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
+| 5a | see git log | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
 
 ## Customs touched per step
 
+- Step 5a: none of the listed customs live in the attack code (troops /10 and the 80% win stay where they were). The
+  arsenal now cuts attack troops through scale_owner / set_troops; values unchanged (hash).
 - Step 4: none (recording only; the hash is unchanged).
 - Step 3: none in the game (the numbers are copied). Not in SimRules: the 0.9x nuke speed (game/nukes.gd
   NUKE_SPEED_X, moves with Nukes) and the Arsenal Star prices (game/shop.gd, the shop, stays GDScript).

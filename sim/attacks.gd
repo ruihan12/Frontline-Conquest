@@ -1,6 +1,13 @@
 # Port of RoWorld src/shared/Core/SimAttacks.luau (attackLogic, conquest queue, annexation).
 # One attack per (attacker, target) pair; each tick it spends a budget of 1.0 "tick fractions"
 # taking queued front tiles in priority order. Costs are per full-size tile (k_area per our tile).
+#
+# Step 5 of docs/LUAU_PORT.md: with the Luau extension loaded the attacks run in Luau
+# (luau/sim/Core/SimAttacks.luau, the same code transliterated) and this class is the GDScript face of it:
+# start / end_attack / retreat / begin_tick / run_slice call Luau through g.luau_link (flush -> call -> apply),
+# and g.attacks holds one mirror Dictionary per attack (the fields the AI, the HUD, net/rep.gd and the tests
+# read), updated in place from what each call returns. attack_between / troops_in_attacks / count_attacks_by
+# read the mirror. Without the extension (or with NO_LUAU_SIM set) the GDScript code below runs as before.
 extends RefCounted
 class_name SimAttacks
 
@@ -9,17 +16,128 @@ var R: SimRules
 var tick := 0
 var next_aid := 1
 var merges := []
+const LMOD := "Core/SimAttacks"
+const REC := 15  # f64 per attack record (SimAttacks.luau M.REC)
+const RULE_FIELDS := ["k_lin", "k_area", "legacy_lin", "spawn_radius", "tribe_spawn_min_dist", "nation_spawn_delta",
+	"max_tiles_per_tick", "defense_range", "struct_min_dist", "log_mid", "ts", "tile_norm", "growth_mult",
+	"attack_speed_mult", "gold_mult", "ai_rate_mult", "pop_cap_mode", "pop_k"]
+var lu: LuauLink = null  # Luau owns the attacks while this is on
+var _mir := {}  # attack id -> its mirror Dictionary in g.attacks
 
 func _init(main, rules: SimRules) -> void:
 	g = main
 	R = rules
 	_rng = main.rng
 	assert(R.PRIORITY_BASE == 10 and R.PRIORITY_RAND == 7)  # (inlined in _add_neighbors_fast)
+	if not OS.has_environment("NO_LUAU_SIM") and "luau_link" in main:
+		if main.luau_link == null: main.luau_link = LuauLink.new()
+		lu = main.luau_link
+		if lu.on and lu.vm.call_fn(LMOD, "reset", []) == null: lu._fail(main, lu.vm.last_error)
 
 func reset() -> void:
 	tick = 0
 	next_aid = 1
 	merges.clear()
+	if _L():
+		lu.vm.call_fn(LMOD, "reset", [])
+		_mir.clear()
+
+## Luau runs the attacks (not on a remote viewer: there the host's list arrives through net/rep.gd)
+func _L() -> bool:
+	return lu != null and lu.on and not g.net_remote
+
+## A new Luau world (sim/luau_link.gd _begin): Luau's attack list restarts empty, so does the mirror.
+func luau_reset() -> void:
+	if _mir.is_empty(): return
+	for aid in _mir: g.attacks.erase(_mir[aid])
+	_mir.clear()
+
+# (id, troops, alive) of the nations a call may touch (SimState.nat_some)
+func _nat(ids: Array) -> PackedByteArray:
+	var out := PackedFloat64Array()
+	for id in ids:
+		var n: Dictionary = g.nations[id]
+		out.append(id); out.append(float(n.troops)); out.append(1.0 if n.alive else 0.0)
+	return out.to_byte_array()
+
+# what a whole attack pass reads (SimState.nat_all)
+func _world() -> Array:
+	var nats: Array = g.nations
+	var nn := nats.size()
+	var tr := PackedFloat64Array(); tr.resize(nn)
+	var gl := PackedFloat64Array(); gl.resize(nn)
+	var al := PackedByteArray(); al.resize(nn)
+	for id in range(1, nn):
+		var d: Dictionary = nats[id]
+		tr[id] = d.troops; gl[id] = d.gold; al[id] = 1 if d.alive else 0
+	var kc: PackedInt32Array = g._kind_cache
+	if kc.size() != nn:
+		kc = PackedInt32Array(); kc.resize(nn)
+		for id in nn: kc[id] = g.kind_of(id)
+	var tm := PackedInt32Array()
+	var lf := PackedByteArray()
+	if g.team_mode:
+		tm.resize(nn); lf.resize(nn)
+		for id in range(1, nn):
+			var d: Dictionary = nats[id]
+			tm[id] = int(d.get("team", 0)); lf[id] = 1 if d.get("left", false) else 0
+	var trt := PackedInt32Array()
+	for id in g.traitor:
+		trt.append(int(id)); trt.append(int(g.traitor[id]))
+	var defs := PackedInt32Array()
+	for o in g.def_posts:
+		var arr: PackedInt32Array = g.def_posts[o]
+		defs.append(int(o)); defs.append(arr.size()); defs.append_array(arr)
+	return [nn, tr.to_byte_array(), gl.to_byte_array(), al, kc.to_byte_array(), bool(g.team_mode),
+		tm.to_byte_array(), lf, PackedInt32Array(g.allies.keys()).to_byte_array(), trt.to_byte_array(),
+		defs.to_byte_array(), int(g.fallout_count), int(g.land_total)]
+
+# a Luau call's attack records -> the mirror Dictionaries (in place, so references held elsewhere stay live)
+func _mirror(out) -> void:
+	if out == null: return
+	var recs: PackedFloat64Array = (out.atk as PackedByteArray).to_float64_array()
+	for k in range(0, recs.size(), REC):
+		var aid := int(recs[k])
+		var d = _mir.get(aid)
+		var troops: float = recs[k + 3]
+		var tgt := Vector2(recs[k + 12], recs[k + 13])
+		if d == null:
+			d = {"a": int(recs[k + 1]), "t": int(recs[k + 2]), "troops": troops, "hk": PackedInt64Array(), "ht": PackedInt32Array(),
+				"front": {}, "head": -1, "chew": 0.0, "aid": aid, "retreat_at": 0, "frozen_from": 0,
+				"started": int(recs[k + 8]), "counter": recs[k + 9] != 0.0, "last": -1, "sent": 0, "shown": troops,
+				"vel": Vector2.ZERO, "pend": 0.0, "tgt": tgt, "disp": tgt}
+			_mir[aid] = d
+		d.troops = troops
+		d.pend = recs[k + 4]
+		d.retreat_at = int(recs[k + 6])
+		d.frozen_from = int(recs[k + 7])
+		d.last = int(recs[k + 10])
+		d.sent = int(recs[k + 11])
+		d.tgt = tgt
+		if recs[k + 5] != 0.0:
+			d.dead = true
+			_mir.erase(aid)
+	if out.has("order"):
+		var ids: PackedInt32Array = (out.order as PackedByteArray).to_int32_array()
+		g.attacks.clear()
+		for aid in ids: g.attacks.append(_mir[aid])
+
+func _lcall(fn: String, args: Array):
+	var out = lu.lcall(g, LMOD, fn, LuauLink.rng_args(g) + args)
+	_mirror(out)
+	return out
+
+## arsenal: an owner's running attacks lose a share of their troops
+func scale_owner(o: int, f: float) -> void:
+	if _L():
+		_lcall("scale_owner", [o, f]); return
+	for a in g.attacks:
+		if a.a == o: a.troops *= f
+
+func set_troops(a: Dictionary, v: float) -> void:
+	if _L():
+		_lcall("set_troops", [int(a.aid), v]); return
+	a.troops = v
 
 # ---------------- queue (binary min-heap on key) ----------------
 # (perf) keys/tiles live in PackedInt64Array/PackedInt32Array (shared by reference, so the locals below
@@ -164,6 +282,11 @@ func count_attacks_by(id: int, players_only: bool) -> int:
 
 # start_attack: troops already removed from the attacker by the caller.
 func start(at: int, tg: int, troops: float, beachhead := -1):
+	if _L():
+		var out = _lcall("start", [_nat([at] if tg <= 0 or tg == at else [at, tg]), at, tg, troops, beachhead])
+		if out == null: return null
+		var aid := int(out.ret)
+		return _mir.get(aid) if aid >= 0 else null
 	var n = g.nations[at]
 	if troops < 1.0:
 		n.troops += troops
@@ -221,6 +344,8 @@ func start(at: int, tg: int, troops: float, beachhead := -1):
 
 func end_attack(a: Dictionary, give_back: bool, keep := 1.0) -> void:
 	if a.get("dead", false): return
+	if _L():
+		_lcall("end_attack", [_nat([int(a.a)]), int(a.aid), give_back, keep]); return
 	a.dead = true
 	if give_back and g.nations[a.a].alive:
 		g.nations[a.a].troops += floorf(maxf(a.troops, 0.0) * keep)  # floored to whole troops (source)
@@ -233,6 +358,8 @@ func end_attack(a: Dictionary, give_back: bool, keep := 1.0) -> void:
 # Retreat order: the attack freezes and the troops come home RETREAT_DELAY_TICKS later (-25 % vs players).
 func retreat(a: Dictionary) -> void:
 	if a.retreat_at > 0: return
+	if _L():
+		_lcall("retreat", [int(a.aid)]); return
 	# source: advances on this tick and the next, frozen after that, home RETREAT_DELAY_TICKS after the order
 	a.retreat_at = tick + R.RETREAT_DELAY_TICKS + 1
 	a.frozen_from = tick + 2
@@ -249,6 +376,15 @@ var _pass_i := 0
 var pass_open := false
 func begin_tick() -> void:
 	tick += 1
+	if _L():
+		pass_open = false
+		if not lu.flush(g): return
+		var f := PackedFloat64Array()
+		for k in RULE_FIELDS: f.append(float(R.get(k)))
+		if lu.vm.call_fn(LMOD, "begin_tick", [tick, f.to_byte_array(), R.priority_f4.to_byte_array(), float(g.TS)]) == null:
+			lu._fail(g, lu.vm.last_error); return
+		pass_open = true
+		return
 	_pass = g.attacks.duplicate()
 	_pass_i = 0
 	pass_open = true
@@ -256,6 +392,13 @@ func begin_tick() -> void:
 
 func run_slice(deadline: int) -> bool:
 	if not pass_open: return true
+	if _L():
+		var budget := -1 if deadline < 0 else maxi(0, deadline - Time.get_ticks_usec())
+		var out = _lcall("run_slice", _world() + [budget])
+		if out == null or bool(out.ret):
+			pass_open = false
+			return true
+		return false
 	var n := _pass.size()
 	while _pass_i < n:
 		var a: Dictionary = _pass[_pass_i]
