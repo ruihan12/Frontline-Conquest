@@ -652,6 +652,39 @@ No game code changed.
 
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.22 / 13.28.
 
+### Web release fix: release builds of the Luau library, and the web fallback
+
+Ruihan's headless Chromium run of 7c87e52 (Nov 27 2026): the release web export aborted at start
+("Aborted(native code called abort())", stuck at LOADING 100%), the debug export ran, and with libgdluau.wasm
+missing the page hung on load.
+- Cause: the library was built only against godot-cpp template_debug. godot-cpp's debug allocator leaves the
+  padding to the engine, which a debug engine adds and a release engine does not. At load, LuaState still bound
+  `to_string`, a method this luau-gdextension revision no longer defines, so the bind landed on Object, failed
+  ("Class 'Object' doesn't exist", the one-off error every log showed) and freed the bind. In a release engine
+  that free is on a pointer the allocator never returned. The same crash on Linux: the official 4.5.1
+  linux_release.x86_64 template with the old library aborted at once with "free(): invalid pointer" inside
+  LuaState::_bind_methods; linux_debug.x86_64 ran. Godot 4.5.1's web release templates are linked with emscripten
+  ASSERTIONS=1 (platform/web/detect.py), whose checked malloc turns that bad free into the abort; the debug
+  templates are not, so they ran on.
+- Not the cause: emscripten versions. Godot 4.5.1's web templates are built with 4.0.11 (its web_builds.yml), the
+  same as the library. Every import of the library is exported by both templates.
+- Fix: tools/luau_ext/build.sh builds each library twice, template_debug (the files as before: the editor binary,
+  the VM server's editor binary and debug exports) and template_release (`libgdluau.release.wasm`,
+  `libgdluau.linux.release.x86_64.so`, `libgdluau.linux.release.arm64.so`), and drops the stale `to_string` bind.
+  luau/ext/gdluau.gdextension picks them by the debug / release feature tag. The Linux release template now runs
+  with "Luau sim: on" (title screen and a server match start); the "Class 'Object'" error is gone.
+- Web fallback (release/loading_shell.html): the page starts the engine without the Luau library, so the GDScript
+  sim runs, when the address has `?luau=0`, when the library file is not on the server (checked with a HEAD request
+  first, since Godot stops the load on a missing library), or when the last start in this tab aborted with the
+  library loaded (the page records it in sessionStorage and reloads once without it). The console says which
+  ("Luau library not loaded (...)") and the game prints "Luau sim: off, GDScript fallback (Luau extension not
+  loaded)". Checked here with a stubbed Engine in node; a real browser still has to confirm that Godot runs on
+  when the library is left out.
+- Results: parity 467/0/5, hash 3480782660 (whole and sliced), perf 13.32 / 12.07 ms/tick, all tests as before
+  (lobby_ui 3, account_ui 55 known).
+- Not checked here: a browser run (none available). The VM server runs the editor binary, so it keeps using the
+  debug library name it has.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -679,7 +712,8 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5g2 | a1b2c71 | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
 | 5d4 | d4b44e8 | 467/0/5 | 3480782660 | 12.94 / 13.28 (5g2 right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)) | same |
 | 6 (docs) | 7c87e52 | 467/0/5 | 3480782660 | 12.37 / 10.84 | same |
-| web log line | see git log | 467/0/5 | 3480782660 | 12.22 / 13.28 | same |
+| web log line | fb3ecd8 | 467/0/5 | 3480782660 | 12.22 / 13.28 | same |
+| web release fix | see git log | 467/0/5 | 3480782660 | 13.32 / 12.07 | same |
 
 ## Customs touched per step
 

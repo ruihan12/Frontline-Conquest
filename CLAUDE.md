@@ -11,7 +11,9 @@ rendering, UI, audio, input, networking, accounts, party. sim/*.gd are the facad
 and its GDScript body. The GDScript bodies stay as the fallback (owner, 2026-11-27): they run wherever the extension is
 not loaded (Windows / macOS editor and desktop builds: the .gdextension has Linux and web libraries only; a web build
 whose libgdluau.wasm fails to load) and with NO_LUAU_SIM=1. Remote viewers never tick the sim. Each module's Luau gate
-is marked `# FALLBACK` (grep it).
+is marked `# FALLBACK` (grep it). Every Luau library exists twice, debug and `.release` (godot-cpp template_debug /
+template_release; a debug one aborts in a release export): rebuild both with tools/luau_ext/build.sh. On the web the
+loading page (release/loading_shell.html) starts without the library on `?luau=0`, a missing file, or an abort.
 Last updated: 2026-11-27 (Luau sim, branch luau-sim).
 
 ## Direction
