@@ -318,6 +318,7 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
 			lost[ow] += 1
 			g._set_owner(tt, g.NEUTRAL)
 		g.fallout[tt] = 1; g.fallout_list[tt] = true
+		if g.luau_frec: g.luau_fdirty.append(tt); g.luau_fdirty.append(1)
 		g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
 		if g.fallout_glow != null: g.fallout_glow.on_fallout(tt)
 		fallout_n += 1

@@ -1482,6 +1482,11 @@ func _sim_tick_end() -> void:
 	# donation cooldowns: same length as before (they ran on the visual clock, SPEED_BASE x game time)
 	donate_troop_cd = maxf(0.0, donate_troop_cd - 0.1 * SPEED_BASE)
 	donate_gold_cd = maxf(0.0, donate_gold_cd - 0.1 * SPEED_BASE)
+	# Luau's tile layer catches up (Step 4); Luau modules' changes come back before the host replicates the tick
+	a0 = Time.get_ticks_usec()
+	if luau_link == null: luau_link = LuauLink.new()
+	luau_link.sync(self)
+	_pf_add("luau", Time.get_ticks_usec() - a0)
 	if net_host != null: net_host.on_tick()
 
 ## One whole tick, no slicing (sim_step, tests).

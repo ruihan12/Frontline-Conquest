@@ -56,6 +56,14 @@ const NAVY := Color(0.07, 0.09, 0.16, 0.94)
 const ORANGE := Color(0.95, 0.52, 0.12)
 
 var owner_map := PackedInt32Array()
+# Luau tile layer (docs/LUAU_PORT.md Step 4, sim/luau_link.gd): owner / fallout changes as (tile, value) pairs since
+# the last flush to Luau; sim_epoch counts maps (a new one restarts Luau's copy)
+var luau_link: LuauLink = null
+var luau_rec := false
+var luau_frec := false
+var luau_dirty := PackedInt32Array()
+var luau_fdirty := PackedInt32Array()
+var sim_epoch := 0
 var net_rec := false  # multiplayer host: record owner changes in net_dirty (net/rep.gd)
 var net_dirty := PackedInt32Array()
 var net_host = null  # MPHost while this process runs a multiplayer match (server or player host)

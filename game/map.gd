@@ -328,6 +328,7 @@ func gen_map() -> void:
 	n3.frequency = 0.04
 	n3.fractal_octaves = 3
 	owner_map.resize(W * H)
+	sim_epoch += 1
 	base_col.resize(W * H)
 	mtn.resize(W * H); mtn.fill(0)
 	fallout.resize(W * H); fallout.fill(0); fallout_list.clear()
@@ -903,6 +904,7 @@ func _set_owner(i: int, o: int) -> void:
 		if o > 0: nations[o].pop += tp
 	om[i] = o
 	if net_rec: net_dirty.append(i)
+	if luau_rec: luau_dirty.append(i); luau_dirty.append(o)
 	if old > 0 and o > 0: nations[old]["last_by"] = o
 	if not struct_at.is_empty() and struct_at.has(i):
 		var st = struct_at[i]
@@ -922,6 +924,7 @@ func _set_owner(i: int, o: int) -> void:
 			_struct_remove(st)
 	if o > 0 and fallout.size() > i and fallout[i] == 1:
 		fallout[i] = 0; fallout_list.erase(i)
+		if luau_frec: luau_fdirty.append(i); luau_fdirty.append(0)
 	if o > 0:
 		var n: Dictionary = nations[o]
 		n.land += 1

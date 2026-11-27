@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3).
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4).
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -172,6 +172,35 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 unchanged plus test_luau_bridge 10/10, test_luau_rng 27/27, test_luau_rules 8/8; perf AVG 12.58 ms/tick (the sim
 does not call Luau yet; run-to-run spread on this machine is about 1 ms).
 
+### Step 4: the tile layer in Luau (Core/SimState.luau) + the sync link
+
+What changed:
+- `luau/sim/Core/SimState.luau`: the match's tile layer as Luau buffers: `owner` (i32 per tile, -2 ice, -1 water,
+  0 neutral, > 0 nation) and `fallout` (u8 per tile). Luau modules read them with get_owner / get_fallout and write
+  with set_owner / set_fallout, which also record the change for GDScript.
+- `sim/luau_link.gd` (LuauLink, one per match process, created at the first tick): boots the Lua state and keeps the
+  two copies equal while the sim is half ported. GDScript records every change it makes as (tile, value) pairs
+  (`luau_dirty` in map.gd `_set_owner`, `luau_fdirty` at the two fallout writes: nuke_blast and the clear in
+  `_set_owner`). `flush()` sends them to Luau (C++ copies of PackedInt32Array, no per-tile GDScript work),
+  `pull()` applies what Luau modules wrote through the game's own `_set_owner` (so borders, land / pop / bounding box,
+  structure capture, net replication and the fallout clear all follow) and sets fallout like nuke_blast does.
+  A Luau module call is wrapped flush -> call -> pull, so writes of both sides land in the order they happen;
+  `sync()` = flush + pull runs at the end of every tick (game/audio.gd `_sim_tick_end`, before the host's
+  replication), so at every tick boundary the copies are equal. A new map (`sim_epoch`, bumped in gen_map) restarts
+  Luau from full copies. Without the extension the link stays off and the sim runs as before.
+- Pairs not a per-tile flag: two appends per owner change in `_set_owner` (which already does far more), and
+  coalescing would need a GDScript loop over the changed tiles at every flush.
+- Nothing in the sim reads Luau yet; the hash is the proof that recording changes nothing.
+- tests/test_luau_state.gd (12 checks): copies equal every 100 ticks over 600 ticks of a seeded World match; a nuke's
+  owner changes and fallout reach Luau; 300 ticks later still equal; a Luau owner write reaches owner_map through
+  `_set_owner` with land counts; a Luau fallout write reaches fallout / fallout_list; owning a fallout tile from Luau
+  clears it in GDScript and the clear reaches Luau with the next flush; a new map restarts the copy.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged plus test_luau_bridge 10/10, test_luau_rng 27/27, test_luau_rules 8/8,
+test_luau_state 12/12; perf AVG 13.53 ms/tick (Step 3 12.58, Step 2 13.52: the link's cost is inside this
+machine's ~1 ms run-to-run spread).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -181,10 +210,12 @@ does not call Luau yet; run-to-run spread on this machine is about 1 ms).
 | 0 (4.5.1) | f7214fc | 467/0/5 | 3480782660 | 13.53 | 13 pass, lobby_ui 3, account_ui 55 |
 | 1 | a43b116 | 467/0/5 | 3480782660 | 13.22 | same + luau_bridge 10/10 |
 | 2 | 9b35211 | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
-| 3 | see git log | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
+| 3 | 0c719e1 | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
+| 4 | see git log | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
 
 ## Customs touched per step
 
+- Step 4: none (recording only; the hash is unchanged).
 - Step 3: none in the game (the numbers are copied). Not in SimRules: the 0.9x nuke speed (game/nukes.gd
   NUKE_SPEED_X, moves with Nukes) and the Arsenal Star prices (game/shop.gd, the shop, stays GDScript).
 - Step 2: none (runtime and rng only).
