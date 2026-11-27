@@ -474,7 +474,7 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5b2 | 5dd163f | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
 | 5d1 | a61a285 | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
 | 5d2 | d412c8d | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
-| 5d3 | see git log | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
+| 5d3 | fee8c12 | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
 
 ## Customs touched per step
 
@@ -525,3 +525,9 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
    GDScript fallback keep the old drawing-side searches?
    Answer (Ruihan, Nov 27 2026): "Keep the new one". The renderer reads cached rails only, with and without Luau;
    no drawing-side searches come back.
+4. Step 5d4 (transport and trade ship movement: game/economy.gd `_tick_boats`, game/navy.gd `_tick_trade`). The
+   movement loop costs about 0.044 ms/tick in GDScript (seed 12345, 3000 ticks, about 200 trade ships). The ship
+   Dictionaries stay in GDScript (the renderer and net/rep.gd read `d` every frame), so a Luau version still writes
+   every `d` back each tick, plus a call: it can only be slower. The landings (troops, notes, `sim_atk.start`) are
+   rare. Port it anyway as planned, or keep both in GDScript until Step 6 decides what Luau owns? Until answered,
+   5d4 is skipped and Economy (5e) goes first.
