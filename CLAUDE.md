@@ -89,7 +89,7 @@ World Control bar = tiles / (contestable - fallout), win at 80%. See docs/VANILL
 - `--sim-worker-trains` with attack threading prepares rail geometry and train progression. `--sim-worker-warships` prepares shoreline protection checks, warship targeting and cached steering, and defense-post transport scans. Solo warship orders use the intent queue when enabled.
 - `--sim-worker-warship-pass` runs eligible solo warship ticks and AI retaliation on detached state, with validated commit and inline retry.
 - `--sim-worker-train-pass` runs eligible solo rail routing, train spawning, movement and payouts on detached state.
-- `--sim-worker-arsenal-pass` runs eligible solo construction, reloads, artillery, strike impacts and SAM interceptions on detached state. With `--sim-snapshot`, the worker also prepares territory, fallout and border updates for the first eligible missile impact each tick. The worker can also plan the first eligible MIRV split.
+- `--sim-worker-arsenal-pass` runs eligible solo construction, reloads, artillery, strike impacts and SAM interceptions on detached state. With `--sim-snapshot`, the worker also prepares territory, fallout and border updates for the first eligible missile impact each tick. The worker can also plan the first eligible MIRV split and calculate warhead troop losses.
 - Combined workers lowered the median headless World frame interval from 30.23 ms to 19.53 ms. The 95th-percentile interval rose from 39.06 ms to 45.45 ms. See [threaded simulation timings](docs/THREADED_SIM.md).
 
 ## What's left

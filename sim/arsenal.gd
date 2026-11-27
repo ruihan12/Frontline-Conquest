@@ -459,8 +459,18 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int, plan: Variant = null) -> 
 			g._map_effect("fallout", [tt])
 			fallout_n += 1
 			g._repaint(tt)
+	var casualties := {}
+	if plan != null and plan.get("casualty_scale", []) == [R.k_area, R.ts]:
+		casualties = plan.casualties
+	var attacks_by_owner := {}
+	var boats_by_owner := {}
+	if not casualties.is_empty():
+		attacks_by_owner = group_troops(g.attacks, casualties)
+		boats_by_owner = group_troops(g.boats, casualties)
 	for ow in lost:
-		nuke_troops(ow, nk, int(lost[ow]), int(before[ow]))
+		var prepared: Dictionary = casualties.get(ow, {})
+		if prepared.is_empty() or not _apply_warhead_casualties(ow, prepared, attacks_by_owner, boats_by_owner):
+			nuke_troops(ow, nk, int(lost[ow]), int(before[ow]))
 		var n = g.nations[ow]
 		if int(n.land) <= 0: n["last_by"] = o
 		if ow != o: n["grudge_" + str(o)] = now() + SimRules.NUKE_GRUDGE_TICKS
@@ -495,29 +505,53 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 		for bt in g.boats:
 			if bt.a == o: bt.troops *= f
 		return
-	var k := R.k_area
-	var tr: float = n.troops
-	for _i in n_lost:
-		var d := minf(k * SimRules.warhead_death(tr, cap, R.ts), maxf(0.0, tr - 0.03 * cap))
-		if d <= 0.0: break
-		tr -= d
-	n.troops = tr
+	n.troops = warhead_survivors(n.troops, cap, n_lost, R.k_area, R.ts)
 	for a in g.attacks:
-		if a.a != o: continue
-		var at: float = a.troops
-		for _i in n_lost:
-			var d2 := minf(k * SimRules.warhead_death(at, cap, R.ts), maxf(0.0, at - 0.03 * cap))
-			if d2 <= 0.0: break
-			at -= d2
-		a.troops = at
+		if a.a == o: a.troops = warhead_survivors(a.troops, cap, n_lost, R.k_area, R.ts)
 	for bt in g.boats:
-		if bt.a != o: continue
-		var bt_t: float = bt.troops
-		for _i in n_lost:
-			var d3 := minf(k * SimRules.warhead_death(bt_t, cap, R.ts), maxf(0.0, bt_t - 0.03 * cap))
-			if d3 <= 0.0: break
-			bt_t -= d3
-		bt.troops = bt_t
+		if bt.a == o: bt.troops = warhead_survivors(bt.troops, cap, n_lost, R.k_area, R.ts)
+
+static func warhead_survivors(troops: float, cap: float, tiles: int, area: float, scale: float) -> float:
+	for _i in tiles:
+		var loss := minf(area * SimRules.warhead_death(troops, cap, scale), maxf(0.0, troops - 0.03 * cap))
+		if loss <= 0.0:
+			break
+		troops -= loss
+	return troops
+
+static func group_troops(units: Array, owners: Dictionary) -> Dictionary:
+	var grouped := {}
+	for unit: Dictionary in units:
+		if owners.has(unit.a):
+			if not grouped.has(unit.a):
+				grouped[unit.a] = []
+			grouped[unit.a].append(unit)
+	return grouped
+
+var prepared_warhead_owners := 0
+
+func _apply_warhead_casualties(owner: int, plan: Dictionary, attacks_by_owner: Dictionary, boats_by_owner: Dictionary) -> bool:
+	var nation: Dictionary = g.nations[owner]
+	var attacks: Array = attacks_by_owner.get(owner, [])
+	var boats: Array = boats_by_owner.get(owner, [])
+	if nation.troops != plan.troops_before or maxf(g.troop_cap(owner), 1.0) != plan.cap \
+			or not _same_troops(attacks, plan.attacks) or not _same_troops(boats, plan.boats):
+		return false
+	nation.troops = plan.survivors
+	for i in attacks.size():
+		attacks[i].troops = plan.attacks[i][1]
+	for i in boats.size():
+		boats[i].troops = plan.boats[i][1]
+	prepared_warhead_owners += 1
+	return true
+
+static func _same_troops(units: Array, plan: Array) -> bool:
+	if units.size() != plan.size():
+		return false
+	for i in units.size():
+		if units[i].troops != plan[i][0]:
+			return false
+	return true
 
 # SimNukes._break_nuked_alliances: allies with >= 100 weighted full-size tiles (inner 1, outer 0.5)
 # inside the blast lose their alliance with the launcher.

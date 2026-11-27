@@ -33,6 +33,7 @@ class Job extends RefCounted:
 	var first_arrival := {}
 	var blast_fallout := PackedByteArray()
 	var blast_has_borders := false
+	var troop_rules: Array
 	var mirv_land := PackedInt32Array()
 	var mirv_speed := 0.0
 	var mirv_icbm_speed := 0.0
@@ -58,6 +59,7 @@ class Job extends RefCounted:
 		missiles = inputs.missiles
 		allies = inputs.allies
 		nations = inputs.owners.map(func(row): return {"name": row[0], "troops": row[1], "attacked_tick": row[2]})
+		troop_rules = inputs.troop_rules
 		attacks = inputs.attack_rows.map(func(row): return {"a": row[0], "troops": row[1]})
 		boats = inputs.boat_rows.map(func(row): return {"a": row[0], "troops": row[1]})
 		build_data = inputs.build_titles
@@ -100,8 +102,47 @@ class Job extends RefCounted:
 				first_arrival.territory = BlastTerritory.prepare(tiles, owner_map, blast_fallout, W, H, blast_has_borders)
 				first_arrival.fallout_before = blast_fallout
 				first_arrival.has_borders = blast_has_borders
+				if missile.nk == SimRules.N_WARHEAD and not troop_rules.is_empty():
+					first_arrival.casualties = _prepare_warhead_casualties(first_arrival.territory)
+					first_arrival.casualty_scale = [rules.k_area, rules.ts]
 			rng.state = before
 			return
+
+	func _prepare_warhead_casualties(territory: Dictionary) -> Dictionary:
+		var lost: Dictionary = territory.lost
+		var removed: PackedInt32Array = territory.removed
+		var city_levels := {}
+		for city: Dictionary in structs:
+			if city.k == 0 and lost.has(city.o):
+				city_levels[city.o] = city_levels.get(city.o, 0) + int(city.get("level", 1))
+		for i in range(0, removed.size(), 2):
+			var city = struct_at.get(removed[i])
+			if city != null and city.k == 0 and lost.has(city.o):
+				city_levels[city.o] = city_levels.get(city.o, 0) - int(city.get("level", 1))
+		var attack_groups := SimArsenal.group_troops(attacks, lost)
+		var boat_groups := SimArsenal.group_troops(boats, lost)
+		var casualties := {}
+		for owner in lost:
+			var properties: Array = troop_rules[owner]
+			var count: int = lost[owner]
+			var cap := maxf(rules.max_troops(properties[1], int(properties[0]) - count,
+				city_levels.get(owner, 0), properties[2]), 1.0)
+			var troops: float = nations[owner].troops
+			casualties[owner] = {
+				"troops_before": troops,
+				"cap": cap,
+				"survivors": SimArsenal.warhead_survivors(troops, cap, count, rules.k_area, rules.ts),
+				"attacks": _surviving_units(attack_groups.get(owner, []), cap, count),
+				"boats": _surviving_units(boat_groups.get(owner, []), cap, count),
+			}
+		return casualties
+
+	func _surviving_units(units: Array, cap: float, count: int) -> Array:
+		var updates := []
+		for unit: Dictionary in units:
+			var troops: float = unit.troops
+			updates.append([troops, SimArsenal.warhead_survivors(troops, cap, count, rules.k_area, rules.ts)])
+		return updates
 
 	func _prepare_mirv(missile: Dictionary) -> void:
 		var target: int = missile.get("tgt_o", 0)
@@ -194,7 +235,7 @@ static func _troops(pack: Array) -> Array:
 static func _active_structure(structure: Dictionary) -> bool:
 	return float(structure.get("bt", 0.0)) > 0.0 or structure.k in [4, 5, 10, 14, 15]
 
-static func _inputs(game, strike_due: bool, samples_territory: bool) -> Dictionary:
+static func _inputs(game, transfer_troops: bool, include_all_structures: bool, warhead_due: bool) -> Dictionary:
 	var arsenal: SimArsenal = game.sim_ars
 	var owners := []
 	for n: Dictionary in game.nations:
@@ -202,7 +243,11 @@ static func _inputs(game, strike_due: bool, samples_territory: bool) -> Dictiona
 	var titles := []
 	for row: Array in game.build_data:
 		titles.append([null, row[1]])
-	var structures: Array = game.structs if samples_territory else game.structs.filter(_active_structure)
+	var troop_rules := []
+	if warhead_due:
+		for owner in game.nations.size():
+			troop_rules.append([game.nations[owner].get("land", 0), game.troop_kind(owner), game.troop_diff(owner)])
+	var structures: Array = game.structs if include_all_structures else game.structs.filter(_active_structure)
 	var structures_by_tile := []
 	for structure: Dictionary in structures:
 		if game.struct_at.has(structure.tile):
@@ -211,8 +256,9 @@ static func _inputs(game, strike_due: bool, samples_territory: bool) -> Dictiona
 		"width": game.W, "height": game.H, "tick": game.sim_atk.tick, "rng": game.rng.state,
 		"scale": game.sim_rules.k_lin, "area": game.sim_rules.k_area, "troop_scale": game.sim_rules.ts,
 		"structures": structures, "structures_by_tile": structures_by_tile, "missiles": game.missiles, "owners": owners, "allies": game.allies,
-		"attack_rows": _troops(game.attacks) if strike_due else [],
-		"boat_rows": _troops(game.boats) if strike_due else [],
+		"attack_rows": _troops(game.attacks) if transfer_troops else [],
+		"troop_rules": troop_rules,
+		"boat_rows": _troops(game.boats) if transfer_troops else [],
 		"build_titles": titles, "structure_revision": game._sv, "owner_revisions": game._own_sv,
 		"reload": game.reload_mult(), "munitions": arsenal.munitions, "sam_shots": arsenal.sam_shots,
 		"stats": arsenal.stats,
@@ -220,6 +266,7 @@ static func _inputs(game, strike_due: bool, samples_territory: bool) -> Dictiona
 
 var _strike_due := false
 var _samples_territory := false
+var _warhead_due := false
 
 func submit(game) -> bool:
 	assert(_task == -1)
@@ -244,11 +291,13 @@ func submit(game) -> bool:
 		return m.has("lt") and m.nk != SimRules.N_MIRV and tick >= int(m.lt) + int(m.ft))
 	var pending_mirv: bool = game.missiles.any(func(m):
 		return m.has("lt") and m.nk == SimRules.N_MIRV and tick >= int(m.lt) + int(m.ft))
+	_warhead_due = game.tile_snapshot != null and game.tile_pop.is_empty() and game.missiles.any(func(m):
+		return m.has("lt") and m.nk == SimRules.N_WARHEAD and tick >= int(m.lt) + int(m.ft))
 	var owners := PackedInt32Array()
 	if _samples_territory or pending_blast or pending_mirv:
 		owners = game.owner_map.duplicate()
 	_records = RecordCopies.new()
-	var inputs := _records.copy_fields(_inputs(game, _strike_due, _samples_territory))
+	var inputs := _records.copy_fields(_inputs(game, _strike_due or _warhead_due, _samples_territory or _warhead_due, _warhead_due))
 	_expected = inputs.duplicate(true)
 	_start_structures = inputs.structures.duplicate()
 	_start_missiles = inputs.missiles.duplicate()
@@ -293,7 +342,7 @@ func take(game) -> bool:
 		inline_retries += 1
 		return false
 	var live := RecordCopies.new()
-	if live.copy_fields(_inputs(game, _strike_due, _samples_territory)) != expected or not records.same_records(live) \
+	if live.copy_fields(_inputs(game, _strike_due or _warhead_due, _samples_territory or _warhead_due, _warhead_due)) != expected or not records.same_records(live) \
 			or WarshipWorker._legacy_sound_pending(job.events, game):
 		inline_retries += 1
 		return false

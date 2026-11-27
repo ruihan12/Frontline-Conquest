@@ -76,9 +76,17 @@ func _blast_fixture():
 			"evade": true})
 	return game
 
-func _check_first_blast(change_rng: bool, change_fallout := false) -> bool:
+func _check_first_blast(change_rng: bool, change_fallout := false, warhead := false, change_troops := false) -> bool:
 	var game = _blast_fixture()
 	var reference = _blast_fixture()
+	if warhead:
+		for fixture in [game, reference]:
+			fixture.missiles[0].nk = SimRules.N_WARHEAD
+			fixture.nations[2].troops = 272365.1234
+			fixture.nations[3].troops = 150000.0
+			var path := PackedVector2Array([Vector2.ZERO, Vector2(150, 30)])
+			fixture.attacks = [{"a": 2, "troops": 120002.1234567}, {"a": 3, "troops": 130000.0}]
+			fixture.boats = [{"a": 2, "troops": 62000.05678, "pts": path, "cum": PackedFloat32Array([0.0, 150.0]), "d": 0.0}]
 	var worker := ArsenalWorker.new()
 	game._arsenal_worker = worker
 	var began := worker.submit(game)
@@ -96,14 +104,22 @@ func _check_first_blast(change_rng: bool, change_fallout := false) -> bool:
 		reference.fallout[0] = 1
 		game._record_tile_snapshot(0)
 		reference._record_tile_snapshot(0)
+	if change_troops:
+		game.attacks[0].troops += 123.456
+		reference.attacks[0].troops += 123.456
 	game._tick_missiles()
 	reference._tick_missiles()
 	var matches: bool = game.rng.state == reference.rng.state and game.missiles.is_empty() \
 		and game.fallout_list.size() > 0 and game.fallout_list == reference.fallout_list \
 		and game.owner_map == reference.owner_map and game.nations == reference.nations \
-		and game._presentation_events == reference._presentation_events
+		and game._presentation_events == reference._presentation_events \
+		and game.attacks == reference.attacks and game.boats == reference.boats
 	var used_expected := worker.prepared_blasts_used == (0 if change_rng else 1) \
 		and worker.prepared_territory_used == (0 if change_rng or change_fallout else 1)
+	var expected_casualty_owners := 0
+	if warhead and not change_rng and not change_fallout:
+		expected_casualty_owners = 1 if change_troops else 2
+	used_expected = used_expected and game.sim_ars.prepared_warhead_owners == expected_casualty_owners
 	game._flush_presentation_batch()
 	reference._flush_presentation_batch()
 	game._publish_tile_snapshot()
@@ -202,10 +218,11 @@ func _run() -> void:
 	game.free()
 	reference.free()
 	var first_blast := _check_first_blast(false) and _check_first_blast(true) and _check_first_blast(false, true)
+	var warhead := _check_first_blast(false, false, true) and _check_first_blast(false, false, true, true)
 	var mirv := _check_mirv(false) and _check_mirv(true)
-	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast and mirv
+	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast and warhead and mirv
 	if not passed:
 		print("arsenal held=", held, " isolated=", isolated, " applied=", applied, " parity=", parity,
-			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped, " first_blast=", first_blast, " mirv=", mirv)
+			" correct=", correct, " map_stale=", map_stale, " record_stale=", record_stale, " stopped=", stopped, " first_blast=", first_blast, " warhead=", warhead, " mirv=", mirv)
 	print("ARSENAL_WORKER ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)
