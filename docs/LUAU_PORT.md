@@ -568,7 +568,7 @@ perf_sim 11.90 / 12.33 ms/tick.
 | 5e | 5c58c85 | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
 | 5f1 | 271ac24 | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
 | 5f2 | 569510a | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
-| 5f3 | see git log | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
+| 5f3 | b064328 | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
 
 ## Customs touched per step
 
@@ -627,3 +627,11 @@ perf_sim 11.90 / 12.33 ms/tick.
    every `d` back each tick, plus a call: it can only be slower. The landings (troops, notes, `sim_atk.start`) are
    rare. Port it anyway as planned, or keep both in GDScript until Step 6 decides what Luau owns? Until answered,
    5d4 is skipped and Economy (5e) goes first.
+5. Step 5f (the AI) after 5f1 to 5f3: perception (border scans, the tribes' nearby owners, coastal tiles) runs in
+   Luau and the AI pass is down from about 2.7 to 1.8 ms/tick (seed 12345). What is left is decision code: about
+   20 think functions reading and writing the nation and per-AI Dictionaries and calling the game's action entry
+   points (intent_attack, launch_boat with its route search, builds, alliances, nukes). No single part is above
+   0.25 ms/tick, and the biggest (transport choice) is mostly the launch, which is 5d4. Ported, each decision would
+   copy that state across (as in 5e, where the Luau maths gave no gain). Stop the AI port at perception, or port
+   the decisions anyway? Until answered, the AI stays as it is and the ports' perf fix (one world() per tick, the
+   ports' trade fields kept in Luau, planned in 5d2) goes first.
