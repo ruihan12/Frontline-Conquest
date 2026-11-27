@@ -666,8 +666,9 @@ missing the page hung on load.
   LuaState::_bind_methods; linux_debug.x86_64 ran. Godot 4.5.1's web release templates are linked with emscripten
   ASSERTIONS=1 (platform/web/detect.py), whose checked malloc turns that bad free into the abort; the debug
   templates are not, so they ran on.
-- Not the cause: emscripten versions. Godot 4.5.1's web templates are built with 4.0.11 (its web_builds.yml), the
-  same as the library. Every import of the library is exported by both templates.
+- Not the cause: emscripten versions. The 4.5.1 web templates report "Emscripten 4.0.10" in the browser, the library
+  is built with 4.0.11; the release library loads and runs on them (below). Every import of the library is exported
+  by both templates.
 - Fix: tools/luau_ext/build.sh builds each library twice, template_debug (the files as before: the editor binary,
   the VM server's editor binary and debug exports) and template_release (`libgdluau.release.wasm`,
   `libgdluau.linux.release.x86_64.so`, `libgdluau.linux.release.arm64.so`), and drops the stale `to_string` bind.
@@ -678,12 +679,19 @@ missing the page hung on load.
   first, since Godot stops the load on a missing library), or when the last start in this tab aborted with the
   library loaded (the page records it in sessionStorage and reloads once without it). The console says which
   ("Luau library not loaded (...)") and the game prints "Luau sim: off, GDScript fallback (Luau extension not
-  loaded)". Checked here with a stubbed Engine in node; a real browser still has to confirm that Godot runs on
-  when the library is left out.
+  loaded)". Godot still logs "Can't open dynamic library: luau/ext/libgdluau.release.wasm" in those cases (it reads
+  the extension list from the pck); that error is harmless and the game runs on.
 - Results: parity 467/0/5, hash 3480782660 (whole and sliced), perf 13.32 / 12.07 ms/tick, all tests as before
   (lobby_ui 3, account_ui 55 known).
-- Not checked here: a browser run (none available). The VM server runs the editor binary, so it keeps using the
-  debug library name it has.
+- Browser check (Nov 27 2026, headless Chrome for Testing 159 with SwiftShader WebGL2, release and debug zips of
+  2193b36 served by serve.py): release and debug both print "Luau sim: on", no "Aborted(", the title's attract sim
+  runs. `?luau=0`, a deleted libgdluau.release.wasm, and the pre-fix library put back in its place (which aborts
+  as before) all end in "Luau sim: off, GDScript fallback (Luau extension not loaded)" with the game running; the
+  abort case reloads once by itself. Software rendering caps fps at about 12 either way, so fps compares nothing
+  here. In a solo World match (Standard, bots off) over the same 2.3 min of wall time, the Luau sim got through
+  about twice the game time of the GDScript sim (spawn protection 33 s vs 16 s used, gold 33.6K vs 16.4K); one run
+  each. Real GPU and phone fps are still unmeasured.
+- The VM server runs the editor binary, so it keeps using the debug library name it has.
 
 ## Results
 
