@@ -201,6 +201,78 @@ const engine = new Engine(GODOT_CONFIG);
 		initializing = false;
 	}
 
+	// Luau sim fallback (docs/LUAU_PORT.md "Web fallback"). The game starts without the Luau library, so the GDScript
+	// sim runs, when the address has ?luau=0, when the library file is missing on the server (Godot would stop the load
+	// there), or when the last start with it aborted in this tab (it then reloads once without it).
+	const LUAU_FAILED = 'fc_luau_failed';
+	const luauLibs = GODOT_CONFIG['gdextensionLibs'] || [];
+
+	function luauCheck() {
+		if (luauLibs.length === 0) {
+			return Promise.resolve(false);
+		}
+		let failed = false;
+		try {
+			failed = sessionStorage.getItem(LUAU_FAILED) === '1';
+		} catch (e) { /* storage blocked */ }
+		let why = '';
+		if (failed) {
+			why = 'it aborted on the last start';
+		} else if (new URLSearchParams(window.location.search).get('luau') === '0') {
+			why = '?luau=0';
+		}
+		const found = why !== '' ? Promise.resolve(false) : Promise.all(luauLibs.map((lib) =>
+			fetch(lib, { method: 'HEAD', cache: 'no-store' }).then((r) => r.ok, () => false)
+		)).then((oks) => {
+			if (!oks.every((ok) => ok)) {
+				why = 'file missing';
+			}
+			return why === '';
+		});
+		return found.then((ok) => {
+			if (!ok) {
+				console.warn('Luau library not loaded (' + why + '): the GDScript sim runs.');
+			}
+			return ok;
+		});
+	}
+
+	function startOptions(withLuau) {
+		const opts = {
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+					statusPct.textContent = Math.min(100, Math.floor(current / total * 100)) + '%';
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+					statusPct.textContent = '';
+				}
+			},
+		};
+		if (!withLuau) {
+			opts['gdextensionLibs'] = [];
+			return opts;
+		}
+		opts['onPrintError'] = function (...args) {
+			console.error(...args);
+			if (args.join(' ').indexOf('Aborted(') === -1) {
+				return;
+			}
+			// an abort while the Luau library is loaded: start once more without it
+			let retry = false;
+			try {
+				retry = sessionStorage.getItem(LUAU_FAILED) !== '1';
+				sessionStorage.setItem(LUAU_FAILED, '1');
+			} catch (e) { /* storage blocked: no retry */ }
+			if (retry) {
+				window.location.reload();
+			}
+		};
+		return opts;
+	}
+
 	const missing = Engine.getMissingFeatures({
 		threads: GODOT_THREADS_ENABLED,
 	});
@@ -231,19 +303,7 @@ const engine = new Engine(GODOT_CONFIG);
 		}
 	} else {
 		setStatusMode('progress');
-		engine.startGame({
-			'onProgress': function (current, total) {
-				if (current > 0 && total > 0) {
-					statusProgress.value = current;
-					statusProgress.max = total;
-					statusPct.textContent = Math.min(100, Math.floor(current / total * 100)) + '%';
-				} else {
-					statusProgress.removeAttribute('value');
-					statusProgress.removeAttribute('max');
-					statusPct.textContent = '';
-				}
-			},
-		}).then(() => {
+		luauCheck().then((withLuau) => engine.startGame(startOptions(withLuau))).then(() => {
 			statusPct.textContent = '100%';
 			// keep the cover up for a minimum time (about the average load) so it never flashes by
 			const MIN_COVER_MS = 3000;
