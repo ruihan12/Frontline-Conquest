@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2).
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3).
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -146,6 +146,32 @@ What changed:
 Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged); test list
 unchanged plus test_luau_bridge 10/10 and test_luau_rng 27/27; perf AVG 13.52 ms/tick (the sim does not use Luau yet).
 
+### Step 3: Rules data (Core/Rules.luau)
+
+What changed:
+- `luau/sim/Core/Rules.luau`: sim/rules.gd (SimRules) transliterated line for line, not upstream's Rules.luau: our
+  file already holds the customs and the 1:1 troop mode, and the hash needs our numbers. 155 constants (all of
+  SimRules', plus `NUKE_KINDS` = 9, the size GDScript gets from `.size()`), `Rules.new(kl)` with the same 19 instance
+  fields and `set_k`, and every function (static ones without self).
+- Conventions for every ported module, written at the top of Rules.luau: data arrays are 0-based like GDScript
+  (`{ [0] = ... }`) so index code reads the same; GDScript int division is `//`, `int(x)` is trunc; Vector2 is Luau's
+  float32 vector; PackedFloat32Array entries are rounded with gd.f32.
+- No Defs.luau: this port has no GDScript Defs (the N_* / S_* ids are in SimRules, now Rules.luau; the per-tile
+  constants are in game/state.gd and move with Step 4). sim/sim_colors.gd and sim/bot_names.gd move with their
+  callers (nation setup).
+- SimRules stays and is still what the game calls (brief: replace it in the commit that moves its callers).
+- tests/test_luau_rules.gd + tests/luau/rules_check.luau: every constant (name set and value), every instance field
+  for 8 configurations (map scales 0.31 to 3.0, 1:1 mode on / off, pop cap modes 0/1/2, tile_norm, growth and gold
+  multipliers), and 20,467 function calls (edge values plus seeded random inputs, nuke arcs with 97 samples, arc
+  points, arc ticks) per configuration, compared as raw f64 bytes. All equal. A one-ulp change in a constant or in the
+  arc interpolation makes it fail (checked).
+- exp, log and pow give the same bits as GDScript's (the Linux library binds the old glibc versions, Step 1; the test
+  covers sigmoid, trade gold, saturation curves, troop growth and caps).
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged); test list
+unchanged plus test_luau_bridge 10/10, test_luau_rng 27/27, test_luau_rules 8/8; perf AVG 12.58 ms/tick (the sim
+does not call Luau yet; run-to-run spread on this machine is about 1 ms).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -154,10 +180,13 @@ unchanged plus test_luau_bridge 10/10 and test_luau_rng 27/27; perf AVG 13.52 ms
 | A (4.3) | 421aa12 | 467/0/5 | 3480782660 | 13.76 | 13 pass, lobby_ui 3, account_ui 55 |
 | 0 (4.5.1) | f7214fc | 467/0/5 | 3480782660 | 13.53 | 13 pass, lobby_ui 3, account_ui 55 |
 | 1 | a43b116 | 467/0/5 | 3480782660 | 13.22 | same + luau_bridge 10/10 |
-| 2 | see git log | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
+| 2 | 9b35211 | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
+| 3 | see git log | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
 
 ## Customs touched per step
 
+- Step 3: none in the game (the numbers are copied). Not in SimRules: the 0.9x nuke speed (game/nukes.gd
+  NUKE_SPEED_X, moves with Nukes) and the Arsenal Star prices (game/shop.gd, the shop, stays GDScript).
 - Step 2: none (runtime and rng only).
 - Step 1: none (runtime only).
 - Step 0: none (engine only; the hash is unchanged).
