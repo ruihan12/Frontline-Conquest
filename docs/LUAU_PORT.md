@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1).
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2).
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -113,6 +113,39 @@ What changed:
 Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged); test list
 unchanged plus test_luau_bridge 10/10; perf AVG 13.22 ms/tick (the extension loads but the sim does not use it yet).
 
+### Step 2: Roblox-globals shim, module loader, bit-exact Godot RNG
+
+What changed:
+- `luau/sim/rt/prelude.luau` runs first in the Lua state. It defines `__register(name, fn)` / `__has(name)` and a
+  `require(name)` that runs each registered module chunk once and caches its result (a cycle is an error). Globals the
+  upstream modules use from Roblox: `Vector3.new` / `Vector2.new` (Luau native vectors), `Color3.new` / `Color3.fromRGB`
+  (frozen {R, G, B}), `Random.new(seed)` with `NextInteger` / `NextNumber` (backed by GodotRng with the raw seed, not
+  Roblox's generator: the sim must match the GDScript rng, not Roblox), `task.spawn` / `task.defer` (run at once; no
+  scheduler in the sim), `task.wait` (error: nothing in the sim may yield). `typeof` is Luau's own.
+- `LuauVM.boot()` (sim/luau_vm.gd) runs the prelude, registers every `.luau` under luau/sim (name = path without
+  extension, e.g. `Core/GodotRng`), then calls `sandbox()` (globals and library tables read-only). Upstream string
+  requires (`require("./Defs")`, `require("../Net/Coop")`) are rewritten at load time to the resolved name, so copied
+  upstream files need no edits. `require_module(name)` returns a module's table to GDScript.
+- `luau/sim/Core/GodotRng.luau` and `luau/sim/Net/Coop.luau`: copied unchanged from upstream (c422466). GodotRng is
+  Godot's PCG32 (randi, randf, randi_range, randf_range, seed hashing, hash_int for `hash(int)`).
+- `luau/sim/rt/gd.luau`: what the GDScript sim does with Godot's rng, in Luau. `gd.rng(seed)` = a RandomNumberGenerator
+  after `rng.seed = seed`; `gd.global` + `gd.seed(s)` = the engine's global rng after `seed(s)`; `gd.shuffle(arr)` =
+  `Array.shuffle()` (Fisher-Yates from the end, j = global randi() % (i + 1)), used by navy.gd:31, nations.gd:282,
+  economy.gd:378; `gd.calibrate_fused(samples)` sets GodotRng.FUSED from real `randf_range` outputs (whether the build's
+  C++ compiler fused a*b+c; x86_64 official build: not fused). Dummy draws (the tribe grey #d1cdc7 path keeps its rng
+  calls) need nothing special: they are ordinary calls and the test replays them.
+- tests/test_luau_rng.gd + tests/luau/rng_check.luau (27 checks): loader and require rewriting, the shim globals,
+  10 seeds x 3000 mixed ops (randi, randf, randi_range, randf_range, reseed) identical value for value and in the final
+  rng state, hash(int) for 8 values, seed() + Array.shuffle for 3 seeds, tribe spawn order + 800 colour dummy draws for 2
+  seeds, FUSED calibration.
+- Note: upstream GodotRng.randi_range loops forever when the range is the full 32-bit span (bound mod 2^32 = 0). Godot
+  handles that case; no sim call uses such a range, so the copy stays unchanged and the test does not use it.
+- Speed: 200,000 randi + randf pairs take 139.9 ms in Luau, 11.1 ms in GDScript (native). The sim draws far fewer per
+  tick, but rng-heavy modules may need a native rng later. Watch it in Step 5.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged); test list
+unchanged plus test_luau_bridge 10/10 and test_luau_rng 27/27; perf AVG 13.52 ms/tick (the sim does not use Luau yet).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -120,10 +153,12 @@ unchanged plus test_luau_bridge 10/10; perf AVG 13.22 ms/tick (the extension loa
 | pre-A | 84d5260 | 465/0/5 | (2340230155, not repeatable) | 13.31 | 13 pass, lobby_ui 3, account_ui 55 |
 | A (4.3) | 421aa12 | 467/0/5 | 3480782660 | 13.76 | 13 pass, lobby_ui 3, account_ui 55 |
 | 0 (4.5.1) | f7214fc | 467/0/5 | 3480782660 | 13.53 | 13 pass, lobby_ui 3, account_ui 55 |
-| 1 | see git log | 467/0/5 | 3480782660 | 13.22 | same + luau_bridge 10/10 |
+| 1 | a43b116 | 467/0/5 | 3480782660 | 13.22 | same + luau_bridge 10/10 |
+| 2 | see git log | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
 
 ## Customs touched per step
 
+- Step 2: none (runtime and rng only).
 - Step 1: none (runtime only).
 - Step 0: none (engine only; the hash is unchanged).
 - Step A: none of the listed customs change. Speed slider / attract speed still scale how many ticks run per real
