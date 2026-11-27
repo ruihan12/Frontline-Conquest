@@ -38,6 +38,18 @@ class EconomyProbe extends EconomyWorker:
 	func ready() -> bool:
 		return allow_publish and super.ready()
 
+class ArsenalWorkerProbe extends "res://sim/arsenal_worker.gd":
+	var allow_publish := false
+	var commit := true
+	func submit(game) -> bool:
+		game.events.append("arsenal_submit")
+		return true
+	func ready() -> bool:
+		return allow_publish
+	func take(game) -> bool:
+		game.events.append("arsenal_apply")
+		return commit
+
 class WarshipWorkerProbe extends "res://sim/warship_worker.gd":
 	var allow_publish := false
 	func submit(game) -> bool:
@@ -270,6 +282,34 @@ func _check_naval_graph_budget() -> bool:
 	game.free()
 	return deferred
 
+func _check_arsenal_worker_schedule(commit: bool) -> bool:
+	var game := GameProbe.new()
+	var rules := SimRules.new()
+	game.state = "play"
+	game.sim_atk = AttackProbe.new(game, rules)
+	game.sim_ai = AIProbe.new(game, rules)
+	game.sim_naval = NavalProbe.new(game, rules)
+	game.sim_ars = ArsenalProbe.new(game, rules)
+	game.sim_ws = WarshipProbe.new(game, rules)
+	var worker := ArsenalWorkerProbe.new()
+	worker.commit = commit
+	game._arsenal_worker = worker
+	game._advance_fixed_ticks(0.1)
+	game._advance_fixed_ticks(0.0)
+	game._advance_fixed_ticks(0.0)
+	var submitted := game._tick_stage == game.ARSENAL_PHASE_PENDING \
+		and game.events.slice(-2) == ["economy", "arsenal_submit"]
+	game._advance_fixed_ticks(0.0)
+	var held := not game._advance_or_hold_sim_frame(0.01, 0.02) and game.frames.is_empty()
+	worker.allow_publish = true
+	game._advance_fixed_ticks(0.0)
+	var tail := ["arsenal_apply"] if commit else ["arsenal_apply", "arsenal"]
+	tail.append_array(["missiles", "requests", "warships", "trains"])
+	var ordered: bool = game._tick_stage == 0 and game.ticks_done == 1 \
+		and game.events.count("economy") == 1 and game.events.slice(-tail.size()) == tail
+	game.free()
+	return submitted and held and ordered
+
 func _check_warship_worker_schedule() -> bool:
 	var game := GameProbe.new()
 	var rules := SimRules.new()
@@ -340,7 +380,9 @@ func _initialize() -> void:
 		expected.append("naval")
 	expected.append_array(["economy", "arsenal", "missiles", "requests", "warships", "trains", "replicate"])
 	var passed := attack_paused and ai_paused and complete and game.events == expected \
-		and _check_held_frames(game) and _check_economy_worker() and _check_warship_worker_schedule() and _check_train_worker_schedule(true) and _check_train_worker_schedule(false) \
+		and _check_held_frames(game) and _check_economy_worker() and _check_warship_worker_schedule() \
+		and _check_arsenal_worker_schedule(true) and _check_arsenal_worker_schedule(false) \
+		and _check_train_worker_schedule(true) and _check_train_worker_schedule(false) \
 		and (OS.has_environment("NO_TRADE") or (_check_naval_worker() and _check_naval_graph_search()))
 	print("FIXED_TICK_SCHEDULE ", "PASS" if passed else "FAIL")
 	if not passed: print(game.events)

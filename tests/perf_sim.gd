@@ -81,7 +81,13 @@ func _run():
 			economy_rows += m._economy_finish(0.1, job)
 		else:
 			m._economy(0.1)
-		ts.append(Time.get_ticks_usec()); m.sim_ars.tick()
+		ts.append(Time.get_ticks_usec())
+		if m._arsenal_worker != null and m._arsenal_worker.submit(m):
+			m._arsenal_worker.wait()
+			if not m._arsenal_worker.take(m):
+				m.sim_ars.tick()
+		else:
+			m.sim_ars.tick()
 		ts.append(Time.get_ticks_usec())
 		if m._warship_worker != null and m._warship_worker.submit(m):
 			m._warship_worker.wait()
@@ -133,6 +139,8 @@ func _run():
 	print("AI_WORKER_SCANS ", m.sim_ai.worker_scan_count, "/", m.sim_ai.scan_n, " TRIBE_SHORE ", m.sim_ai.worker_tribe_shore_count)
 	print("ECONOMY_WORKER_ROWS ", economy_rows)
 	print("NAVAL_WORKER_TICKS ", naval_job_ticks)
+	if m._arsenal_worker != null:
+		print("ARSENAL_PHASE_WORKER_TICKS ", m._arsenal_worker.applied_ticks, " retries=", m._arsenal_worker.inline_retries)
 	if m._warship_worker != null:
 		print("WARSHIP_PHASE_WORKER_TICKS ", m._warship_worker.applied_ticks, " retries=", m._warship_worker.inline_retries)
 	if m._train_worker != null:

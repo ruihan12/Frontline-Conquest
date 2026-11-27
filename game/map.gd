@@ -58,7 +58,10 @@ func _ready() -> void:
 		_warship_worker = WarshipWorker.new()
 	if "--sim-worker-train-pass" in OS.get_cmdline_user_args():
 		_train_worker = TrainWorker.new()
-	if _attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null or _train_worker != null \
+	if "--sim-worker-arsenal-pass" in OS.get_cmdline_user_args():
+		_arsenal_worker = ArsenalWorker.new()
+	if _attack_worker != null or _economy_worker != null or _naval_worker != null \
+			or _warship_worker != null or _train_worker != null or _arsenal_worker != null \
 			or "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
@@ -967,6 +970,8 @@ func _upd_border(t: int) -> void:
 func _set_owner(i: int, o: int, replay_worker := false, record_snapshot := true) -> void:
 	var om := owner_map
 	var old: int = om[i]
+	if _arsenal_worker != null and old != o:
+		_arsenal_worker.invalidate_owner_map()
 	if _warship_worker != null and (old == WATER) != (o == WATER):
 		_warship_worker.invalidate_water_map()
 	if (old < 0) != (o < 0):

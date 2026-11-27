@@ -66,6 +66,8 @@ const WarshipWorker = preload("res://sim/warship_worker.gd")
 var _warship_worker: WarshipWorker
 const TrainWorker = preload("res://sim/train_worker.gd")
 var _train_worker: TrainWorker
+const ArsenalWorker = preload("res://sim/arsenal_worker.gd")
+var _arsenal_worker: ArsenalWorker
 var _attack_map_revision := 0
 var _held_sim_frames := PackedFloat64Array()
 
@@ -84,6 +86,8 @@ func _stop_sim_workers() -> void:
 		_warship_worker.stop()
 	if _train_worker != null:
 		_train_worker.stop()
+	if _arsenal_worker != null:
+		_arsenal_worker.stop()
 	_prepared_economy = null
 	_prepared_rail_curves.clear()
 	_prepared_rail_edges.clear()
@@ -257,7 +261,8 @@ var rng := RandomNumberGenerator.new()
 var ai_timer := 0.0
 var ui_timer := 0.0
 const TRAIN_PHASE_PENDING := 7
-var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass, 3 detached attack worker, 4 detached economy worker, 5 detached naval worker, 6 detached warship phase, 7 detached train phase
+const ARSENAL_PHASE_PENDING := 8
+var _tick_stage := 0  # 0 between ticks, 1 attack pass, 2 AI pass, 3 detached attack worker, 4 detached economy worker, 5 detached naval worker, 6 detached warship phase, 7 detached train phase, 8 detached arsenal phase
 var tick_acc := 0.0
 ## How far through the current sim tick the picture is, 0..1, for smooth motion between ticks. A tick that has
 ## begun (sliced over frames) already took its 0.1 s off tick_acc but has not moved anything yet, so it counts as

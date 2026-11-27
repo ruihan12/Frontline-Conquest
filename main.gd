@@ -258,6 +258,7 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			sim_atk.begin_tick()
 			_tick_stage = 1
 		var a0 := Time.get_ticks_usec()
+		var run_arsenal := _tick_stage < 6 or _tick_stage == ARSENAL_PHASE_PENDING
 		if _tick_stage < 6:
 			if _tick_stage != 4:
 				if _tick_stage != 5 and not _advance_attacks_and_ai(loop_t0 + sim_budget):
@@ -283,7 +284,9 @@ func _advance_fixed_ticks(tdt: float) -> void:
 					break
 				_economy_worker_rows += _economy_finish(0.1, _economy_worker.take())
 			_tick_stage = 0
-			sim_ars.tick()
+		if run_arsenal:
+			if not _advance_arsenal_phase():
+				break
 			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
 			_requests_tick()
 		if _tick_stage != TRAIN_PHASE_PENDING and not _advance_warship_phase():
@@ -293,10 +296,24 @@ func _advance_fixed_ticks(tdt: float) -> void:
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
-		if (_attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null) \
+		if (_attack_worker != null or _economy_worker != null or _naval_worker != null \
+				or _warship_worker != null or _train_worker != null or _arsenal_worker != null) \
 				and state == "play" and net_host == null and not net_remote: break
 	_flush_presentation_batch()
 	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+
+func _advance_arsenal_phase() -> bool:
+	if _tick_stage == ARSENAL_PHASE_PENDING:
+		if not _arsenal_worker.ready():
+			return false
+		_tick_stage = 0
+		if _arsenal_worker.take(self):
+			return true
+	elif _arsenal_worker != null and _arsenal_worker.submit(self):
+		_tick_stage = ARSENAL_PHASE_PENDING
+		return false
+	sim_ars.tick()
+	return true
 
 func _advance_warship_phase() -> bool:
 	if _tick_stage == 6:

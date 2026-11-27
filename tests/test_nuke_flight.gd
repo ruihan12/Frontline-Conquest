@@ -3,10 +3,10 @@
 # 1. The same atom bomb is launched three times, at min / mid / max camera zoom, each driven through the
 #    real frame loop (main._process_inner) at a different frame rate and game speed. Its map position on
 #    every sim tick of the flight must be identical in the three runs, and it must land on the tick
-#    launch + Rules.nuke_arc_ticks (ceil(arc length x k_lin / 10)).
+#    launch + the upstream arc duration scaled by the port's missile speed.
 # 2. What is drawn is that map position through the camera: the screen head maps back to the arc point at
 #    the drawn flight fraction, and that fraction stays inside the current sim tick.
-# 3. Flight ticks of every kind match upstream's formula; the MIRV bus splits on its arrival tick into
+# 3. Flight ticks of each kind use the same missile speed; the MIRV bus splits on its arrival tick into
 #    warheads that follow SimNukes._split_mirv; Scattershot warheads follow SimArsenal._scatter_warheads.
 extends SceneTree
 
@@ -26,6 +26,9 @@ func _clear_sams() -> void:
 
 func _arc_len(a: Vector2, b: Vector2) -> float:
 	return float(m.sim_rules.nuke_arc(m.H, a, b).length)
+
+func _match_flight_ticks(upstream_ticks: int) -> int:
+	return maxi(1, ceili(float(upstream_ticks) / float(m.NUKE_SPEED_X)))
 
 func _run() -> void:
 	var hs = load("res://sim/headless_sim.gd").new(self)
@@ -55,7 +58,7 @@ func _run() -> void:
 	var from := Vector2(silo_t % m.W + 0.5, silo_t / m.W + 0.5)
 	var to := Vector2(tgt % m.W + 0.5, tgt / m.W + 0.5)
 	var k_lin: float = m.sim_rules.k_lin
-	var want_ft := maxi(1, int(ceil(_arc_len(from, to) * k_lin / 10.0)))
+	var want_ft := _match_flight_ticks(ceili(_arc_len(from, to) * k_lin / 10.0))
 	print("  k_lin=%.4f silo=%s target=%s arc=%.1f tiles want_ft=%d" % [k_lin, str(from), str(to), _arc_len(from, to), want_ft])
 
 	# ---- 1. three runs: zoom, frame dt and game speed differ
@@ -78,7 +81,7 @@ func _run() -> void:
 		var ms = m.missiles[m.missiles.size() - 1]
 		var lt: int = ms.lt
 		var ft: int = ms.ft
-		_check(ft == want_ft, "run %d: flight %d ticks = ceil(arc x k_lin / 10) = %d" % [ri, ft, want_ft])
+		_check(ft == want_ft, "run %d: flight %d ticks matches the scaled arc duration (%d)" % [ri, ft, want_ft])
 		var lg := {}
 		var last_tick := -1
 		var landed := -1
@@ -137,8 +140,8 @@ func _run() -> void:
 			_check(false, "launch %s" % m.build_data[bk][1]); continue
 		var ms = m.missiles[n0]
 		var spd: float = kinds[bk][1]
-		var wft := maxi(1, int(ceil(_arc_len(from, aim_v) * k_lin / spd)))
-		_check(int(ms.nk) == kinds[bk][0] and int(ms.ft) == wft, "%s: flight %d ticks = ceil(arc x k_lin / %.0f) = %d" % [m.build_data[bk][1], int(ms.ft), spd, wft])
+		var wft := _match_flight_ticks(ceili(_arc_len(from, aim_v) * k_lin / spd))
+		_check(int(ms.nk) == kinds[bk][0] and int(ms.ft) == wft, "%s: flight %d ticks matches the scaled arc duration (%d)" % [m.build_data[bk][1], int(ms.ft), wft])
 		var r_want: float = m.sim_rules.nuke_radii(SimRules.N_WARHEAD if bk == 9 else int(ms.nk)).y
 		_check(bk == 9 or absf(float(ms.r) - r_want) < 1e-4, "%s: outer radius %.2f = upstream %.2f" % [m.build_data[bk][1], float(ms.r), r_want])
 		if bk == 12:
@@ -148,7 +151,8 @@ func _run() -> void:
 			for i in whs.size():
 				var w = whs[i]
 				var d: float = (w.to as Vector2).distance_to(aim_v)
-				var wl: int = maxi(int(ms.ft), m.sim_rules.nuke_arc_ticks(m.sim_rules.nuke_arc(m.H, from, w.to), SimRules.N_SCATTER)) + (i + 1) * 2
+				var arc_ticks: int = m.sim_rules.nuke_arc_ticks(m.sim_rules.nuke_arc(m.H, from, w.to), SimRules.N_SCATTER)
+				var wl := maxi(int(ms.ft), _match_flight_ticks(arc_ticks)) + (i + 1) * 2
 				if int(w.nk) != SimRules.N_WARHEAD or int(w.ft) != wl or d < m.sim_rules.scatter_near() - 1.5 or d > m.sim_rules.scatter_far() + 1.5: ok_sc = false
 			_check(ok_sc, "scattershot: %d warheads, 28-46 full-size tiles out, each 2 ticks after the last" % whs.size())
 		if bk == 9:
@@ -169,7 +173,8 @@ func _run() -> void:
 			for i in whs.size():
 				var w = whs[i]
 				var wt: int = int(w.to.y) * m.W + int(w.to.x)
-				var base: int = m.sim_rules.nuke_arc_ticks(m.sim_rules.nuke_arc(m.H, aim_v, w.to), SimRules.N_WARHEAD)
+				var arc_ticks: int = m.sim_rules.nuke_arc_ticks(m.sim_rules.nuke_arc(m.H, aim_v, w.to), SimRules.N_WARHEAD)
+				var base := _match_flight_ticks(arc_ticks)
 				if int(w.ft) < base or int(w.ft) > base + 15: ok_w = false
 				if (w.from as Vector2) != aim_v or (w.to as Vector2).distance_to(aim_v) > spread + 1e-3: ok_w = false
 				if i > 0 and m.owner_map[wt] != tgo: ok_w = false

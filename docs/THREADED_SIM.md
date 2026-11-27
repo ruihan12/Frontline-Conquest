@@ -354,3 +354,13 @@ While the job is pending, drawing uses previously published rail data and leaves
 The 20-station fixture matched all four territory, train and gameplay RNG checkpoints across 600 ticks, with 598 train phases committed from the worker and zero inline retries. The ordinary 3,000-tick World run also matched all five checkpoints. That seed had no eligible train phases.
 
 A cross-origin-isolated Chromium smoke verified route creation and a payout at the end of a train leg. In a 300-frame native headless sample with four initial trains, enabling the dedicated phase moved the median frame interval from 16.72 to 18.02 ms, the 95th percentile from 43.65 to 42.74 ms, and throughput from 8.88 to 8.33 ticks/s. The worker completed 54 train phases with zero retries. The flag remains opt-in.
+
+## Dedicated arsenal phase
+
+`--sim-worker-arsenal-pass` runs `SimArsenal.tick()` on detached records in solo matches. Construction, reloads, artillery, strike damage and SAM interception share the existing rules. The job takes a territory copy only when an artillery battery can fire or a munition is due to hit. The scene validates inputs and camera visibility before applying the result, resolves structure and missile references, and plays the presentation events in order. Stale jobs and sounds that must consume gameplay RNG fall back to the inline phase. The scheduler resumes with missile arrivals, alliance requests, warships and trains after the arsenal phase. Nuclear detonations and MIRV splitting still run on the scene thread.
+
+All five 3,000-tick World territory and troop checkpoints matched, with 2,019 arsenal worker phases and zero inline retries. A 600-tick fixture with injected shells, airstrikes and railgun slugs matched all four territory, troop, RNG and arsenal-stat checkpoints, with 80 worker phases and zero inline retries. Focused tests also cover record identity, cancellation, construction, shell spawning, SAM plans and interceptions, and phase order on commit or retry. Cross-origin-isolated Chromium passed the same arsenal fixture.
+
+The flight regression test now includes the existing 0.9× missile speed in its expectations. It passes with the arsenal worker enabled.
+
+A sequential 300-frame native headless sample with 40 active buildings moved the median frame interval from 28.82 to 25.50 ms and the 95th percentile from 69.56 to 56.41 ms. Throughput moved from 6.63 to 6.37 ticks/s. The worker completed 56 phases with zero retries. The flag remains opt-in.
