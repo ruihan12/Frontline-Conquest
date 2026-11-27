@@ -568,6 +568,26 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 perf_sim 12.44 / 12.90 ms/tick. The machine was slower in this run: back to back right after, 12.69 / 13.00 with the
 change and 13.70 / 13.76 without it (5f3).
 
+### Step 5g2: a lite world for naval, rails and warships (sim/attacks.gd world_call)
+
+Naval (trade ports), rails and warships read only alive and allied() from SimState (team mode, teams, leavers,
+alliances), never troops, gold, traitors, defence posts or the fallout / land totals (checked in SimNaval,
+SimRails, SimWarships and the one SimArsenal function they use, godot_sort). Their calls now send only those.
+
+What changed:
+- SimState.nat_lite sets alive, kind, team mode, teams, leavers and alliances, and leaves troops, gold, traitors,
+  defence posts and the totals as the last nat_all set them. The attack pass and the arsenal still send the full
+  world before every call that reads those, and SimState.take only writes back troops that set_troops changed.
+- SimArsenal.world_lite and SimRails.world_lite take nat_lite's arguments. sim/attacks.gd `_world_lite()` builds
+  them; `world_call()` gives the lite one, or the full world() when `world_full` is on (tests). sim/naval.gd,
+  sim/rails.gd and sim/warships.gd call it.
+- tests/test_luau_world.gd (10 checks): the per-tick state now also covers the structure, boat and trader lists;
+  each seed checks the lite world was used (about 6900 calls in 3000 ticks) and that the full builds run used none,
+  so the tick-for-tick match also compares lite against full.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_world 10/10,
+perf_sim 12.29 / 12.29 ms/tick; 5g back to back right after: 12.87 / 12.52.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -591,9 +611,13 @@ change and 13.70 / 13.76 without it (5f3).
 | 5f1 | 271ac24 | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
 | 5f2 | 569510a | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
 | 5f3 | b064328 | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
-| 5g | see git log | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
+| 5g | cbc8e22 | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
+| 5g2 | see git log | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
 
 ## Customs touched per step
+
+- Step 5g2: none (what Luau calls are sent, not values; the hash is unchanged).
+- Step 5g: none (a cache; the hash is unchanged).
 
 - Step 5e: the console's god mode, infinite gold and no cooldown: game/economy.gd `_econ_console` (`# CUSTOM:`),
   used by both paths; test_luau_economy checks it. Supply drops and the nuke queue stay as they were.

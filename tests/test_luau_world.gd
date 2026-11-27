@@ -2,7 +2,9 @@
 # teams, alliances, traitors, defence posts) keeps a dead nation's troops and gold from its last build instead of
 # reading them again. Plays two seeded matches with the cache, checks after each phase of every tick (begin, attack
 # pass, AI pass, end) that the cached build equals a full build, then plays each again with full builds only and
-# checks that owner map, troops, gold, attacks and rng are identical after each tick.
+# checks that owner map, troops, gold, attacks, rng and the structure, boat and trader lists are identical after each
+# tick. Step 5g2: naval, rails and warships get only the lite world (alive, kind, teams, alliances), and the full
+# builds run gives them the whole world, so the second check covers that too.
 #   godot --headless --path . -s res://tests/test_luau_world.gd
 extends SceneTree
 
@@ -28,7 +30,7 @@ func _state_bytes(m) -> PackedByteArray:
 		nat.append(float(n.get("troops", 0.0))); nat.append(float(n.get("gold", 0.0)))
 	var atk := []
 	for a in m.attacks: atk.append([a.a, a.t, a.get("troops", 0.0)])
-	return var_to_bytes([hash(m.owner_map), nat, atk, m.rng.state])
+	return var_to_bytes([hash(m.owner_map), nat, atk, m.rng.state, m.structs, m.boats, m.traders])
 
 
 func _cmp(m, st: Dictionary) -> void:
@@ -68,7 +70,7 @@ func _play(sd: int, full: bool) -> Dictionary:
 			if d != null: dead += 1
 		dead_max = maxi(dead_max, dead)
 	var res := {"hashes": hashes, "n": st.n, "bad": st.bad, "dead": dead_max, "nn": m.nations.size(),
-		"err": m.luau_link.error if m.get("luau_link") != null else "", "on": m.luau_link != null and m.luau_link.on}
+		"lites": m.sim_atk.world_lites, "err": m.luau_link.error if m.get("luau_link") != null else "", "on": m.luau_link != null and m.luau_link.on}
 	m.queue_free()
 	await process_frame
 	await process_frame
@@ -85,7 +87,9 @@ func _run() -> void:
 		_check(bool(a.on) and a.err == "", "seed %d: the Luau sim ran (%s)" % [sd, a.err])
 		_check(int(a.n) == END_T * 4 and int(a.bad) == 0 and int(a.dead) > int(a.nn) / 2,
 			"seed %d: the cached world equals a full read after every phase (%d builds, %d differ, up to %d of %d nations kept dead)" % [sd, a.n, a.bad, a.dead, a.nn])
+		_check(int(a.lites) > END_T, "seed %d: naval, rails and warships got the lite world (%d calls)" % [sd, a.lites])
 		var b: Dictionary = await _play(sd, true)
+		_check(int(b.lites) == 0, "seed %d: the full builds run gave them the whole world" % sd)
 		var ha: PackedInt64Array = a.hashes
 		var hb: PackedInt64Array = b.hashes
 		var first := -1
@@ -93,7 +97,7 @@ func _run() -> void:
 			if ha[i] != hb[i]:
 				first = i
 				break
-		_check(first < 0 and ha.size() == hb.size(), "seed %d: owner map, troops, gold, attacks and rng identical to full builds after each of %d ticks%s" % [sd, ha.size(), "" if first < 0 else " (first difference after tick %d)" % first])
+		_check(first < 0 and ha.size() == hb.size(), "seed %d: owner map, troops, gold, attacks, rng, structures, boats and traders identical to full builds after each of %d ticks%s" % [sd, ha.size(), "" if first < 0 else " (first difference after tick %d)" % first])
 	_done()
 
 

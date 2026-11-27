@@ -816,6 +816,13 @@ function M.world(n: number, troops: buffer, gold: buffer, alive_b: buffer, kind:
 	return true
 end
 
+-- Step 5g2: SimState.nat_lite's arguments (alive, kind, teams, alliances) for a call that reads only those.
+function M.world_lite(n: number, alive: buffer, kind: buffer, team_mode: boolean, team: buffer, left: buffer,
+	allies: buffer): boolean
+	SimState.nat_lite(SimState.cur, n, alive, kind, team_mode, team, left, allies)
+	return true
+end
+
 local function f64_buf(q: { number }): buffer
 	local b = buffer.create(#q * 8)
 	for k = 1, #q do

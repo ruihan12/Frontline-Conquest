@@ -1674,6 +1674,13 @@ function M.world(n: number, troops: buffer, gold: buffer, alive: buffer, kind: b
 	return true
 end
 
+-- Step 5g2: SimState.nat_lite's arguments (alive, kind, teams, alliances) for a call that reads only those.
+function M.world_lite(n: number, alive: buffer, kind: buffer, team_mode: boolean, team: buffer, left: buffer,
+	allies: buffer): boolean
+	SimState.nat_lite(st(), n, alive, kind, team_mode, team, left, allies)
+	return true
+end
+
 -- One entry for every call from sim/arsenal.gd: op, the sim rng (two uint32 halves), hdr (f64: tick, PLAYER,
 -- rapid reload on, warhead radius), the rules fields (SimAttacks.RULE_FIELDS order), the structure snapshot and
 -- its EXT block, the missile / munition ids still in GDScript's lists, troop rules per nation (i32 triples id,

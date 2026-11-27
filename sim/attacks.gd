@@ -114,6 +114,36 @@ func _world() -> Array:
 		tm.to_byte_array(), lf, PackedInt32Array(g.allies.keys()).to_byte_array(), trt.to_byte_array(),
 		defs.to_byte_array(), int(g.fallout_count), int(g.land_total)]
 
+# Step 5g2: what naval, rails and warships read (SimState.nat_lite: alive, kind, teams, alliances), for their
+# world_lite calls. With world_full (tests) they get the whole world() instead.
+var world_lites := 0  # world_lite calls made (tests)
+func _world_lite() -> Array:
+	var nats: Array = g.nations
+	var nn := nats.size()
+	var al := PackedByteArray(); al.resize(nn)
+	for id in range(1, nn):
+		var d: Dictionary = nats[id]
+		if d.alive: al[id] = 1
+	var kc: PackedInt32Array = g._kind_cache
+	if kc.size() != nn:
+		kc = PackedInt32Array(); kc.resize(nn)
+		for id in nn: kc[id] = g.kind_of(id)
+	var tm := PackedInt32Array()
+	var lf := PackedByteArray()
+	if g.team_mode:
+		tm.resize(nn); lf.resize(nn)
+		for id in range(1, nn):
+			var d: Dictionary = nats[id]
+			tm[id] = int(d.get("team", 0)); lf[id] = 1 if d.get("left", false) else 0
+	return [nn, al, kc.to_byte_array(), bool(g.team_mode), tm.to_byte_array(), lf,
+		PackedInt32Array(g.allies.keys()).to_byte_array()]
+
+## The world a naval / rails / warships call needs: [function name, its arguments] for the module's world entry.
+func world_call() -> Array:
+	if world_full: return ["world", _world()]
+	world_lites += 1
+	return ["world_lite", _world_lite()]
+
 # a Luau call's attack records -> the mirror Dictionaries (in place, so references held elsewhere stay live)
 func _mirror(out) -> void:
 	if out == null: return

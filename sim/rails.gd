@@ -532,8 +532,8 @@ func _hostile_pairs() -> PackedInt32Array:
 ## One Luau call. Returns its result (ret), or null when the link failed (the caller runs the GDScript path).
 func _lrun(lu: LuauLink, op: String, a: Array, ex: Array) -> Variant:
 	if not lu.flush(g): return null
-	var w: Array = g.sim_atk._world()
-	if lu.vm.call_fn(LMOD, "world", w) == null:
+	var wc: Array = g.sim_atk.world_call()  # Step 5g2
+	if lu.vm.call_fn(LMOD, wc[0], wc[1]) == null:
 		lu._fail(g, lu.vm.last_error)
 		return null
 	var f := PackedFloat64Array()

@@ -291,7 +291,8 @@ func _luau_ports(t: int) -> bool:
 	if not vm.require_module(LNAVAL) or not lu.flush(g):
 		if lu.on: lu._fail(g, vm.last_error)
 		return false
-	if vm.call_fn("Core/SimArsenal", "world", g.sim_atk._world()) == null:
+	var wc: Array = g.sim_atk.world_call()  # Step 5g2
+	if vm.call_fn("Core/SimArsenal", wc[0], wc[1]) == null:
 		lu._fail(g, vm.last_error)
 		return false
 	# the attack pairs hostile() would see now: its cache when it was built this tick, else what it would build

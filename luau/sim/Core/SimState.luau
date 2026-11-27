@@ -483,6 +483,31 @@ end
 -- Everything a whole pass reads (sent at each attacks slice): per nation troops / gold (f64), alive (u8), kind
 -- (i32), team (i32) and left (u8) in a team game; the alliance keys (i32, min * 4096 + max), traitors (i32 pairs
 -- id, until), finished defence posts (i32 flat: owner, count, tiles...), fallout and land counts.
+-- Step 5g2: the part of nat_all that naval, rails and warships read (alive, kind and what allied() reads: teams,
+-- leavers, alliances). Troops, gold, traitors, defence posts and the fallout / land totals keep the values of the
+-- last nat_all (the attack pass and the arsenal send that before every call that reads them).
+function SimState.nat_lite(st: State, n: number, alive: buffer, kind: buffer, team_mode: boolean, team: buffer,
+	left: buffer, allies: buffer)
+	ensure_nat(st, n)
+	local A, K = st.alive, st.kind
+	for id = 0, n - 1 do
+		A[id] = readu8(alive, id) ~= 0
+		K[id] = readi32(kind, id * 4)
+	end
+	st.team_mode = team_mode
+	if team_mode then
+		for id = 0, n - 1 do
+			st.team[id] = readi32(team, id * 4)
+			st.left[id] = readu8(left, id) ~= 0
+		end
+	end
+	local al = {}
+	for k = 0, buffer.len(allies) - 4, 4 do
+		al[readi32(allies, k)] = true
+	end
+	st.allies = al
+end
+
 function SimState.nat_all(st: State, n: number, troops: buffer, gold: buffer, alive: buffer, kind: buffer,
 	team_mode: boolean, team: buffer, left: buffer, allies: buffer, traitor: buffer, defs: buffer,
 	fallout_count: number, land_total: number)
