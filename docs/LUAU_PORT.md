@@ -337,7 +337,7 @@ What changed:
   route search or a link build and spend the tick's budgets between ticks, so what the sim built depended on what
   was on screen. Headless runs (parity, hash) never drew, so their results don't change; in a window the sim no
   longer depends on the camera. A rail the sim has not searched yet is drawn once the tick has built it (each
-  station is warmed every 10 ticks). See Question 3.
+  station is warmed every 10 ticks). Kept (Question 3, answered).
 - Known differences, in cases the seeded matches never reach: GDScript compares structure Dictionaries by content
   in `st_b in links` and `trains.erase(tr)`; Luau compares identity (the same Dictionary). They differ only when a
   station is destroyed and rebuilt on the same tile with exactly the same fields while a stale link list still holds
@@ -388,6 +388,34 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 --sliced; test list unchanged plus test_luau_nav 14/14; perf AVG 12.39 / 11.85 ms/tick (5b2 11.46 / 11.84; the Luau
 searches cost about what the GDScript ones did, the difference is within run-to-run noise).
 
+### Step 5d2: trade ship ports in Luau (Core/SimNaval.luau)
+
+What changed:
+- `luau/sim/Core/SimNaval.luau`: sim/naval.gd's ports tick line for line (`_ports_tick`, `_pick_partner`,
+  `_refresh_partners`, `_trade_path`, `hostile`): every 10 ticks each finished port rolls `level` times against the
+  spawn rate with its pity timer, picks a partner port of a non-hostile owner on the same water body and finds the
+  trade route (its own trade cache with the same 2000 cap, searches through Core/SimNav with the 2-per-tick budget).
+- The ports stay GDScript Dictionaries in game.structs. Each call sends them in order with their trade fields (slot,
+  rej, partners, ptick, water, body) and the attack pairs hostile() sees, and gets back the fields it changed (keys
+  added in the GDScript order) and the new trade ships, which sim/naval.gd makes with the same cum and gold as
+  before. A tick where no port rolls makes no call (the GDScript draws nothing then either). game/map.gd bumps
+  `sim_naval.trade_gen` with each `trade_cache.clear()`, so Luau drops its trade cache and takes the new water bodies.
+- Runs only while the nav is in Luau (Step 5d1) on the same Luau state; otherwise `_ports_tick_gd` as before.
+- `sim_nav.last_deferred` is no longer set by the trade route searches (it was set inside `_trade_path`); nothing
+  reads it there.
+- Sailing, arrival pay, transports and warships stay GDScript (5d3, 5d4).
+- tests/test_luau_naval.gd (6 checks): the seeded match with Luau and with NO_LUAU_SIM for 4000 ticks: ports,
+  trade ships, gold, owner map and rng identical after each tick, same trade ships made.
+- Drafted in the separate worktree with 5d1 and taken over unchanged apart from comments.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_naval 6/6
+(4000 ticks, 1002 trade ships, identical each tick), perf_sim 13.34 / 13.81 ms/tick.
+- Cost: on a tick where a port rolls, the call costs more than the GDScript did (about 1.1 vs 0.7 ms on seed 12345,
+  timed around the ports tick). The Luau work itself is about the GDScript's (the trade route searches, in Luau
+  in both since 5d1, dominate); the extra is the snapshot of every port (about 0.15 ms) and the flush + world()
+  before the call (about 0.2 ms). Ticks where no port rolls skip both. Planned fix, before Step 6: keep the ports'
+  trade fields in Luau between ticks (only naval writes them) and send one world() per tick for all the modules.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -404,10 +432,12 @@ searches cost about what the GDScript ones did, the difference is within run-to-
 | 5c | b89e9f7 | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
 | rails split | 662352f | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
 | 5b2 | 5dd163f | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
-| 5d1 | see git log | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
+| 5d1 | a61a285 | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
+| 5d2 | see git log | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
 
 ## Customs touched per step
 
+- Step 5d2: none (trade ship spawns; boat 0.35 stays on the game).
 - Step 5d1: none (water routes only; boat 0.35 and warship 0.7 speeds stay on the game).
 - Step 5b2: none of the listed customs are in the rail / train sim (supply drops stay off; train gold and spawn
   rates are upstream's). Nothing to add a custom test for.
@@ -450,3 +480,5 @@ searches cost about what the GDScript ones did, the difference is within run-to-
    a window the sim no longer depends on what is drawn, and a rail shows up once the tick has searched it instead of
    when it first comes on screen. Keep it (it is a determinism fix, needed so Luau and GDScript agree), or should the
    GDScript fallback keep the old drawing-side searches?
+   Answer (Ruihan, Nov 27 2026): "Keep the new one". The renderer reads cached rails only, with and without Luau;
+   no drawing-side searches come back.

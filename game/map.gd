@@ -350,10 +350,10 @@ func gen_map() -> void:
 		owner_map = _gen_cache.om.duplicate(); elev_map = _gen_cache.el; mtn = _gen_cache.mt.duplicate()
 		coast_dist = _gen_cache.cd; base_col = _gen_cache.bc; land_total = _gen_cache.lt
 		if sim_naval == null: sim_naval = SimNaval.new(self, sim_rules)
-		sim_naval.body = _gen_cache.body; sim_naval.coast_list = _gen_cache.cl; sim_naval.trade_cache.clear()
+		sim_naval.body = _gen_cache.body; sim_naval.coast_list = _gen_cache.cl; sim_naval.trade_cache.clear(); sim_naval.trade_gen += 1
 		sim_nav = _gen_cache.get("nav", null)
 		if sim_nav == null or not sim_nav.ready: sim_nav = SimNavS.new(); sim_nav.build(sim_naval.body, W, H)
-		sim_nav.luau_attach(self)  # Step 5d draft: searches in Luau once the link is up
+		sim_nav.luau_attach(self)  # Step 5d1: searches in Luau once the link is up
 		_gt("cache")
 		if _async_gen: await get_tree().process_frame
 		_redraw_all()
@@ -438,10 +438,10 @@ func gen_map() -> void:
 	sim_naval.compute_bodies()
 	sim_nav = SimNavS.new()  # new object per map: the gen cache keeps the previous one
 	sim_nav.build(sim_naval.body, W, H)
-	sim_nav.luau_attach(self)  # Step 5d draft: searches in Luau once the link is up
+	sim_nav.luau_attach(self)  # Step 5d1: searches in Luau once the link is up
 	_gt("bodies")
 	if _async_gen: _load_progress(0.65); await get_tree().process_frame
-	sim_naval.trade_cache.clear()
+	sim_naval.trade_cache.clear(); sim_naval.trade_gen += 1
 	_recompute_base_colors()
 
 func _recompute_base_colors() -> void:

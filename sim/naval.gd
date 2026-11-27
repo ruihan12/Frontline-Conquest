@@ -139,6 +139,10 @@ func hostile(a: int, b: int) -> bool:
 
 # ---------------- trade ----------------
 func _ports_tick(t: int) -> void:
+	if _luau_ports(t): return  # Step 5d2: luau/sim/Core/SimNaval.luau
+	_ports_tick_gd(t)
+
+func _ports_tick_gd(t: int) -> void:
 	var slot := t % 10
 	var rng: RandomNumberGenerator = g.rng
 	var n_trade: int = g.traders.size()
@@ -240,3 +244,123 @@ func _trade_path(a: Dictionary, b: Dictionary) -> PackedVector2Array:
 	trade_cache[key] = pts
 	if trade_cache.size() > 2000: trade_cache.clear()
 	return pts
+
+
+# ---------------- Luau (Step 5d2 of docs/LUAU_PORT.md) ----------------
+# The trade ships' ports tick runs in luau/sim/Core/SimNaval.luau when the water graph is in Luau (sim/nav.gd
+# on_luau): the ports stay Dictionaries in game.structs; each call sends their trade fields and gets back the fields
+# it changed and the new trade ships (made here, with the same cum and gold as _ports_tick_gd). Luau keeps the trade
+# route cache; trade_gen (map.gd, with trade_cache.clear()) tells it a new map's water bodies came.
+const LNAVAL := "Core/SimNaval"
+var trade_gen := 0
+var _lgen_sent := -1
+var _lvm_sent: LuauVM = null
+var luau_calls := 0  # ports ticks that ran in Luau (tests)
+
+func _luau_ports(t: int) -> bool:
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
+	var nav = g.sim_nav
+	if nav == null or not nav.ready or not nav.on_luau(): return false
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on or not is_same(lu.vm, nav._lvm): return false
+	var vm: LuauVM = lu.vm
+	var slot := t % 10
+	# a cheap pass first: most ticks no port rolls, and then nothing is sent (the GDScript draws nothing either)
+	var need := false
+	for p in g.structs:
+		if p.k != 1 or float(p.get("bt", 0.0)) > 0.0: continue
+		if not p.has("slot") or (int(p.slot) == slot and int(p.water) >= 0 and g.nations[p.o].alive):
+			need = true
+			break
+	if not need: return true
+	var ports: Array = []
+	var snap := PackedFloat64Array()
+	for p in g.structs:
+		if p.k != 1: continue
+		var has: bool = p.has("slot")
+		var bt: float = float(p.get("bt", 0.0))
+		snap.append(ports.size()); snap.append(p.tile); snap.append(p.o); snap.append(int(p.get("level", 1))); snap.append(bt)
+		snap.append(1.0 if has else 0.0)
+		if has:
+			snap.append(p.slot); snap.append(p.rej); snap.append(p.ptick); snap.append(p.water); snap.append(p.body)
+			snap.append(p.partners.size())
+			for v in p.partners: snap.append(v)
+		else:
+			for _k in 6: snap.append(0.0)
+		ports.append(p)
+	if not vm.require_module(LNAVAL) or not lu.flush(g):
+		if lu.on: lu._fail(g, vm.last_error)
+		return false
+	if vm.call_fn("Core/SimArsenal", "world", g.sim_atk._world()) == null:
+		lu._fail(g, vm.last_error)
+		return false
+	# the attack pairs hostile() would see now: its cache when it was built this tick, else what it would build
+	var fresh := {}
+	var hp := PackedInt32Array()
+	if _hp_tick == t:
+		for k in _hp: hp.append(k)
+	else:
+		var Wk: int = 1 << 16
+		for at in g.attacks:
+			if at.get("dead", false): continue
+			fresh[int(at.a) * Wk + int(at.t)] = true
+			fresh[int(at.t) * Wk + int(at.a)] = true
+		for k in fresh: hp.append(k)
+	var bodyb := PackedByteArray()
+	if trade_gen != _lgen_sent or not is_same(vm, _lvm_sent): bodyb = body.to_byte_array()
+	var hdr := PackedFloat64Array([t, nav._lid, path_budget, g.traders.size(), g.TS, g.W,
+		trade_gen])
+	var rf := PackedFloat64Array()
+	for k in SimAttacks.RULE_FIELDS: rf.append(float(R.get(k)))
+	var rg := LuauLink.rng_args(g)
+	var out = vm.call_fn(LNAVAL, "ports_tick", [rg[0], rg[1], hdr.to_byte_array(), rf.to_byte_array(),
+		snap.to_byte_array(), bodyb, hp.to_byte_array()])
+	if out == null:
+		lu._fail(g, vm.last_error)
+		return false
+	_lgen_sent = trade_gen
+	_lvm_sent = vm
+	luau_calls += 1
+	var hi: int = int(out.rhi)
+	if hi >= 0x80000000: hi -= 0x100000000
+	g.rng.state = hi * 0x100000000 + int(out.rlo)
+	path_budget = int(out.pb)
+	if bool(out.hu) and _hp_tick != t:
+		_hp_tick = t
+		_hp = fresh
+	var pw: PackedFloat64Array = (out.pw as PackedByteArray).to_float64_array()
+	var k := 0
+	while k < pw.size():
+		var p: Dictionary = ports[int(pw[k])]
+		if pw[k + 1] != 0.0:  # made this call: the keys in _ports_tick_gd's order
+			p.slot = int(pw[k + 2]); p.rej = int(pw[k + 3]); p.partners = []; p.ptick = int(pw[k + 4])
+			p.water = int(pw[k + 5]); p.body = int(pw[k + 6])
+		else:
+			p.slot = int(pw[k + 2]); p.rej = int(pw[k + 3]); p.ptick = int(pw[k + 4])
+			p.water = int(pw[k + 5]); p.body = int(pw[k + 6])
+		var np := int(pw[k + 7])
+		var parts: Array = p.partners
+		var same: bool = parts.size() == np
+		if same:
+			for j in np:
+				if int(parts[j]) != int(pw[k + 8 + j]): same = false; break
+		if not same:
+			var pa := []
+			for j in np: pa.append(int(pw[k + 8 + j]))
+			p.partners = pa
+		k += 8 + np
+	var nt: PackedFloat64Array = (out.nt as PackedByteArray).to_float64_array()
+	k = 0
+	while k < nt.size():
+		var p: Dictionary = ports[int(nt[k])]
+		var dst: Dictionary = ports[int(nt[k + 1])]
+		var n := int(nt[k + 2])
+		var pts := PackedVector2Array()
+		pts.resize(n)
+		for j in n: pts[j] = Vector2(nt[k + 3 + 2 * j], nt[k + 4 + 2 * j])
+		k += 3 + 2 * n
+		var cum := PackedFloat32Array([0.0])
+		for m in range(1, pts.size()): cum.append(cum[m - 1] + pts[m].distance_to(pts[m - 1]))
+		g.traders.append({"o": p.o, "pts": pts, "cum": cum, "d": 0.0, "dst": dst, "src": p,
+			"gold": floor(R.trade_gold(cum[cum.size() - 1] / g.TS))})
+	return true

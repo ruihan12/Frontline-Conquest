@@ -1030,7 +1030,7 @@ func steer(ws: Dictionary, step: float) -> bool:
 
 
 # ------------------------------------------------------------------------------------------------
-# Step 5d (docs/LUAU_PORT.md, draft): the same searches in Luau
+# Step 5d1 (docs/LUAU_PORT.md): the same searches in Luau
 # ------------------------------------------------------------------------------------------------
 # With the Luau link on (not a remote viewer, not NO_LUAU_SIM), the stateful queries (find_route, boat_route,
 # water_path_px, the per-tick budget) run in luau/sim/Core/SimNav.luau, which holds its own copy of the graph and

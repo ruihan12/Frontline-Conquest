@@ -1,5 +1,5 @@
 --!strict
--- SimNav: water pathfinding (docs/LUAU_PORT.md, Step 5d draft). Line-for-line transliteration of this project's
+-- SimNav: water pathfinding (docs/LUAU_PORT.md, Step 5d1). Line-for-line transliteration of this project's
 -- sim/nav.gd, which ports upstream RoWorld src/shared/Core/SimNav.luau (AGPL-3.0, lukechatton/roworld @ae7a350).
 --
 -- 8 x 8 tile cells, 4-connected water regions per cell, a region graph (CSR) with weighted A* (w 1.4) and a
@@ -1693,6 +1693,13 @@ function M.water_path_px(id: number, from_tile: number, to_tile: number, ts: num
 	-- last_deferred is only set by find_route (an early return keeps the previous call's flag, as in GDScript)
 	local p = water_path_px(nv, from_tile, to_tile, ts, urgent)
 	return { p = fbuf(p), d = nv.last_deferred }
+end
+
+-- for Core/SimNaval (trade routes): the polyline as a 1-based x, y table, and the deferral flag
+function M.water_path_px_t(id: number, from_tile: number, to_tile: number, ts: number, urgent: boolean): ({ number }, boolean)
+	local nv = nav(id)
+	local p = water_path_px(nv, from_tile, to_tile, ts, urgent)
+	return p, nv.last_deferred
 end
 
 function M.water_next_to(id: number, t: number, wb: number): number
