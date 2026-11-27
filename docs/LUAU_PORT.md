@@ -11,7 +11,7 @@ would need a force-push, so it was merged instead: 84d5260 = `multiplayer` 0fbdd
 
 ```
 godot --headless --path . --script tests/run_upstream_tests.gd            # parity, 0 fail, 5 intentional
-godot --headless --path . -s tests/sim_hash.gd                            # SIM_HASH, World 400 tribes, seed 5516, 6000 ticks
+godot --headless --path . -s tests/sim_hash.gd                            # SIM_3480782660, World 400 tribes, seed 5516, 6000 ticks
 godot --headless --path . -s tests/sim_hash.gd -- --sliced                # same hash with both passes cut in tiny slices
 godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG ms/tick over 3000 ticks
 ```
@@ -51,11 +51,11 @@ What changed:
   thinking for remote humans' nations (they were in SimAI.st).
 - Sounds and the nuke hover preview draw from `fx_rng`, not the sim's `rng`. The alliance-expiry card check (UI only)
   runs every 5th frame instead of on `rng.randf() < 0.2` per frame (that draw advanced the sim rng per frame).
-- Donation cooldowns count down per tick by 0.1 x SPEED_BASE (same length as before: they ran on the visual clock).
+- Donation cooldowns count down per tick by 0.1 x SPEED_13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier) (same length as before: they ran on the visual clock).
 - New tests/sim_hash.gd; tests/perf_sim.gd times the game's tick (atk / ai / rest) and prints AVG ms/tick.
 
 Results (Godot 4.3.stable): parity 472 total, 467 pass, 0 fail, 5 intentional (2 more live cases ran: the air strike
-path); NEW BASELINE hash owner=3480782660 (troops=213616296.6 gold=266746204.0 alive=28 structs=412) identical in two
+path); NEW 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)LINE hash owner=3480782660 (troops=213616296.6 gold=266746204.0 alive=28 structs=412) identical in two
 whole runs and one --sliced run; test list unchanged from before Step A (13 pass, test_lobby_ui 3, test_account_ui 55);
 perf AVG 13.76 ms/tick (+3.4% on 13.31; per minute 24.92 / 14.40 / 10.74 / 9.42 / 9.31; a different match since the rng
 draws changed; `rest` is higher, the rail warm-up once a second and trade ships now being stepped inside the tick).
@@ -588,6 +588,34 @@ What changed:
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_world 10/10,
 perf_sim 12.29 / 12.29 ms/tick; 5g back to back right after: 12.87 / 12.52.
 
+Dropped from the 5d2 plan: keeping the ports' trade fields in Luau. The whole ports snapshot costs about 0.14
+ms/tick and the trade fields are under half of it, while Luau would have to follow each port across calls as the
+structure list changes order. The ports' Luau time (about 0.6 ms/tick) is the route searches.
+
+### Step 5d4: ship movement stays GDScript (profiled; one GDScript fix)
+
+Answer to Question 4: keep it in GDScript, port only if a profile shows a real gain. Profile (4.5.1, 6000 ticks,
+tick end timed piece by piece, the owner hash unchanged by the probe):
+
+| seed | trade ships (avg / max) | `_tick_trade` before | after | transports (avg / max) | `_tick_boats` |
+|---|---|---|---|---|---|
+| 12345 | 287 / 417 | 0.255 ms/tick | 0.178 | 2.4 / 20 | 0.012 |
+| 5516 | 285 / 425 | 0.261 ms/tick | 0.195 | 2.6 / 22 | 0.014 |
+
+(Question 4's 0.044 ms/tick was 3000 ticks, before the late-game ship counts.) The cost is the per-ship moves; the
+arrivals (pay, notes) are about 0.011 ms/tick and the transports are too few to matter.
+- What changed: `_tick_trade` (game/navy.gd) computed `dt * ship_tiles_per_s() * boat_speed * TS` again for every
+  ship (a method call each); it is now made once per tick and added to each `d`. The same product in the same order,
+  so the positions are bit for bit the same (hash unchanged).
+- Why not Luau: the trade ship Dictionaries stay in GDScript (the renderer and net/rep.gd read `d`), so a Luau
+  version still writes every `d` back each tick. Writing `d` alone is about half of what is left (benchmark: 370
+  ships, 0.036 of 0.077 ms), so Luau could save at most about 0.08 ms/tick, and it would need a Luau copy of the
+  ship list kept in step with spawns, warship captures and removals. Not ported.
+- Transports (`_tick_boats`) are left as they are (0.013 ms/tick).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before, perf_sim 12.94 / 13.28; 5g2 back to
+back right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -612,10 +640,12 @@ perf_sim 12.29 / 12.29 ms/tick; 5g back to back right after: 12.87 / 12.52.
 | 5f2 | 569510a | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
 | 5f3 | b064328 | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
 | 5g | cbc8e22 | 467/0/5 | 3480782660 | 12.44 / 12.90 (5f3 right after: 13.70 / 13.76) | same + luau_world 6/6 |
-| 5g2 | see git log | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
+| 5g2 | a1b2c71 | 467/0/5 | 3480782660 | 12.29 / 12.29 (5g right after: 12.87 / 12.52) | same + luau_world 10/10 |
+| 5d4 | see git log | 467/0/5 | 3480782660 | 12.94 / 13.28 (5g2 right after: 13.60 / 13.65 (the machine ran slow; 5g2 measured 12.29 / 12.29 earlier)) | same |
 
 ## Customs touched per step
 
+- Step 5d4: none (ship speed is unchanged: boat_speed and upstream's 1 tile per tick, the same product).
 - Step 5g2: none (what Luau calls are sent, not values; the hash is unchanged).
 - Step 5g: none (a cache; the hash is unchanged).
 
@@ -674,6 +704,8 @@ perf_sim 12.29 / 12.29 ms/tick; 5g back to back right after: 12.87 / 12.52.
    every `d` back each tick, plus a call: it can only be slower. The landings (troops, notes, `sim_atk.start`) are
    rare. Port it anyway as planned, or keep both in GDScript until Step 6 decides what Luau owns? Until answered,
    5d4 is skipped and Economy (5e) goes first.
+   Answer (Ruihan, Nov 27 2026): keep it in GDScript by default, but profile it first. Profiled in Step 5d4: at most
+   about 0.08 ms/tick to gain in Luau, so it stays GDScript; the trade ship loop got a GDScript fix (0.26 to 0.18).
 5. Step 5f (the AI) after 5f1 to 5f3: perception (border scans, the tribes' nearby owners, coastal tiles) runs in
    Luau and the AI pass is down from about 2.7 to 1.8 ms/tick (seed 12345). What is left is decision code: about
    20 think functions reading and writing the nation and per-AI Dictionaries and calling the game's action entry
@@ -682,3 +714,4 @@ perf_sim 12.29 / 12.29 ms/tick; 5g back to back right after: 12.87 / 12.52.
    copy that state across (as in 5e, where the Luau maths gave no gain). Stop the AI port at perception, or port
    the decisions anyway? Until answered, the AI stays as it is and the ports' perf fix (one world() per tick, the
    ports' trade fields kept in Luau, planned in 5d2) goes first.
+   Answer (Ruihan, Nov 27 2026): stop at perception. The decision code stays GDScript.

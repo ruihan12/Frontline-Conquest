@@ -197,10 +197,13 @@ func _spawn_trade_ship_pair(a: Dictionary, b: Dictionary, allow_bfs: bool) -> bo
 func _tick_trade(dt: float) -> void:
 	# spawning happens per tick in sim_naval.tick() (RoWorld ports_tick)
 	_tick_air_cargo(dt)
+	# Step 5d4 (docs/LUAU_PORT.md): the step is the same product every ship computed before, made once per tick
+	var step: float = dt * sim_rules.ship_tiles_per_s() * boat_speed * TS
 	for tr in traders.duplicate():
-		tr.d += dt * sim_rules.ship_tiles_per_s() * boat_speed * TS
+		var d: float = tr.d + step
+		tr.d = d
 		var cum: PackedFloat32Array = tr.cum
-		if tr.d >= cum[cum.size() - 1]:
+		if d >= cum[cum.size() - 1]:
 			SimWarships.erase_ref(traders, tr)
 			var dst: Dictionary = tr.dst
 			if tr.has("orig"):
