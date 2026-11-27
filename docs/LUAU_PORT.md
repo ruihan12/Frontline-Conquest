@@ -233,6 +233,31 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 account_ui 55 as before); perf AVG 11.11 / 10.93 ms/tick over two runs (Step 4 13.53). The attack pass in the
 first minute went 19.72 -> 12.75 ms/tick even with the Luau rng about 12x slower per draw than the native one.
 
+### Step 5b: Structures in Luau (Core/SimStructures.luau)
+
+What changed:
+- `luau/sim/Core/SimStructures.luau`: sim/structures.gd `place_site` (upgrade in reach, else the flood of own
+  land within PLACE_SEARCH_R and the nearest tile clear of STRUCT_MIN_DIST; ports on own coast within
+  PORT_SPAWN_MANHATTAN), and the construction countdown of sim/arsenal.gd tick (0.1 s per tick, activation at 0).
+- `sim/structures.gd` is the face: `place_site` and `construction()` hand Luau a snapshot of game.structs first
+  (f64 per structure in list order: k, tile, o, level, bt; about 0.1 ms per 400 structures) and the tile layer
+  through flush. sim/arsenal.gd tick applies the new build times and calls `_activate` (the artillery's first gap is
+  an rng draw) in list order, as before; the reload rings (`_refresh_cd`) stay with the arsenal (Step 5c).
+- Decision: the structure list stays GDScript's in this step. It is read and written in many places outside the
+  sim: the renderer, net/rep.gd (the whole dicts travel, so no new key like an id can be added without changing the
+  packet), the shop's instant build, the debug modes in main.gd / game/audio.gd and the parity tests all write
+  `bt`, `level`, `hp` or append dicts directly. A snapshot per call keeps all of those working without changes.
+  Luau takes the list over when the per-tick readers move (arsenal 5c, AI 5f); capture on owner change stays in
+  map.gd `_set_owner` until then.
+- tests/test_luau_structures.gd (9 checks): Luau place_site == GDScript on 3246 clicks of a seeded match (every
+  kind, own and foreign land, 92 upgrades, all four outcomes); a new post counts down 0.1 s per tick; a direct
+  bt = 0 between ticks wins and the post counts as finished; an artillery battery activates when its countdown ends.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged plus test_luau_structures 9/9; perf AVG 11.72 / 11.81 ms/tick (5a 11.11 / 10.93). The
+snapshot adds 0.1 to 0.3 ms to "rest" late in the match (more structures); the attack and AI columns moved by
+run-to-run noise only (their code did not change).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -244,10 +269,13 @@ first minute went 19.72 -> 12.75 ms/tick even with the Luau rng about 12x slower
 | 2 | 9b35211 | 467/0/5 | 3480782660 | 13.52 | same + luau_bridge 10/10, luau_rng 27/27 |
 | 3 | 0c719e1 | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
 | 4 | d85a762 | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
-| 5a | see git log | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
+| 5a | e33428f | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
+| 5b | see git log | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
 
 ## Customs touched per step
 
+- Step 5b: none of the listed customs are in placement or construction (the autoshot / bench build-time cut stays
+  in economy.gd `_struct_add`). Supply drops stay off.
 - Step 5a: none of the listed customs live in the attack code (troops /10 and the 80% win stay where they were). The
   arsenal now cuts attack troops through scale_owner / set_troops; values unchanged (hash).
 - Step 4: none (recording only; the hash is unchanged).
@@ -264,3 +292,7 @@ first minute went 19.72 -> 12.75 ms/tick even with the Luau rng about 12x slower
 1. Player and network intents are still applied when they arrive (between frames, so possibly between two slices of a tick).
    Upstream queues intents and runs them at the start of the next tick (Sim._process_intents). Queue them the same way
    (needed for lockstep, not for the host-authoritative multiplayer)? Not done in Step A.
+2. Rails, stations, factories and trains (game/rails.gd: rail paths, the MST links, train routes, train gold) are
+   part of upstream SimStructures, but here they sit with the rail drawing and train animation. Port them to Luau
+   with Structures (a later sub-step) or with Economy, or keep them in GDScript? For now they stay GDScript and read
+   game.structs as before.

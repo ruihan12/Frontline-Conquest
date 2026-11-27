@@ -106,12 +106,29 @@ func damage_struct(st, dmg: int, by: int) -> void:
 # ---------------------------------------------------------------- per-tick driver
 func tick() -> void:
 	var t := now()
-	for st in g.structs:
-		if float(st.get("bt", 0.0)) > 0.0:
-			st.bt = maxf(0.0, float(st.bt) - 0.1)
-			if st.bt <= 0.0: _activate(st)
-			continue
-		if st.k in [4, 5, 14, 15]: _refresh_cd(st)
+	var cons = g.sim_struct.construction() if g.sim_struct != null else null  # Step 5b: the countdown runs in Luau
+	if cons == null:
+		for st in g.structs:
+			if float(st.get("bt", 0.0)) > 0.0:
+				st.bt = maxf(0.0, float(st.bt) - 0.1)
+				if st.bt <= 0.0: _activate(st)
+				continue
+			if st.k in [4, 5, 14, 15]: _refresh_cd(st)
+	else:
+		var busy: PackedInt32Array = cons.busy
+		var bt: PackedFloat64Array = cons.bt
+		var act: PackedByteArray = cons.act
+		var structs: Array = g.structs
+		var j := 0
+		var nb := busy.size()
+		for i in structs.size():
+			var st = structs[i]
+			if j < nb and busy[j] == i:
+				st.bt = bt[j]
+				if act[j] != 0: _activate(st)
+				j += 1
+				continue
+			if st.k in [4, 5, 14, 15]: _refresh_cd(st)
 	_battery_tick(t)
 	_munitions_tick(t)
 	_sam_tick(t)

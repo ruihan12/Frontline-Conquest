@@ -2,8 +2,15 @@
 # within PLACE_SEARCH_R (15 full-size tiles) of the click and take the nearest tile with no structure
 # (any owner) closer than STRUCT_MIN_DIST (15 full-size tiles). Ports: coastal tiles within
 # PORT_SPAWN_MANHATTAN (20 full-size tiles, manhattan), nearest by manhattan distance.
+#
+# Step 5b of docs/LUAU_PORT.md: with the Luau extension loaded, placement and the construction countdown run in
+# luau/sim/Core/SimStructures.luau. The structure list stays GDScript's for now (game.structs, read and written by
+# the renderer, net/rep.gd, the arsenal, the AI and the tests); each call hands Luau a snapshot of it first.
 extends RefCounted
 class_name SimStructures
+
+const LMOD := "Core/SimStructures"
+const SNAP := 5  # f64 per structure: k, tile, o, level, bt (SimStructures.luau M.SNAP)
 
 var g
 var R: SimRules
@@ -12,7 +19,56 @@ func _init(main, rules: SimRules) -> void:
 	g = main
 	R = rules
 
+## the link when Luau runs this module (not on a remote viewer, not with NO_LUAU_SIM)
+func _lu() -> LuauLink:
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on: return null
+	return lu
+
+## game.structs (and the tile layer, through flush) -> Luau
+func _sync(lu: LuauLink) -> bool:
+	if not lu.flush(g): return false
+	var structs: Array = g.structs
+	var f := PackedFloat64Array()
+	f.resize(structs.size() * SNAP)
+	var j := 0
+	for st in structs:
+		f[j] = float(st.get("k", -1)); f[j + 1] = float(st.tile); f[j + 2] = float(st.get("o", 0))
+		f[j + 3] = float(st.get("level", 1)); f[j + 4] = float(st.get("bt", 0.0))
+		j += SNAP
+	var rf := PackedFloat64Array()
+	for k in SimAttacks.RULE_FIELDS: rf.append(float(R.get(k)))
+	if lu.vm.call_fn(LMOD, "setup", [PackedInt32Array(SimRules.UPGRADABLE_K).to_byte_array(), rf.to_byte_array()]) == null \
+			or lu.vm.call_fn(LMOD, "sync", [f.to_byte_array()]) == null:
+		lu._fail(g, lu.vm.last_error)
+		return false
+	return true
+
+## sim/arsenal.gd tick's construction countdown in Luau: {busy: indices, bt: new build times, act: 1 = activated},
+## null when Luau is off (the arsenal counts down itself then)
+func construction():
+	var lu := _lu()
+	if lu == null or not _sync(lu): return null
+	var r = lu.vm.call_fn(LMOD, "construction", [])
+	if r == null:
+		lu._fail(g, lu.vm.last_error)
+		return null
+	return {"busy": (r.busy as PackedByteArray).to_int32_array(), "bt": (r.bt as PackedByteArray).to_float64_array(), "act": r.act as PackedByteArray}
+
 func place_site(id: int, k: int, tile: int) -> Dictionary:
+	var lu := _lu()
+	if lu != null and _sync(lu):
+		var r = lu.vm.call_fn(LMOD, "place_site", [id, k, tile])
+		if r == null:
+			lu._fail(g, lu.vm.last_error)
+		else:
+			var up := int(r.up)
+			return {"tile": int(r.tile), "upgrade": g.structs[up] if up >= 0 else null, "reason": str(r.reason)}
+	return place_site_gd(id, k, tile)
+
+## the GDScript placement (remote viewers, NO_LUAU_SIM, A/B tests)
+func place_site_gd(id: int, k: int, tile: int) -> Dictionary:
 	var out := {"tile": -1, "upgrade": null, "reason": ""}
 	var W: int = g.W
 	if tile < 0 or tile >= g.owner_map.size():

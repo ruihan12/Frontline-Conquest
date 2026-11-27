@@ -15,7 +15,7 @@ extends RefCounted
 ## in GDScript as before.
 
 const STATE := "Core/SimState"
-const MODULES := ["Core/SimState", "Core/SimAttacks"]
+const MODULES := ["Core/SimState", "Core/SimAttacks", "Core/SimStructures"]
 const EV_VIEWER_ATTACK := 1
 const EV_HOSTILE := 2
 const EV_CONQUEST := 3
