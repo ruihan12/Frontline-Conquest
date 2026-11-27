@@ -59,15 +59,37 @@ whole runs and one --sliced run; test list unchanged from before Step A (13 pass
 perf AVG 13.76 ms/tick (+3.4% on 13.31; per minute 24.92 / 14.40 / 10.74 / 9.42 / 9.31; a different match since the rng
 draws changed; `rest` is higher, the rail warm-up once a second and trade ships now being stepped inside the tick).
 
+### Step 0: Godot 4.5.1
+
+What changed:
+- Editor and export templates 4.5.1.stable (official f62fdbde1). Templates from Godot_v4.5.1-stable_export_templates.tpz
+  in ~/.local/share/godot/export_templates/4.5.1.stable. The web templates include `web_dlink_release.zip` /
+  `web_dlink_debug.zip` (GDExtension support, threads), the same thread mode as the extension build (pthread side module)
+  and as the game's web preset (`variant/thread_support=true`, COOP/COEP served by release/serve.py and nginx).
+  `variant/extensions_support` stays false until Step 1 puts the extension in the pack.
+- First import created a `.uid` file next to every script and shader (Godot 4.4+ keeps them in the repo). No script,
+  scene or shader needed changes: the import and every test ran without parse or script errors.
+- project.godot `config/features` = 4.5; CLAUDE.md, README.md, server/deploy/README.md, docs/MULTIPLAYER.md,
+  docs/VM_DEPLOY_PROMPT.md name 4.5.1 for this branch. The live VM and `multiplayer` / `vanilla` stay on 4.3 (a 4.5.1
+  pack does not load in 4.3), so deploying this branch needs the 4.5.1 arm64 binary on the VM.
+- Web export with 4.5.1 works (index.wasm 37.3 MB, index.pck 52.5 MB, no export errors). Not run in a browser here.
+
+Results (Godot 4.5.1.stable): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (troops, gold,
+alive, structs, attacks, traders all equal), the same as the 4.3 Step A baseline, in a whole and a --sliced run, so the
+4.3 baseline stands for later steps; test list unchanged (13 pass, test_lobby_ui 3, test_account_ui 55); perf AVG
+13.53 ms/tick (Step A on 4.3: 13.76; pre-A 13.31).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
 |---|---|---|---|---|---|
 | pre-A | 84d5260 | 465/0/5 | (2340230155, not repeatable) | 13.31 | 13 pass, lobby_ui 3, account_ui 55 |
-| A (4.3) | see git log | 467/0/5 | 3480782660 | 13.76 | 13 pass, lobby_ui 3, account_ui 55 |
+| A (4.3) | 421aa12 | 467/0/5 | 3480782660 | 13.76 | 13 pass, lobby_ui 3, account_ui 55 |
+| 0 (4.5.1) | see git log | 467/0/5 | 3480782660 | 13.53 | 13 pass, lobby_ui 3, account_ui 55 |
 
 ## Customs touched per step
 
+- Step 0: none (engine only; the hash is unchanged).
 - Step A: none of the listed customs change. Speed slider / attract speed still scale how many ticks run per real
   second (tick_acc); the attract boost (20x/5x/1x by real seconds) is unchanged. Supply drops stay off.
 

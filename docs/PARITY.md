@@ -41,42 +41,42 @@ _None this run._
 | `sim_core_basics.luau` | KIND_HUMAN | pass | 0 |
 | `sim_core_basics.luau` | KIND_NATION | pass | 1 |
 | `sim_core_basics.luau` | KIND_TRIBE | pass | 2 |
-| `sim_core_basics.luau` | startManpower Human | pass | 25000 |
-| `sim_core_basics.luau` | startManpower Tribe | pass | 10000 |
-| `sim_core_basics.luau` | startManpower Nation Easy | pass | 12500 |
-| `sim_core_basics.luau` | startManpower Nation Medium | pass | 18750 |
-| `sim_core_basics.luau` | startManpower Nation Hard | pass | 25000 |
-| `sim_core_basics.luau` | goldAdditionRate Human/Nation base is 100/tick | pass | 100 |
-| `sim_core_basics.luau` | goldAdditionRate Tribe base is 50/tick | pass | 50 |
-| `sim_core_basics.luau` | gold_mult 1.0 (vanilla = upstream) | pass | got 1 (want 1) |
-| `sim_core_basics.luau` | gold_per_tick Human = 100 | pass | got 100 (want 100) |
-| `sim_core_basics.luau` | gold_per_tick Tribe = 50 | pass | got 50 (want 50) |
-| `sim_core_basics.luau` | defense cost first | pass | 50000 |
-| `sim_core_basics.luau` | defense cost capped | pass | 250000 |
-| `sim_core_basics.luau` | first city 125K | pass | 125000 |
-| `sim_core_basics.luau` | second city 250K | pass | 250000 |
-| `sim_core_basics.luau` | third city 500K | pass | 500000 |
-| `sim_core_basics.luau` | fourth city 1M | pass | 1000000 |
-| `sim_core_basics.luau` | city cost capped at 1M | pass | 1000000 |
-| `sim_core_basics.luau` | silo 1M | pass | 1000000 |
-| `sim_core_basics.luau` | silo flat 1M | pass | 1000000 |
-| `sim_core_basics.luau` | first SAM 1.5M | pass | 1500000 |
-| `sim_core_basics.luau` | second SAM 3M (capped) | pass | 3000000 |
-| `sim_core_basics.luau` | first warship 250K | pass | 250000 |
-| `sim_core_basics.luau` | second warship 500K | pass | 500000 |
-| `sim_core_basics.luau` | warship capped 1M | pass | 1000000 |
-| `sim_core_basics.luau` | artillery first 150K | pass | 150000 |
-| `sim_core_basics.luau` | artillery ladder cap 750K | pass | 750000 |
-| `sim_core_basics.luau` | airfield first 500K | pass | 500000 |
-| `sim_core_basics.luau` | railgun first 2.5M | pass | 2500000 |
-| `sim_core_basics.luau` | railgun cap 7.5M | pass | 7500000 |
-| `sim_core_basics.luau` | unknown kind | pass | -1 |
-| `sim_core_basics.luau` | STRUCT_MIN_DIST 15 | pass | got 15 (want 15) |
-| `sim_core_basics.luau` | DEFENSE_RADIUS 30 | pass | got 30 (want 30) |
-| `sim_core_basics.luau` | SPAWN_RADIUS 4 | pass | got 4 (want 4) |
-| `sim_core_basics.luau` | sam_range(1) = 70 (upstream, no 0.8 nerf) | pass | got 70 (want 70) |
-| `sim_core_basics.luau` | sam_range(5) = 102 (upstream) | pass | got 102 (want 102) |
-| `sim_core_basics.luau` | sam_range_at(2, 0) = range of level 1 | pass | got 70 (want 70) |
+| `sim_core_basics.luau` | startManpower Human | pass | 25000.0 |
+| `sim_core_basics.luau` | startManpower Tribe | pass | 10000.0 |
+| `sim_core_basics.luau` | startManpower Nation Easy | pass | 12500.0 |
+| `sim_core_basics.luau` | startManpower Nation Medium | pass | 18750.0 |
+| `sim_core_basics.luau` | startManpower Nation Hard | pass | 25000.0 |
+| `sim_core_basics.luau` | goldAdditionRate Human/Nation base is 100/tick | pass | 100.0 |
+| `sim_core_basics.luau` | goldAdditionRate Tribe base is 50/tick | pass | 50.0 |
+| `sim_core_basics.luau` | gold_mult 1.0 (vanilla = upstream) | pass | got 1.0 (want 1.0) |
+| `sim_core_basics.luau` | gold_per_tick Human = 100 | pass | got 100.0 (want 100.0) |
+| `sim_core_basics.luau` | gold_per_tick Tribe = 50 | pass | got 50.0 (want 50.0) |
+| `sim_core_basics.luau` | defense cost first | pass | 50000.0 |
+| `sim_core_basics.luau` | defense cost capped | pass | 250000.0 |
+| `sim_core_basics.luau` | first city 125K | pass | 125000.0 |
+| `sim_core_basics.luau` | second city 250K | pass | 250000.0 |
+| `sim_core_basics.luau` | third city 500K | pass | 500000.0 |
+| `sim_core_basics.luau` | fourth city 1M | pass | 1000000.0 |
+| `sim_core_basics.luau` | city cost capped at 1M | pass | 1000000.0 |
+| `sim_core_basics.luau` | silo 1M | pass | 1000000.0 |
+| `sim_core_basics.luau` | silo flat 1M | pass | 1000000.0 |
+| `sim_core_basics.luau` | first SAM 1.5M | pass | 1500000.0 |
+| `sim_core_basics.luau` | second SAM 3M (capped) | pass | 3000000.0 |
+| `sim_core_basics.luau` | first warship 250K | pass | 250000.0 |
+| `sim_core_basics.luau` | second warship 500K | pass | 500000.0 |
+| `sim_core_basics.luau` | warship capped 1M | pass | 1000000.0 |
+| `sim_core_basics.luau` | artillery first 150K | pass | 150000.0 |
+| `sim_core_basics.luau` | artillery ladder cap 750K | pass | 750000.0 |
+| `sim_core_basics.luau` | airfield first 500K | pass | 500000.0 |
+| `sim_core_basics.luau` | railgun first 2.5M | pass | 2500000.0 |
+| `sim_core_basics.luau` | railgun cap 7.5M | pass | 7500000.0 |
+| `sim_core_basics.luau` | unknown kind | pass | -1.0 |
+| `sim_core_basics.luau` | STRUCT_MIN_DIST 15 | pass | got 15.0 (want 15.0) |
+| `sim_core_basics.luau` | DEFENSE_RADIUS 30 | pass | got 30.0 (want 30.0) |
+| `sim_core_basics.luau` | SPAWN_RADIUS 4 | pass | got 4.0 (want 4.0) |
+| `sim_core_basics.luau` | sam_range(1) = 70 (upstream, no 0.8 nerf) | pass | got 70.0 (want 70.0) |
+| `sim_core_basics.luau` | sam_range(5) = 102 (upstream) | pass | got 102.0 (want 102.0) |
+| `sim_core_basics.luau` | sam_range_at(2, 0) = range of level 1 | pass | got 70.0 (want 70.0) |
 | `sim_core_basics.luau` | sam_range_at(2, 45) = range of level 2 | pass | got 81.4285714285714 (want 81.4285714285714) |
 | `sim_core_basics.luau` | warship_max_hp(1) = 1200 | pass | 1200 |
 | `sim_core_basics.luau` | warship_max_hp(9) clamped to vet 3 = 1600 | pass | 1600 |
@@ -85,93 +85,93 @@ _None this run._
 | `sim_core_basics.luau` | nuke_flight_ticks(100, atom) == 10 | pass | 10 |
 | `sim_core_basics.luau` | human_grace_ticks Easy 3000 | pass | 3000 |
 | `sim_core_basics.luau` | human_grace_ticks Hard (clamped) 1200 | pass | 1200 |
-| `sim_core_basics.luau` | train_gold self | pass | got 10000 (want 10000) |
-| `sim_core_basics.luau` | train_gold ally | pass | got 35000 (want 35000) |
-| `sim_core_basics.luau` | train_gold other | pass | got 25000 (want 25000) |
-| `sim_core_basics.luau` | train_gold self many stops floored at 5K | pass | got 5000 (want 5000) |
+| `sim_core_basics.luau` | train_gold self | pass | got 10000.0 (want 10000.0) |
+| `sim_core_basics.luau` | train_gold ally | pass | got 35000.0 (want 35000.0) |
+| `sim_core_basics.luau` | train_gold other | pass | got 25000.0 (want 25000.0) |
+| `sim_core_basics.luau` | train_gold self many stops floored at 5K | pass | got 5000.0 (want 5000.0) |
 | `sim_core_basics.luau` | trade_gold(0) | pass | got 9.25459319896738 (want 9.25459319896738) |
 | `sim_core_basics.luau` | trade_spawn_rate(0,0) | pass | 69 |
 | `sim_core_basics.luau` | train_spawn_rate(1,0) | pass | 112 |
 | `sim_core_basics.luau` | large_territory_bonus midpoint | pass | got 0.65 (want 0.65) |
-| `sim_core_basics.luau` | fallout_modifier(0) = 5 | pass | got 5 (want 5) |
-| `sim_core_basics.luau` | fallout_modifier(1) = 3 | pass | got 3 (want 3) |
+| `sim_core_basics.luau` | fallout_modifier(0) = 5 | pass | got 5.0 (want 5.0) |
+| `sim_core_basics.luau` | fallout_modifier(1) = 3 | pass | got 3.0 (want 3.0) |
 | `sim_core_basics.luau` | tribe terra-nullius loss 1/10 | pass | got 0.1 (want 0.1) |
 | `sim_core_basics.luau` | human terra-nullius loss 1/5 | pass | got 0.2 (want 0.2) |
 | `sim_core_basics.luau` | nation growth multipliers[0] = 0.9 | pass | 0.9 |
 | `sim_core_basics.luau` | nation growth multipliers[1] = 0.95 | pass | 0.95 |
-| `sim_core_basics.luau` | nation growth multipliers[2] = 1.0 | pass | 1 |
-| `sim_core_basics.luau` | max_troops Human 0 tiles = 100000 (upstream) | pass | got 100000 (want 100000) |
-| `sim_core_basics.luau` | k_area = k_lin^2 | pass | got 4 (want 4) |
-| `sim_core_basics.luau` | sam_range scales with 1/k_lin | pass | got 35 (want 35) |
-| `sim_core_basics.luau` | spawn_radius scales with 1/k_lin | pass | got 2 (want 2) |
-| `sim_core_basics.luau` | launch_range airstrike 156 | pass | got 156 (want 156) |
-| `sim_core_basics.luau` | launch_range shell 45 | pass | got 45 (want 45) |
-| `sim_core_basics.luau` | launch_range bombs 0 (range limits are the port's map-width fractions) | pass | 0 |
-| `sim_core_basics.luau` | nuke_cost_named atom 750K | pass | 750000 |
-| `sim_core_basics.luau` | nuke_cost_named MIRV 25M | pass | 25000000 |
-| `sim_core_basics.luau` | nuke_cost_named MIRV +15M per prior launch | pass | 40000000 |
-| `sim_core_basics.luau` | nuke_cost_named warhead rejected | pass | -1 |
+| `sim_core_basics.luau` | nation growth multipliers[2] = 1.0 | pass | 1.0 |
+| `sim_core_basics.luau` | max_troops Human 0 tiles = 100000 (upstream) | pass | got 100000.0 (want 100000.0) |
+| `sim_core_basics.luau` | k_area = k_lin^2 | pass | got 4.0 (want 4.0) |
+| `sim_core_basics.luau` | sam_range scales with 1/k_lin | pass | got 35.0 (want 35.0) |
+| `sim_core_basics.luau` | spawn_radius scales with 1/k_lin | pass | got 2.0 (want 2.0) |
+| `sim_core_basics.luau` | launch_range airstrike 156 | pass | got 156.0 (want 156.0) |
+| `sim_core_basics.luau` | launch_range shell 45 | pass | got 45.0 (want 45.0) |
+| `sim_core_basics.luau` | launch_range bombs 0 (range limits are the port's map-width fractions) | pass | 0.0 |
+| `sim_core_basics.luau` | nuke_cost_named atom 750K | pass | 750000.0 |
+| `sim_core_basics.luau` | nuke_cost_named MIRV 25M | pass | 25000000.0 |
+| `sim_core_basics.luau` | nuke_cost_named MIRV +15M per prior launch | pass | 40000000.0 |
+| `sim_core_basics.luau` | nuke_cost_named warhead rejected | pass | -1.0 |
 | `sim_core_basics.luau` | SimRules ports Rules.nuke_arc / nuke_arc_ticks (vanilla flight) | pass |  |
 | `sim_core_basics.luau` | sim fallback DEFAULT_ATTACK_RATIO is 20% when an order carries no ratio | pass | 0.2 |
 | `sim_core_basics.luau` | HUD SHARES are 10/25/35/50/75 (upstream UICtx.RATIO_STOPS) | pass |  |
 | `sim_core_basics.luau` | HUD default share_i is 1 (25%), matching UICtx.DEFAULT_RATIO | pass |  |
-| `growth_rules.luau` | maxTroops matches 2*((tiles*K_AREA)^0.6*1000+50000)+250k*cities | pass |  |
+| `growth_rules.luau` | maxTroops matches 2*((tiles*K_AREA)^0.6*1000+50000)+250k*cities | pass | worst rel %.3e at %s |
 | `growth_rules.luau` | 30-tile human cap matches upstream | pass | got 115392.272681452 (want 115392.272681452) |
 | `growth_rules.luau` | max_troops uses tiles * k_area at k_lin 1.1161 | pass | got 117560.888210173 (want 117560.888210173) |
-| `growth_rules.luau` | growth_mult 1.0 (vanilla = upstream) | pass | got 1 (want 1) |
+| `growth_rules.luau` | growth_mult 1.0 (vanilla = upstream) | pass | got 1.0 (want 1.0) |
 | `growth_rules.luau` | troopIncreaseRate matches upstream (50% of a 1000-tile cap) | pass | got 615.83869690029 (want 615.83869690029) |
-| `growth_rules.luau` | upstream over-cap reference is snap-to-cap (-100000) | pass | got -100000 (want -100000) |
-| `growth_rules.luau` | port troop_growth over cap snaps to the cap (upstream) | pass | got -100000 (want -100000) |
-| `growth_rules.luau` | troop_growth_applied truncates toward zero | pass | 615 |
+| `growth_rules.luau` | upstream over-cap reference is snap-to-cap (-100000) | pass | got -100000.0 (want -100000.0) |
+| `growth_rules.luau` | port troop_growth over cap snaps to the cap (upstream) | pass | got -100000.0 (want -100000.0) |
+| `growth_rules.luau` | troop_growth_applied truncates toward zero | pass | 615.0 |
 | `growth_rules.luau` | 10 ticks per second | pass | 10 |
-| `simsys_nukes.luau` | atom costs 750K | pass | 750000 |
-| `simsys_nukes.luau` | hydrogen costs 5M | pass | 5000000 |
-| `simsys_nukes.luau` | MIRV base cost 25M | pass | 25000000 |
-| `simsys_nukes.luau` | mega costs 2.5M | pass | 2500000 |
-| `simsys_nukes.luau` | scatter costs 3.75M | pass | 3750000 |
-| `simsys_nukes.luau` | shell is free (battery is the price) | pass | 0 |
-| `simsys_nukes.luau` | airstrike is free (airfield is the price) | pass | 0 |
-| `simsys_nukes.luau` | slug is free (railgun is the price) | pass | 0 |
-| `simsys_nukes.luau` | upstream MIRV_COST_STEP constant is 15M | pass | 15000000 |
-| `simsys_nukes.luau` | Rules atom radii 12 / 30 (full-size, k_lin=1) | pass | inner=12 outer=30 |
-| `simsys_nukes.luau` | Rules hydrogen radii 80 / 100 | pass | inner=80 outer=100 |
-| `simsys_nukes.luau` | Rules warhead radii 12 / 18 | pass | inner=12 outer=18 |
-| `simsys_nukes.luau` | Rules mega = 2× atom inner / outer (24 / 60) | pass | inner=24 outer=60 |
-| `simsys_nukes.luau` | Rules scatter crater = atom (12 / 30) | pass | inner=12 outer=30 |
-| `simsys_nukes.luau` | atom speed 10 full-size tiles/tick | pass | 10 |
-| `simsys_nukes.luau` | hydrogen speed 10 | pass | 10 |
-| `simsys_nukes.luau` | MIRV bus speed 15 | pass | 15 |
-| `simsys_nukes.luau` | warhead speed 22 | pass | 22 |
-| `simsys_nukes.luau` | mega speed 10 | pass | 10 |
-| `simsys_nukes.luau` | scatter speed 10 | pass | 10 |
-| `simsys_nukes.luau` | shell speed 6 | pass | 6 |
-| `simsys_nukes.luau` | airstrike speed 8 | pass | 8 |
-| `simsys_nukes.luau` | slug speed 80 | pass | 80 |
-| `simsys_nukes.luau` | MIRV bus intercept probability 0 (can't be intercepted) | pass | 0 |
-| `simsys_nukes.luau` | atom can be intercepted | pass | 1 |
-| `simsys_nukes.luau` | shells are not SAM-able | pass | 0 |
-| `simsys_nukes.luau` | air strikes are not SAM-able | pass | 0 |
+| `simsys_nukes.luau` | atom costs 750K | pass | 750000.0 |
+| `simsys_nukes.luau` | hydrogen costs 5M | pass | 5000000.0 |
+| `simsys_nukes.luau` | MIRV base cost 25M | pass | 25000000.0 |
+| `simsys_nukes.luau` | mega costs 2.5M | pass | 2500000.0 |
+| `simsys_nukes.luau` | scatter costs 3.75M | pass | 3750000.0 |
+| `simsys_nukes.luau` | shell is free (battery is the price) | pass | 0.0 |
+| `simsys_nukes.luau` | airstrike is free (airfield is the price) | pass | 0.0 |
+| `simsys_nukes.luau` | slug is free (railgun is the price) | pass | 0.0 |
+| `simsys_nukes.luau` | upstream MIRV_COST_STEP constant is 15M | pass | 15000000.0 |
+| `simsys_nukes.luau` | Rules atom radii 12 / 30 (full-size, k_lin=1) | pass | inner=12.0 outer=30.0 |
+| `simsys_nukes.luau` | Rules hydrogen radii 80 / 100 | pass | inner=80.0 outer=100.0 |
+| `simsys_nukes.luau` | Rules warhead radii 12 / 18 | pass | inner=12.0 outer=18.0 |
+| `simsys_nukes.luau` | Rules mega = 2× atom inner / outer (24 / 60) | pass | inner=24.0 outer=60.0 |
+| `simsys_nukes.luau` | Rules scatter crater = atom (12 / 30) | pass | inner=12.0 outer=30.0 |
+| `simsys_nukes.luau` | atom speed 10 full-size tiles/tick | pass | 10.0 |
+| `simsys_nukes.luau` | hydrogen speed 10 | pass | 10.0 |
+| `simsys_nukes.luau` | MIRV bus speed 15 | pass | 15.0 |
+| `simsys_nukes.luau` | warhead speed 22 | pass | 22.0 |
+| `simsys_nukes.luau` | mega speed 10 | pass | 10.0 |
+| `simsys_nukes.luau` | scatter speed 10 | pass | 10.0 |
+| `simsys_nukes.luau` | shell speed 6 | pass | 6.0 |
+| `simsys_nukes.luau` | airstrike speed 8 | pass | 8.0 |
+| `simsys_nukes.luau` | slug speed 80 | pass | 80.0 |
+| `simsys_nukes.luau` | MIRV bus intercept probability 0 (can't be intercepted) | pass | 0.0 |
+| `simsys_nukes.luau` | atom can be intercepted | pass | 1.0 |
+| `simsys_nukes.luau` | shells are not SAM-able | pass | 0.0 |
+| `simsys_nukes.luau` | air strikes are not SAM-able | pass | 0.0 |
 | `simsys_nukes.luau` | MIRV_WARHEADS 350 (upstream cap) | pass | 350 |
 | `simsys_nukes.luau` | silo cooldown 9 s (90 ticks) | pass | 90 |
 | `simsys_nukes.luau` | SAM cooldown 9 s | pass | 90 |
-| `simsys_nukes.luau` | SAM missile 12 full-size tiles/tick | pass | 12 |
+| `simsys_nukes.luau` | SAM missile 12 full-size tiles/tick | pass | 12.0 |
 | `simsys_nukes.luau` | SAM manhattan time: 12 tiles / 12 per tick = 1 | pass | 1 |
 | `simsys_nukes.luau` | nuke grudge 3000 ticks | pass | 3000 |
 | `simsys_nukes.luau` | scatter 4–6 warheads (min) | pass | 4 |
 | `simsys_nukes.luau` | scatter 4–6 warheads (max) | pass | 6 |
-| `simsys_nukes.luau` | scatter near 28 full-size tiles | pass | got 28 (want 28) |
-| `simsys_nukes.luau` | scatter far 46 full-size tiles | pass | got 46 (want 46) |
-| `simsys_nukes.luau` | warhead_death: no loss at 0 troops | pass | got 0 (want 0) |
-| `simsys_nukes.luau` | warhead_death: no loss below 3% of cap | pass | got 0 (want 0) |
+| `simsys_nukes.luau` | scatter near 28 full-size tiles | pass | got 28.0 (want 28.0) |
+| `simsys_nukes.luau` | scatter far 46 full-size tiles | pass | got 46.0 (want 46.0) |
+| `simsys_nukes.luau` | warhead_death: no loss at 0 troops | pass | got 0.0 (want 0.0) |
+| `simsys_nukes.luau` | warhead_death: no loss below 3% of cap | pass | got 0.0 (want 0.0) |
 | `simsys_nukes.luau` | warhead_death at cap = 500*(1-e^(-2*0.97)) | pass | got 428.148025111149 (want 428.148025111149) |
-| `simsys_nukes.luau` | sam_range(1) = 150 - 480/6 = 70 full-size tiles | pass | got 70 (want 70) |
-| `simsys_nukes.luau` | sam_range(3) = 150 - 480/8 = 90 | pass | got 90 (want 90) |
+| `simsys_nukes.luau` | sam_range(1) = 150 - 480/6 = 70 full-size tiles | pass | got 70.0 (want 70.0) |
+| `simsys_nukes.luau` | sam_range(3) = 150 - 480/8 = 90 | pass | got 90.0 (want 90.0) |
 | `simsys_nukes.luau` | SAM reload 90 ticks | pass | 90 |
 | `simsys_nukes.luau` | silo reload 90 ticks | pass | 90 |
 | `simsys_nukes.luau` | atom outer 30 / k_lin | pass | got 26.9058284759521 (want 26.9058295964126) |
 | `simsys_nukes.luau` | hydrogen inner 80 / k_lin | pass | got 71.7488784790039 (want 71.7488789237668) |
 | `simsys_nukes.luau` | warhead outer 18 / k_lin | pass | got 16.143497467041 (want 16.1434977578475) |
-| `simsys_nukes.luau` | MIRV radii: (0, MIRV_SPREAD = trunc(1500 / k_lin)) | pass | 1345 |
+| `simsys_nukes.luau` | MIRV radii: (0, MIRV_SPREAD = trunc(1500 / k_lin)) | pass | 1345.0 |
 | `Rules.luau 853-916` | arc has NUKE_ARC_SAMPLES + 1 points | pass |  |
 | `Rules.luau 853-916` | arc runs silo -> target | pass |  |
 | `Rules.luau 853-916` | arc apex: 3/4 of max(dist/3, 50) toward the top of the map | pass | got 125.5 (want 125.5) |
@@ -181,9 +181,9 @@ _None this run._
 | `Rules.luau 853-916` | MIRV bus flight ticks = ceil(arc length / 15) | pass | 24 |
 | `Rules.luau 853-916` | warhead flight ticks = ceil(arc length / 22) | pass | 16 |
 | `Rules.luau 853-916` | flight ticks scale with k_lin | pass | 39 |
-| `Rules.luau 853-916` | short shots still rise by the 50 full-size tile minimum | pass | got 263 (want 263) |
+| `Rules.luau 853-916` | short shots still rise by the 50 full-size tile minimum | pass | got 263.0 (want 263.0) |
 | `Rules.luau 853-916` | arc control points are clamped to the map top | pass |  |
-| `Rules.luau 853-916` | flat munitions fly a straight line | pass | got 300 (want 300) |
+| `Rules.luau 853-916` | flat munitions fly a straight line | pass | got 300.0 (want 300.0) |
 | `simsys_nukes.luau` | game source readable | pass |  |
 | `simsys_nukes.luau` | no custom nuke range (upstream launch_range 0 for bombs) | pass |  |
 | `simsys_nukes.luau` | nukes fly at 0.9x upstream NUKE_SPEED_FULL (owner request) | pass | kept custom |
@@ -193,18 +193,18 @@ _None this run._
 | `simsys_nukes.luau` | ICBM toggle present | pass | kept custom |
 | `simsys_nukes.luau` | MIRV splits into up to 350 warheads at the aim (SimNukes._split_mirv) | pass |  |
 | `simsys_nukes.luau` | detonations use upstream FxLayer.nuke | pass |  |
-| `simsys_nukes.luau` | first MIRV is 25M | pass | 25000000 |
-| `simsys_nukes.luau` | second MIRV is 40M (+15M step) | pass | 40000000 |
+| `simsys_nukes.luau` | first MIRV is 25M | pass | 25000000.0 |
+| `simsys_nukes.luau` | second MIRV is 40M (+15M step) | pass | 40000000.0 |
 | `simsys_nukes.luau` | main.nuke_cost applies MIRV_COST_STEP * mirvs_launched | pass |  |
 | `simsys_nukes.luau` | ICBM toggle (key I): +10% of the player's bomb price; upstream silos already reach the whole map | intentional | kept custom |
-| `arsenal.luau` | artillery price ladder first 150,000 | pass | 150000 |
-| `arsenal.luau` | artillery price ladder cap 750,000 | pass | 750000 |
-| `arsenal.luau` | airfield 500,000 | pass | 500000 |
-| `arsenal.luau` | railgun first 2,500,000 | pass | 2500000 |
-| `arsenal.luau` | railgun cap 7,500,000 | pass | 7500000 |
-| `arsenal.luau` | mega 2,500,000 gold | pass | 2500000 |
-| `arsenal.luau` | scatter 3,750,000 gold | pass | 3750000 |
-| `arsenal.luau` | reinforcements 100,000 gold | pass | 100000 |
+| `arsenal.luau` | artillery price ladder first 150,000 | pass | 150000.0 |
+| `arsenal.luau` | artillery price ladder cap 750,000 | pass | 750000.0 |
+| `arsenal.luau` | airfield 500,000 | pass | 500000.0 |
+| `arsenal.luau` | railgun first 2,500,000 | pass | 2500000.0 |
+| `arsenal.luau` | railgun cap 7,500,000 | pass | 7500000.0 |
+| `arsenal.luau` | mega 2,500,000 gold | pass | 2500000.0 |
+| `arsenal.luau` | scatter 3,750,000 gold | pass | 3750000.0 |
+| `arsenal.luau` | reinforcements 100,000 gold | pass | 100000.0 |
 | `arsenal.luau` | reinforcements a fifth of the cap | pass | 0.2 |
 | `arsenal.luau` | 30 s between reinforcement calls | pass | 300 |
 | `arsenal.luau` | rapid reload halves silo / battery gaps | pass | 0.5 |
@@ -217,19 +217,19 @@ _None this run._
 | `arsenal.luau` | shell 150 damage to a city | pass | 150 |
 | `arsenal.luau` | airstrike 600 damage | pass | 600 |
 | `arsenal.luau` | slug 1000 damage | pass | 1000 |
-| `arsenal.luau` | artillery range 45 | pass | got 45 (want 45) |
-| `arsenal.luau` | airfield / airstrike reach 156 | pass | got 156 (want 156) |
-| `arsenal.luau` | a small army loses at least 1,440 to a shell | pass | 1440 |
-| `arsenal.luau` | shell never more than the army | pass | 900 |
-| `arsenal.luau` | shell at most 19,200 | pass | 19200 |
-| `arsenal.luau` | shell kills 2.88% of a 100k army | pass | 2880 |
-| `arsenal.luau` | airstrike 60 per tile (capped by 6% = 600) | pass | 60 |
-| `arsenal.luau` | airstrike at most 6% of the army | pass | 600 |
-| `arsenal.luau` | slug 150 per tile | pass | 150 |
-| `arsenal.luau` | slug at most 4% of the army | pass | 400 |
-| `arsenal.luau` | reinforce: a fifth of 200k cap | pass | 40000 |
-| `arsenal.luau` | reinforce never past the cap | pass | 20000 |
-| `arsenal.luau` | reinforce at cap is 0 | pass | 0 |
+| `arsenal.luau` | artillery range 45 | pass | got 45.0 (want 45.0) |
+| `arsenal.luau` | airfield / airstrike reach 156 | pass | got 156.0 (want 156.0) |
+| `arsenal.luau` | a small army loses at least 1,440 to a shell | pass | 1440.0 |
+| `arsenal.luau` | shell never more than the army | pass | 900.0 |
+| `arsenal.luau` | shell at most 19,200 | pass | 19200.0 |
+| `arsenal.luau` | shell kills 2.88% of a 100k army | pass | 2880.0 |
+| `arsenal.luau` | airstrike 60 per tile (capped by 6% = 600) | pass | 60.0 |
+| `arsenal.luau` | airstrike at most 6% of the army | pass | 600.0 |
+| `arsenal.luau` | slug 150 per tile | pass | 150.0 |
+| `arsenal.luau` | slug at most 4% of the army | pass | 400.0 |
+| `arsenal.luau` | reinforce: a fifth of 200k cap | pass | 40000.0 |
+| `arsenal.luau` | reinforce never past the cap | pass | 20000.0 |
+| `arsenal.luau` | reinforce at cap is 0 | pass | 0.0 |
 | `alliances.luau` | alliance lasts 3000 ticks (5 min) | pass | 3000 |
 | `alliances.luau` | renewal window opens 300 ticks before expiry | pass | 300 |
 | `alliances.luau` | request expires in 200 ticks | pass | 200 |
@@ -242,8 +242,8 @@ _None this run._
 | `alliances.luau` | AI accept best case 0.65 = 0.3+0.35 (ratio > 1.5) | pass |  |
 | `alliances.luau` | alliance extend / window APIs are present | pass |  |
 | `alliances.luau` | alliance expiry is in sim ticks (ALLIANCE_TICKS) | pass |  |
-| `simsys_warships.luau` | first warship 250K | pass | 250000 |
-| `simsys_warships.luau` | second warship 500K | pass | 500000 |
+| `simsys_warships.luau` | first warship 250K | pass | 250000.0 |
+| `simsys_warships.luau` | second warship 500K | pass | 500000.0 |
 | `simsys_warships.luau` | warship base HP 1000 | pass | 1000 |
 | `simsys_warships.luau` | vet 0 max HP 1000 | pass | 1000 |
 | `simsys_warships.luau` | vet 1 max HP 1200 | pass | 1200 |
@@ -257,11 +257,11 @@ _None this run._
 | `simsys_warships.luau` | no retreat right after a manual move (50 ticks) | pass | 50 |
 | `simsys_warships.luau` | +1 HP/tick near an own port | pass | 1 |
 | `simsys_warships.luau` | docked: port level x 5 HP per tick | pass | 5 |
-| `simsys_warships.luau` | warship shell speed 3 full-size tiles/tick | pass | 3 |
-| `simsys_warships.luau` | warship range 130 | pass | got 130 (want 130) |
-| `simsys_warships.luau` | patrol / trade hunt 100 | pass | got 100 (want 100) |
-| `simsys_warships.luau` | patrol speed 1 tile/tick | pass | got 1 (want 1) |
-| `simsys_warships.luau` | hunting speed 2 tiles/tick | pass | got 2 (want 2) |
+| `simsys_warships.luau` | warship shell speed 3 full-size tiles/tick | pass | 3.0 |
+| `simsys_warships.luau` | warship range 130 | pass | got 130.0 (want 130.0) |
+| `simsys_warships.luau` | patrol / trade hunt 100 | pass | got 100.0 (want 100.0) |
+| `simsys_warships.luau` | patrol speed 1 tile/tick | pass | got 1.0 (want 1.0) |
+| `simsys_warships.luau` | hunting speed 2 tiles/tick | pass | got 2.0 (want 2.0) |
 | `simsys_warships.luau` | shell damage roll 1 = 200 | pass | 200 |
 | `simsys_warships.luau` | shell damage roll 5 = 300 | pass | 300 |
 | `simsys_warships.luau` | shell damage roll 1 vet 1 = 240 | pass | 240 |
@@ -269,15 +269,15 @@ _None this run._
 | `simsys_naval.luau` | a person: 10 transports at sea | pass | 10 |
 | `simsys_naval.luau` | landing starts a 20% beachhead attack | pass | 0.2 |
 | `simsys_naval.luau` | transport return keeps 75% of the embarked troops | pass | 0.75 |
-| `simsys_naval.luau` | ships 1 full-size tile per tick = 10 tiles/s at k_lin 1 | pass | got 10 (want 10) |
+| `simsys_naval.luau` | ships 1 full-size tile per tick = 10 tiles/s at k_lin 1 | pass | got 10.0 (want 10.0) |
 | `simsys_naval.luau` | alt landing search 6 tiles at k_lin 1 | pass | 6 |
-| `simsys_naval.luau` | port water spawn manhattan 20 | pass | got 20 (want 20) |
+| `simsys_naval.luau` | port water spawn manhattan 20 | pass | got 20.0 (want 20.0) |
 | `simsys_naval.luau` | trade_gold(0) | pass | got 9.25459319896738 (want 9.25459319896738) |
 | `simsys_naval.luau` | trade_gold(32) | pass | got 1624.16538253985 (want 1624.16538253985) |
 | `simsys_naval.luau` | trade_spawn_rate | pass | 69 |
-| `simsys_structures.luau` | first city costs 125K | pass | 125000 |
-| `simsys_structures.luau` | second city costs 250K | pass | 250000 |
-| `simsys_structures.luau` | upgrade / third city 500K | pass | 500000 |
+| `simsys_structures.luau` | first city costs 125K | pass | 125000.0 |
+| `simsys_structures.luau` | second city costs 250K | pass | 250000.0 |
+| `simsys_structures.luau` | upgrade / third city 500K | pass | 500000.0 |
 | `simsys_structures.luau` | city construction 20 ticks (2 s) | pass | 20 |
 | `simsys_structures.luau` | SAM construction 300 ticks (30 s) | pass | 300 |
 | `simsys_structures.luau` | defense post 50 ticks | pass | 50 |
@@ -285,10 +285,10 @@ _None this run._
 | `simsys_structures.luau` | TRUCKS_PER_FACTORY 6 | pass | 6 |
 | `simsys_structures.luau` | TRAIN_UNITS 6 | pass | 6 |
 | `simsys_structures.luau` | TRAIN_COOLDOWN_TICKS 10 | pass | 10 |
-| `simsys_structures.luau` | PLACE_SEARCH_R 15 | pass | got 15 (want 15) |
-| `simsys_structures.luau` | STRUCT_MIN_DIST 15 | pass | got 15 (want 15) |
-| `simsys_structures.luau` | train speed 2 full-size tiles/tick | pass | got 2 (want 2) |
-| `simsys_structures.luau` | self train stop 10K | pass | 10000 |
+| `simsys_structures.luau` | PLACE_SEARCH_R 15 | pass | got 15.0 (want 15.0) |
+| `simsys_structures.luau` | STRUCT_MIN_DIST 15 | pass | got 15.0 (want 15.0) |
+| `simsys_structures.luau` | train speed 2 full-size tiles/tick | pass | got 2.0 (want 2.0) |
+| `simsys_structures.luau` | self train stop 10K | pass | 10000.0 |
 | `simsys_structures.luau` | place_site on unowned/water: not_own | pass | not_own |
 | `simsys_structures.luau` | place_site invalid tile | pass | invalid |
 | `simsys_structures.luau` | place_site city on a clear owned tile | pass | tile=610 reason= |
@@ -296,15 +296,15 @@ _None this run._
 | `simsys_structures.luau` | inland port click: no_coast (manhattan 20 from a coast) | pass | no_coast |
 | `simsys_structures.luau` | fixture: tile (1,12) is coastal | pass |  |
 | `simsys_structures.luau` | port snaps to a free coastal tile in range | pass | tile=721 reason= |
-| `growth_rules.luau` | plains magnitude 80 | pass | 80 |
-| `growth_rules.luau` | highland magnitude 100 | pass | 100 |
-| `growth_rules.luau` | mountain magnitude 120 | pass | 120 |
+| `growth_rules.luau` | plains magnitude 80 | pass | 80.0 |
+| `growth_rules.luau` | highland magnitude 100 | pass | 100.0 |
+| `growth_rules.luau` | mountain magnitude 120 | pass | 120.0 |
 | `growth_rules.luau` | plains tileCost 16.5 | pass | 16.5 |
-| `growth_rules.luau` | highland tileCost 20 | pass | 20 |
-| `growth_rules.luau` | mountain tileCost 25 | pass | 25 |
-| `growth_rules.luau` | plains priority mag 1 | pass | 1 |
+| `growth_rules.luau` | highland tileCost 20 | pass | 20.0 |
+| `growth_rules.luau` | mountain tileCost 25 | pass | 25.0 |
+| `growth_rules.luau` | plains priority mag 1 | pass | 1.0 |
 | `growth_rules.luau` | highland priority mag 1.5 | pass | 1.5 |
-| `growth_rules.luau` | mountain priority mag 2 | pass | 2 |
+| `growth_rules.luau` | mountain priority mag 2 | pass | 2.0 |
 | `growth_rules.luau` | largeTerritoryBonus attacker 0.7 | pass | 0.7 |
 | `growth_rules.luau` | largeTerritoryBonus defender 0.3 | pass | 0.3 |
 | `growth_rules.luau` | attacker speed depth 0.73 | pass | 0.73 |
@@ -312,15 +312,15 @@ _None this run._
 | `growth_rules.luau` | attacker loss base 0.463 | pass | 0.463 |
 | `growth_rules.luau` | attacker loss per density 0.0039 | pass | 0.0039 |
 | `growth_rules.luau` | speedCost divisor 8.55 | pass | 8.55 |
-| `growth_rules.luau` | terra nullius cost scale 2000 | pass | 2000 |
-| `growth_rules.luau` | terra nullius min 5 | pass | 5 |
-| `growth_rules.luau` | terra nullius max 100 | pass | 100 |
+| `growth_rules.luau` | terra nullius cost scale 2000 | pass | 2000.0 |
+| `growth_rules.luau` | terra nullius min 5 | pass | 5.0 |
+| `growth_rules.luau` | terra nullius max 100 | pass | 100.0 |
 | `growth_rules.luau` | traitorDefenseDebuff 0.5 | pass | 0.5 |
 | `growth_rules.luau` | traitorSpeedDebuff 0.8 | pass | 0.8 |
 | `growth_rules.luau` | retreat keeps 75% | pass | 0.75 |
 | `growth_rules.luau` | cancelDelay 20 ticks | pass | 20 |
-| `growth_rules.luau` | defense post magnitude ×5 | pass | 5 |
-| `growth_rules.luau` | defense post tile cost ×3 | pass | 3 |
+| `growth_rules.luau` | defense post magnitude ×5 | pass | 5.0 |
+| `growth_rules.luau` | defense post tile cost ×3 | pass | 3.0 |
 | `growth_rules.luau` | WIN_SHARE 0.8 | pass | 0.8 |
 | `growth_rules.luau` | no 0.9–1.1 organic speed factor (upstream has none) | pass |  |
 | `Sim.luau:_check_victory / UICtx.win_share` | WIN_SHARE 0.8 | pass | 0.8 |
@@ -334,19 +334,19 @@ _None this run._
 | `Sim.luau:_check_victory / UICtx.win_share` | 70 tiles do not dominate all 100 land | pass |  |
 | `Sim.luau:_check_victory / UICtx.win_share` | win_share rises as fallout spreads (40/200=0.200 -> 40/150=0.267) | pass |  |
 | `Sim.luau:_check_victory / UICtx.win_share` | 40 / (200-50) exact | pass | got 0.26666666666667 (want 0.26666666666667) |
-| `Sim.luau:_check_victory / UICtx.win_share` | 0 tiles, all fallout -> 0 | pass | got 0 (want 0) |
-| `Sim.luau:_check_victory / UICtx.win_share` | denom floors at 1 when contestable==fallout | pass | got 5 (want 5) |
+| `Sim.luau:_check_victory / UICtx.win_share` | 0 tiles, all fallout -> 0 | pass | got 0.0 (want 0.0) |
+| `Sim.luau:_check_victory / UICtx.win_share` | denom floors at 1 when contestable==fallout | pass | got 5.0 (want 5.0) |
 | `Sim.luau:_check_victory / UICtx.win_share` | bt >= 0.8 * (100-0) | pass |  |
 | `Sim.luau:_check_victory / UICtx.win_share` | integer tiles vs 0.8 * denom | pass |  |
-| `sim_conquest.luau` | killer takes a nation's gold (100%) | pass | 5000 |
-| `sim_conquest.luau` | killer takes a tribe's gold (100%) | pass | 1234 |
-| `sim_conquest.luau` | killer takes half of a human's gold | pass | 500 |
+| `sim_conquest.luau` | killer takes a nation's gold (100%) | pass | 5000.0 |
+| `sim_conquest.luau` | killer takes a tribe's gold (100%) | pass | 1234.0 |
+| `sim_conquest.luau` | killer takes half of a human's gold | pass | 500.0 |
 | `sim_conquest.luau` | capitulate age 12000 ticks | pass | 12000 |
 | `sim_conquest.luau` | capitulate share 0.02 | pass | 0.02 |
-| `sim_conquest.luau` | capitulate ratio 8 | pass | 8 |
+| `sim_conquest.luau` | capitulate ratio 8 | pass | 8.0 |
 | `sim_conquest.luau` | capitulate gap 300 ticks | pass | 300 |
-| `sim_conquest.luau` | annex below 100 full-size tiles | pass | 100 |
-| `bot_skill.luau` | novices start with the Easy nation's troops (12500) | pass | 12500 |
+| `sim_conquest.luau` | annex below 100 full-size tiles | pass | 100.0 |
+| `bot_skill.luau` | novices start with the Easy nation's troops (12500) | pass | 12500.0 |
 | `bot_skill.luau` | Easy towards players: 5 min of peace | pass | 3000 |
 | `bot_skill.luau` | Easy: 1 AI war on a player | pass | 1 |
 | `bot_skill.luau` | Standard: at most 2 AI nations at war with a human | pass | 2 |
@@ -364,10 +364,10 @@ _None this run._
 | `parity_sort.luau` | Array.sort_custom orders ties exactly like upstream's reference | pass | 54 lines, 0 differ  |
 | `map_scale.luau` | public matches play a map at 80 % (world@80) with k_lin scaled | intentional | no public matches in this single-player port; maps always play at full size |
 | `sim_bots.luau` | GameState snapshot / client mirror / sliced stepping / co-op netcode | intentional | networking layer of the Roblox server; the port runs one local Sim |
-| `simsys_fixture.luau` | sim_start starts a live match and places the player | pass | tile=759000 land=52 gold=500000000 |
+| `simsys_fixture.luau` | sim_start starts a live match and places the player | pass | tile=759000 land=52 gold=500000000.0 |
 | `growth_rules.luau` | spawn disk matches _claim_disc (center offset 0.5) | pass | land=52 disc_owned=52 disc_land=52 r=4.000 |
-| `growth_rules.luau` | 60 ticks of player gold income = gold_per_tick * 60 | pass | got 500006000 (want 500006000) |
-| `growth_rules.luau` | 60 ticks of troop income follows troop_growth_applied | pass | got 47390 (want 47390) |
+| `growth_rules.luau` | 60 ticks of player gold income = gold_per_tick * 60 | pass | got 500006000.0 (want 500006000.0) |
+| `growth_rules.luau` | 60 ticks of troop income follows troop_growth_applied | pass | got 47390.0 (want 47390.0) |
 | `growth_rules.luau` | found a foe nation | pass | foe=238 land=565 |
 | `alliances.luau` | nation can request an alliance with the player | pass |  |
 | `alliances.luau` | request is pending (has_request) | pass |  |
@@ -393,8 +393,8 @@ _None this run._
 | `simsys_structures.luau` | try_build silo | pass | built={ 5: 1, 4: 1, 2: 1, 0: 1, 1: 1, 10: 1, 14: 1, 15: 1 } |
 | `simsys_structures.luau` | try_build SAM | pass | built={ 5: 1, 4: 1, 2: 1, 0: 1, 1: 1, 10: 1, 14: 1, 15: 1 } |
 | `simsys_structures.luau` | try_build city | pass | built={ 5: 1, 4: 1, 2: 1, 0: 1, 1: 1, 10: 1, 14: 1, 15: 1 } |
-| `simsys_structures.luau` | silo under construction after try_build | pass | bt=10 |
-| `simsys_structures.luau` | SAM construction = 300 ticks (30 s) | pass | bt=30 |
+| `simsys_structures.luau` | silo under construction after try_build | pass | bt=10.0 |
+| `simsys_structures.luau` | SAM construction = 300 ticks (30 s) | pass | bt=30.0 |
 | `simsys_structures.luau` | no missile silo is ready while it is under construction | pass |  |
 | `simsys_structures.luau` | every structure finished after 305 ticks | pass |  |
 | `simsys_structures.luau` | SAM upgrade is instant; the new slot starts reloading | pass |  |
@@ -413,14 +413,14 @@ _None this run._
 | `simsys_nukes.luau` | can't nuke an ally | pass |  |
 | `simsys_nukes.luau` | ally-nuke message | pass |  |
 | `simsys_nukes.luau` | not enough gold for an Atom Bomb | pass |  |
-| `simsys_nukes.luau` | atom costs 750K with ICBM off | pass | got 750000 (want 750000) |
-| `simsys_nukes.luau` | first MIRV is 25M with ICBM off | pass | got 25000000 (want 25000000) |
-| `simsys_nukes.luau` | second MIRV is 40M with ICBM off | pass | got 40000000 (want 40000000) |
-| `simsys_nukes.luau` | atom costs 825K with ICBM on (+10%) | pass | got 825000 (want 825000) |
-| `simsys_nukes.luau` | first MIRV is 27.5M with ICBM on (+10%) | pass | got 27500000 (want 27500000) |
-| `simsys_nukes.luau` | second MIRV is 44M with ICBM on (+10%) | pass | got 44000000 (want 44000000) |
+| `simsys_nukes.luau` | atom costs 750K with ICBM off | pass | got 750000.0 (want 750000.0) |
+| `simsys_nukes.luau` | first MIRV is 25M with ICBM off | pass | got 25000000.0 (want 25000000.0) |
+| `simsys_nukes.luau` | second MIRV is 40M with ICBM off | pass | got 40000000.0 (want 40000000.0) |
+| `simsys_nukes.luau` | atom costs 825K with ICBM on (+10%) | pass | got 825000.0 (want 825000.0) |
+| `simsys_nukes.luau` | first MIRV is 27.5M with ICBM on (+10%) | pass | got 27500000.0 (want 27500000.0) |
+| `simsys_nukes.luau` | second MIRV is 44M with ICBM on (+10%) | pass | got 44000000.0 (want 44000000.0) |
 | `simsys_nukes.luau` | launch atom | pass | aim=541130 owner=34 allied=false gold=489779800 silo=true |
-| `simsys_nukes.luau` | live atom charged 825K with ICBM on | pass | got 825000 (want 825000) |
+| `simsys_nukes.luau` | live atom charged 825K with ICBM on | pass | got 825000.0 (want 825000.0) |
 | `simsys_nukes.luau` | atom is in flight on the sim clock (launch tick + flight ticks) | pass |  |
 | `simsys_nukes.luau` | silo spent its missile and is reloading | pass |  |
 | `simsys_nukes.luau` | atom leaves the missile list after flight / intercept | pass | ticks=19 |
@@ -432,7 +432,7 @@ _None this run._
 | `simsys_nukes.luau` | bomb troop loss follows ((T-n)/T)^5 (plus income during flight) | pass | before=18626 after=0 expect<=933 |
 | `simsys_nukes.luau` | found a foe nation | pass | foe=56 land=4370 |
 | `simsys_nukes.luau` | MIRV launch | pass | foe=56 land=5904 gold=455220800 silo=true |
-| `simsys_nukes.luau` | live first MIRV charged 27.5M with ICBM on | pass | got 27500000 (want 27500000) |
+| `simsys_nukes.luau` | live first MIRV charged 27.5M with ICBM on | pass | got 27500000.0 (want 27500000.0) |
 | `simsys_nukes.luau` | mirvs_launched increments | pass |  |
 | `simsys_nukes.luau` | MIRV bus flies toward the aim, then branches | pass |  |
 | `simsys_nukes.luau` | live second MIRV costs 44M (+15M step, +10% ICBM) | pass |  |
@@ -440,7 +440,7 @@ _None this run._
 | `arsenal.luau` | artillery battery ticks (shells=5, may be 0 if no enemy in range) | pass |  |
 | `arsenal.luau` | air strike launched; airfield then rearming | pass |  |
 | `arsenal.luau` | airfield rearmed after 30 s | pass |  |
-| `arsenal.luau` | railgun slug fired at any range | pass | tgt=577171 owner=56 ready=0 bt=0 notes=[{ "text": "Railgun slug on its way to Saudi Arabia", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "Egypt has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "Riversowers has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "Mexico has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }, { "text": "Spain has been eliminated", "col": (0.35, 0.8, 1, 1), "kind": "info", "t": 0 }] |
+| `arsenal.luau` | railgun slug fired at any range | pass | tgt=577171 owner=56 ready=0 bt=0.0 notes=[{ "text": "Railgun slug on its way to Saudi Arabia", "col": (0.35, 0.8, 1.0, 1.0), "kind": "info", "t": 0.0 }, { "text": "Egypt has been eliminated", "col": (0.35, 0.8, 1.0, 1.0), "kind": "info", "t": 0.0 }, { "text": "Riversowers has been eliminated", "col": (0.35, 0.8, 1.0, 1.0), "kind": "info", "t": 0.0 }, { "text": "Mexico has been eliminated", "col": (0.35, 0.8, 1.0, 1.0), "kind": "info", "t": 0.0 }, { "text": "Spain has been eliminated", "col": (0.35, 0.8, 1.0, 1.0), "kind": "info", "t": 0.0 }] |
 | `arsenal.luau` | structure HP: 0 HP drops a level, then destroys at level 1 | pass |  |
 | `arsenal.luau` | Rapid Reload stays off unless unlocked | pass | unlocked=false mult=1.00 |
 | `simsys_naval.luau` | shared land border: launch_boat does not convert to launch_attack | pass | ok=true atk 31->31 |
@@ -451,7 +451,7 @@ _None this run._
 | `simsys_naval.luau` | player boat cap is MAX_BOATS_PLAYER (10) | pass |  |
 | `simsys_naval.luau` | AI boat cap is 3 | pass |  |
 | `simsys_warships.luau` | build / spawn a warship | pass | ok=true n=1 water=604992 port=true |
-| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=9 sunk=1 en_hp=0 state=1 rival=2 alive=true |
+| `simsys_warships.luau` | warships fire / sink / retreat at 75% HP | pass | shots=9 sunk=1 en_hp=0.0 state=1 rival=2 alive=true |
 | `simsys_warships.luau` | order_warship accepts reachable water | pass |  |
 | `simsys_warships.luau` | ordered warship sails toward the target | pass | d0=35.7 d1=27.6 |
 | `simsys_warships.luau` | warship speed respects warship_speed (0.35x) | pass | moved=10.03 cap=21.01 |
@@ -461,7 +461,7 @@ _None this run._
 | `simsys_warships.luau` | warship has max HP | pass |  |
 | `sim_units.luau` | player attack starts (25% HUD share) | pass | ok=true attacks=44 tgt_o=50 |
 | `sim_units.luau` | expansion does not shrink the player (land 13917 -> 17660) | pass |  |
-| `sim_units.luau` | live Rules.conquer_gold still half of a human's gold | pass | 500 |
+| `sim_units.luau` | live Rules.conquer_gold still half of a human's gold | pass | 500.0 |
 | `simsys_ai.luau` | AI driver is attached | pass |  |
 | `simsys_ai.luau` | grace constants still 5/3/2 min | pass |  |
 | `simsys_ai.luau` | AI + economy soak 200 ticks, player still in the match | pass | alive 148 -> 136 |
@@ -471,7 +471,7 @@ _None this run._
 | `growth_rules.luau` | no custom snow (code 4) tiles | pass | samples=0 |
 | `bot_skill.luau` | 2 smart, 18 novice bots | pass | bots=20 home=759000 |
 | `bot_skill.luau` | novices play the Easy AI | pass |  |
-| `bot_skill.luau` | novices start with the Easy nation's troops | pass | troops=12500 |
+| `bot_skill.luau` | novices start with the Easy nation's troops | pass | troops=12500.0 |
 | `bot_skill.luau` | smart bots start with human troops | pass |  |
 | `bot_skill.luau` | novices use the Easy nation's troop cap | pass |  |
 | `bot_skill.luau` | smart bot players play the Medium AI | pass |  |
@@ -482,7 +482,7 @@ _None this run._
 | `bot_skill.luau` | bot players count as people (kind HUMAN) and build like nations | pass |  |
 | `bot_skill.luau` | which bots are smart is deterministic | pass |  |
 | `bot_skill.luau` | a novice waits twice the Easy grace before attacking a player | pass |  |
-| `bot_skill.luau` | and may attack after it | pass | base=3252 |
+| `bot_skill.luau` | and may attack after it | pass | base=3716 |
 | `bot_skill.luau` | a smart bot waits the Easy grace (no doubling) | pass |  |
 | `sim_bots.luau spawn_shield` | a match with bot players is not solo | pass |  |
 | `sim_bots.luau spawn_shield` | every person gets a spawn shield when play starts | pass |  |

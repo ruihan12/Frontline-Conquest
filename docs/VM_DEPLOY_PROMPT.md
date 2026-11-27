@@ -13,6 +13,7 @@ Source: https://github.com/ruihan12/Frontline-Conquest, branch `multiplayer` (cl
    - Python venv, `pip install -r requirements.txt`, env file `/etc/rofront/accounts.env` (root:root, 600) with DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, INTERNAL_KEY, GUEST_SECRET (generate the two secrets with `openssl rand -hex 32`).
    - systemd unit as in the README, listening on 127.0.0.1:8071. Run the tests first: `python -m pytest` in server/accounts.
 2. Game server (server/deploy in the repo has the unit, env example, README and nginx block)
+   - (Branch luau-sim needs Godot 4.5.1 instead: same steps with `Godot_v4.5.1-stable_linux.arm64.zip`, check 4.5.1.stable.)
    - Download Godot 4.3 stable Linux arm64 (`Godot_v4.3-stable_linux.arm64.zip` from the godotengine/godot `4.3-stable` release) to /home/opc/frontline-server/bin/godot, chmod +x, check `./godot --version` prints 4.3.stable.
    - The game pack `rofront.pck` is built on my PC and I will upload it to /home/opc/frontline-server/bin/ (about 145 MB). Until it is there, stop after preparing everything else.
    - /etc/rofront/server.env from server.env.example, same INTERNAL_KEY as accounts.env, FRONTLINE_RANKED=1 FRONTLINE_SPEED_CAP=1 FRONTLINE_DEFAULT_BOTS=40 at first; install rofront-server.service; do not start it until the pck is there.

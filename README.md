@@ -1,6 +1,6 @@
 # Frontline Conquest (v7)
 
-A real-time territory-conquest strategy prototype built in **Godot 4.3 (GDScript)**.
+A real-time territory-conquest strategy prototype built in **Godot 4.5.1 (GDScript, sim moving to Luau on branch luau-sim)**.
 
 Current behavior, audio, and art are documented in `docs/MECHANICS.md`, `docs/AUDIO.md`, and `docs/TEXTURES.md`. Music is only `sounds/music/frontline_bed.wav` (a looping original bed). The older theme mp3s are in `sounds/rejected/` and are not played. Effects play from `sounds/play/` (PCM copies of the OpenFront files). Structure and HUD art is the fork's PNG set (AGPL-3.0), byte-checked in `docs/TEXTURES.md`. Sound effects are OpenFront CC BY-SA 4.0 files from commit `030274df` (`sounds/LICENSE.txt`).
 

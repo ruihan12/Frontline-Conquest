@@ -5,8 +5,9 @@ every player is disconnected, and the next match starts. Ranked matches report t
 service (`/internal/match-result`) and send each player their placement and Elo change.
 
 ## Files
-- `bin/godot`: Godot 4.3 stable, Linux arm64 (download `Godot_v4.3-stable_linux.arm64.zip` from the godotengine/godot
-  4.3-stable release, unzip, rename, `chmod +x`). Must be exactly 4.3 to read the pack.
+- `bin/godot`: Godot 4.5.1 stable, Linux arm64 (download `Godot_v4.5.1-stable_linux.arm64.zip` from the godotengine/godot
+  4.5.1-stable release, unzip, rename, `chmod +x`). Must be exactly 4.5.1 to read a pack built from branch luau-sim
+  (packs from `multiplayer` / `vanilla` still need 4.3).
 - `bin/rofront.pck`: built on the dev machine with `godot --headless --path . --export-pack "Server Pack" rofront.pck`
   (preset "Server Pack" in export_presets.cfg; about 145 MB). It is platform-independent, so the x86 build runs on arm64.
 - `/etc/rofront/server.env` from `server.env.example`; `rofront-server.service` into `/etc/systemd/system/`.

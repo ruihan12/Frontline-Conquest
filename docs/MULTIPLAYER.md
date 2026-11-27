@@ -16,7 +16,7 @@ Account API contract (VM side): /home/opc/frontline-server/API.md and schema.sql
 4 ranked on the server (Elo is computed by /internal/match-result)
 5 Minecraft link and recover (game UI side; Skripts are on the VM)
 6 PC benchmark and player hosting
-7 deploy: web build in /var/www/frontline, aarch64 headless Godot 4.3 + pck in /home/opc/frontline-server/bin/
+7 deploy: web build in /var/www/frontline, aarch64 headless Godot 4.3 + pck (4.5.1 once branch luau-sim deploys) in /home/opc/frontline-server/bin/
 
 ## Status
 - 2026-11-24: branch created, survey done, this plan written.

@@ -1,6 +1,7 @@
 # RoFront (Frontline Conquest) — handoff notes
 
-Godot 4.3 port of upstream RoWorld (lukechatton/roworld, AGPL). Engine binary used: Godot 4.3.stable.
+Godot port of upstream RoWorld (lukechatton/roworld, AGPL). Engine: Godot 4.5.1.stable on branch luau-sim (Step 0 of
+docs/LUAU_PORT.md); `multiplayer`, `vanilla` and the live VM are still Godot 4.3.stable. A 4.5.1 pack does not load in 4.3.
 Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
 
 ## Direction
