@@ -1,10 +1,10 @@
 # Step 5f of docs/LUAU_PORT.md: the AI in Luau (luau/sim/Core/SimAI.luau). 5f1: the border scan; 5f2: the tribes'
-# nearby owners (the scan plus the shore probes).
+# nearby owners (the scan plus the shore probes); 5f3: the coastal border tiles (own_coast, own_coast_tiles).
 # Plays the seeded match twice, once with Luau and once with the GDScript sim (NO_LUAU_SIM), and checks after every
 # tick that the owner map, every nation's troops and gold, the attacks, the AI's per-nation state and stats and the
 # rng are identical. Every 100 ticks of the Luau run, scans every live nation both ways from the same rng state and
 # checks the neighbour owners (in order), their counts and first tiles, the neutral count and pick, the fallout
-# tile and the rng after; and every live tribe's nearby list both ways (owners in order, free land, rng, scan fields).
+# tile and the rng after; every live nation's coastal border tiles both ways (caps 1, 64, all); and every live tribe's nearby list both ways (owners in order, free land, rng, scan fields).
 #   godot --headless --path . -s res://tests/test_luau_ai.gd
 extends SceneTree
 
@@ -55,6 +55,9 @@ func _play(luau: bool) -> Dictionary:
 	var near_bad := 0
 	var near_tn := 0
 	var near_probe := 0
+	var coast_n := 0
+	var coast_some := 0
+	var coast_bad := 0
 	for i in END_T:
 		m._sim_tick_whole()
 		hashes.append(hash(_state_bytes(m)))
@@ -78,6 +81,16 @@ func _play(luau: bool) -> Dictionary:
 				direct += 1
 				if not used or var_to_bytes(a) != var_to_bytes(b) or ra != m.rng.state: direct_bad += 1
 				if int(a[4]) >= 0: neutral_picks += 1
+				for cap in [1, 64, 1 << 30]:
+					n0 = W.luau_coasts
+					var ca: Array = W.own_coast_tiles(id, cap)
+					used = W.luau_coasts > n0
+					OS.set_environment("NO_LUAU_SIM", "1")
+					var cb: Array = W.own_coast_tiles(id, cap)
+					OS.unset_environment("NO_LUAU_SIM")
+					coast_n += 1
+					if not ca.is_empty(): coast_some += 1
+					if not used or ca != cb: coast_bad += 1
 				if m.kind_of(id) != SimRules.KIND_TRIBE: continue
 				tribes += 1
 				r0 = m.rng.state
@@ -102,7 +115,8 @@ func _play(luau: bool) -> Dictionary:
 			W._near = near_keep
 	var res := {"hashes": hashes, "scans": W.luau_scans, "direct": direct, "bad": direct_bad, "picks": neutral_picks,
 		"tribes": tribes, "nears": W.luau_nears, "near_n": near_n, "near_bad": near_bad, "near_tn": near_tn,
-		"near_probe": near_probe, "stats": W.stats.duplicate(), "err": m.luau_link.error if m.get("luau_link") != null else ""}
+		"near_probe": near_probe, "coasts": W.luau_coasts, "coast_n": coast_n, "coast_some": coast_some,
+		"coast_bad": coast_bad, "stats": W.stats.duplicate(), "err": m.luau_link.error if m.get("luau_link") != null else ""}
 	m.queue_free()
 	await process_frame
 	await process_frame
@@ -123,9 +137,12 @@ func _run() -> void:
 	_check(int(lua.nears) > 1000, "the tribes' nearby lists were made in Luau (%d)" % lua.nears)
 	_check(int(lua.near_n) > 100 and int(lua.near_bad) == 0 and int(lua.near_tn) > 10 and int(lua.near_probe) > 10,
 		"direct nearby lists equal GDScript's, rng included (%d lists, %d differ, %d with free land, %d with probe finds)" % [lua.near_n, lua.near_bad, lua.near_tn, lua.near_probe])
+	_check(int(lua.coasts) > 5000, "the AI's coast lookups ran in Luau (%d)" % lua.coasts)
+	_check(int(lua.coast_n) > 1000 and int(lua.coast_bad) == 0 and int(lua.coast_some) > 300,
+		"direct coastal tile lists equal GDScript's (%d lists, %d differ, %d not empty)" % [lua.coast_n, lua.coast_bad, lua.coast_some])
 	var gd: Dictionary = await _play(false)
 	OS.unset_environment("NO_LUAU_SIM")
-	_check(int(gd.scans) == 0 and int(gd.nears) == 0, "the second run used the GDScript scan and nearby lists")
+	_check(int(gd.scans) == 0 and int(gd.nears) == 0 and int(gd.coasts) == 0, "the second run used the GDScript scan, nearby lists and coast lookups")
 	var ha: PackedInt64Array = lua.hashes
 	var hb: PackedInt64Array = gd.hashes
 	var first := -1

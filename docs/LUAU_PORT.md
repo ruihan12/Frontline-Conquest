@@ -526,6 +526,26 @@ What changed:
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 8/8,
 perf_sim 12.14 / 12.17 ms/tick.
 
+### Step 5f3: the AI's coastal border tiles in Luau (Core/SimAI.luau coast)
+
+sim/ai.gd `own_coast` (a nation's cached coastal tile, else the first coastal tile of its border) and
+`own_coast_tiles` (all of them, at most cap) walk the border set with game/economy.gd `_coastal` per tile; a
+landlocked nation finds none, caches -1 and walks again on its next transport, build and invasion check.
+
+What changed:
+- `luau/sim/Core/SimAI.luau` `coast`: the same walk over Luau's border list and tile layer (coastal: a
+  4-neighbour is water, -1), at most `cap` tiles, in border order.
+- `own_coast` and `own_coast_tiles` (without the `water_ok` filter, which needs the water-body sizes and stays
+  GDScript) take the tiles from it. The cache and its check stay as they were. `NO_LUAU_SIM` or a remote viewer
+  walks in GDScript as before.
+- Cost (seed 12345, 3000 ticks, timing wrappers): the transport choice 0.29 to 0.25 ms/tick (most of what is left
+  is the transport launch and its route search, 5d4), builds 0.20 to 0.17, the AI pass about 1.9 to 1.8.
+- tests/test_luau_ai.gd (10 checks): adds every 100 ticks each live nation's coastal tiles both ways at caps 1, 64
+  and all (18465 lists, all equal).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 10/10,
+perf_sim 11.90 / 12.33 ms/tick.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -547,7 +567,8 @@ perf_sim 12.14 / 12.17 ms/tick.
 | 5d3 | fee8c12 | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
 | 5e | 5c58c85 | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
 | 5f1 | 271ac24 | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
-| 5f2 | see git log | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
+| 5f2 | 569510a | 467/0/5 | 3480782660 | 12.14 / 12.17 | same + luau_ai 8/8 |
+| 5f3 | see git log | 467/0/5 | 3480782660 | 11.90 / 12.33 | same + luau_ai 10/10 |
 
 ## Customs touched per step
 

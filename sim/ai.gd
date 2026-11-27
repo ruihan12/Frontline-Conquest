@@ -1051,8 +1051,12 @@ func own_coast(id: int) -> int:
 		if c >= 0 and g.owner_map[c] == id: return c
 	var found := -1
 	if id < g.border.size():
-		for t in g.border[id]:
-			if g._coastal(t): found = t; break
+		var lt = _coast_luau(id, 1)  # Step 5f3
+		if lt != null:
+			if not (lt as PackedFloat64Array).is_empty(): found = int(lt[0])
+		else:
+			for t in g.border[id]:
+				if g._coastal(t): found = t; break
 	if s != null: s.coast = found
 	return found
 
@@ -1060,11 +1064,35 @@ func own_coast(id: int) -> int:
 func own_coast_tiles(id: int, cap := 1 << 30, water_ok := false) -> Array:
 	var out := []
 	if id >= g.border.size(): return out
+	if not water_ok:
+		var lt = _coast_luau(id, cap)  # Step 5f3
+		if lt != null:
+			for t in lt as PackedFloat64Array: out.append(int(t))
+			return out
 	for t in g.border[id]:
 		if g._coastal(t) and (not water_ok or _water_ok(t)):
 			out.append(t)
 			if out.size() >= cap: break
 	return out
+
+var luau_coasts := 0  # tests
+
+# Step 5f3 of docs/LUAU_PORT.md: id's coastal border tiles in border order (at most cap) from luau/sim/Core/SimAI.luau
+# coast, over Luau's copy of the tile layer and border sets; null when Luau isn't running the sim.
+func _coast_luau(id: int, cap: int):
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on: return null
+	var vm: LuauVM = lu.vm
+	if not vm.require_module("Core/SimAI") or not lu.flush(g):
+		if lu.on: lu._fail(g, vm.last_error)
+		return null
+	var out = vm.call_fn("Core/SimAI", "coast", [id, mini(cap, 1 << 30)])
+	if out == null:
+		lu._fail(g, vm.last_error)
+		return null
+	luau_coasts += 1
+	return (out.t as PackedByteArray).to_float64_array()
 
 # ---------------- warships (SimAIEconomy 579-764) ----------------
 func _maybe_spawn_warship(id: int) -> void:

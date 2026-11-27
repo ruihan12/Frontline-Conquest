@@ -12,6 +12,9 @@
 -- Step 5f2: near() is sim/ai.gd _tribe_nearby (upstream SimAI tribe nearby): the same scan, then the shore probes
 -- (every k-th coastal border tile looks a fixed distance out over each neighbouring water tile) for owners the
 -- border doesn't touch.
+--
+-- Step 5f3: coast() is sim/ai.gd own_coast / own_coast_tiles: the coastal tiles of an owner's border, in border
+-- order, at most `cap`.
 local SimState = require("./SimState")
 local GodotRng = require("./GodotRng")
 
@@ -242,6 +245,34 @@ function M.near(rhi: number, rlo: number, id: number, every: number, dist: numbe
 		ex = eb,
 		tn = if tn then 1 else 0,
 	}
+end
+
+-- id's coastal border tiles (a 4-neighbour is water, -1: game/economy.gd _coastal) in border order, at most cap.
+-- -> { t = f64 tiles }
+function M.coast(id: number, cap: number): any
+	local out: { number } = {}
+	local s = SimState.cur
+	if id < s.nat_n and cap > 0 then
+		local om, W, N, nx = s.owner, s.W, s.n, s.bnext
+		local t = s.bhead[id]
+		while t >= 0 do
+			local x = t % W
+			if (x < W - 1 and readi32(om, (t + 1) * 4) == -1) or (x > 0 and readi32(om, (t - 1) * 4) == -1)
+				or (t + W < N and readi32(om, (t + W) * 4) == -1) or (t >= W and readi32(om, (t - W) * 4) == -1)
+			then
+				out[#out + 1] = t
+				if #out >= cap then
+					break
+				end
+			end
+			t = readi32(nx, t * 4)
+		end
+	end
+	local b = buffer.create(#out * 8)
+	for i, t in out do
+		writef64(b, (i - 1) * 8, t)
+	end
+	return { t = b }
 end
 
 return M
