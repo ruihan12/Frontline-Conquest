@@ -694,6 +694,8 @@ func _economy(dt: float) -> void:
 	var city_lv := {}
 	for st in structs:
 		if st.k == 0: city_lv[st.o] = city_lv.get(st.o, 0) + mini(int(st.get("level", 1)), 1000)
+	var lu_on := not net_remote and luau_link != null and luau_link.on and not OS.has_environment("NO_LUAU_SIM")
+	var lu_rows := PackedFloat64Array()
 	for id in range(1, nations.size()):
 		var n = nations[id]
 		if not n.alive:
@@ -711,17 +713,66 @@ func _economy(dt: float) -> void:
 		if is_nan(n.troops) or is_inf(n.troops): n.troops = 0.0 if is_nan(n.troops) else 1.0e300
 		if is_nan(n.gold) or is_inf(n.gold): n.gold = 0.0 if is_nan(n.gold) else 1.0e300
 		var kd := kind_of(id)
-		var tk := troop_kind(id); var tdf := troop_diff(id)  # novice bot players: Easy nation numbers
+		# novice bot players: Easy nation numbers (troop_kind / troop_diff, looked up once)
+		var nov := is_novice_bot(id)
+		var tk := SimRules.KIND_NATION if nov else kd
+		var tdf := NOVICE_SKILL if nov else diff_i
+		if lu_on:
+			# Step 5e: the growth runs in luau/sim/Core/SimEconomy.luau after this loop
+			lu_rows.append(id); lu_rows.append(n.troops); lu_rows.append(n.gold); lu_rows.append(n.land)
+			lu_rows.append(n.get("pop", 0.0)); lu_rows.append(city_lv.get(id, 0)); lu_rows.append(tk)
+			lu_rows.append(tdf); lu_rows.append(kd); lu_rows.append(n.reinf_cd)
+			continue
 		var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf) if tile_pop.is_empty() \
 			else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_lv.get(id, 0), tdf)
 		n.regen = sim_rules.troop_growth(tk, n.troops, cap, tdf) * 10.0
 		n.troops += sim_rules.troop_growth_applied(tk, n.troops, cap, tdf)
 		n.gold += sim_rules.gold_per_tick(kd)
 		n.reinf_cd = maxf(0.0, n.reinf_cd - dt)
-		if id == PLAYER:
-			if god_mode or inf_gold: n.gold = maxf(n.gold, 999e6)
-			if god_mode: n.troops = maxf(n.troops, cap)
-			if god_mode or no_cd: n.reinf_cd = 0.0; rail_cd = 0.0
+		if id == PLAYER: _econ_console(n, cap)
+	if lu_on and not lu_rows.is_empty(): _economy_luau(lu_rows, dt, city_lv)
+
+# CUSTOM: the console's god mode, infinite gold and no cooldown (Tab / owner console) on the player's numbers
+func _econ_console(n: Dictionary, cap: float) -> void:
+	if god_mode or inf_gold: n.gold = maxf(n.gold, 999e6)
+	if god_mode: n.troops = maxf(n.troops, cap)
+	if god_mode or no_cd: n.reinf_cd = 0.0; rail_cd = 0.0
+
+var econ_luau_calls := 0  # tests
+
+# The growth of the rows _economy collected, in Luau; written back in the same order and key order as the GDScript.
+# A failed call turns the link off and the same rows grow here.
+func _economy_luau(rows: PackedFloat64Array, dt: float, city_lv: Dictionary) -> void:
+	var vm: LuauVM = luau_link.vm
+	var out = null
+	if vm.require_module("Core/SimEconomy"):
+		var rf := PackedFloat64Array()
+		for k in SimAttacks.RULE_FIELDS: rf.append(float(sim_rules.get(k)))
+		var hdr := PackedFloat64Array([dt, 0.0 if tile_pop.is_empty() else 1.0, tile_pop_avg])
+		out = vm.call_fn("Core/SimEconomy", "tick", [rf.to_byte_array(), hdr.to_byte_array(), rows.to_byte_array()])
+	if out == null:
+		luau_link._fail(self, vm.last_error)
+		for j in range(0, rows.size(), 10):
+			var id := int(rows[j])
+			var n = nations[id]
+			var tk := int(rows[j + 6]); var tdf := int(rows[j + 7])
+			var cap := sim_rules.max_troops(tk, n.land, city_lv.get(id, 0), tdf) if tile_pop.is_empty() \
+				else sim_rules.max_troops_pop(tk, n.land, n.get("pop", 0.0), tile_pop_avg, city_lv.get(id, 0), tdf)
+			n.regen = sim_rules.troop_growth(tk, n.troops, cap, tdf) * 10.0
+			n.troops += sim_rules.troop_growth_applied(tk, n.troops, cap, tdf)
+			n.gold += sim_rules.gold_per_tick(int(rows[j + 8]))
+			n.reinf_cd = maxf(0.0, n.reinf_cd - dt)
+			if id == PLAYER: _econ_console(n, cap)
+		return
+	econ_luau_calls += 1
+	var res: PackedFloat64Array = (out.rows as PackedByteArray).to_float64_array()
+	var o := 0
+	for j in range(0, rows.size(), 10):
+		var id := int(rows[j])
+		var n = nations[id]
+		n.regen = res[o + 2]; n.troops = res[o]; n.gold = res[o + 1]; n.reinf_cd = res[o + 3]
+		if id == PLAYER: _econ_console(n, res[o + 4])
+		o += 5
 
 func _ai(_dt: float) -> void:
 	_ai_place_budget = 24

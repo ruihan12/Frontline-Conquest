@@ -456,6 +456,30 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
   Sending the trade ships only when a ship needs them brought it to the numbers above. flush + world() is still
   paid on every tick with warships; the one-world()-per-tick fix planned under 5d2 covers it.
 
+### Step 5e: troop growth, gold income and cooldowns in Luau (Core/SimEconomy.luau)
+
+What changed:
+- `luau/sim/Core/SimEconomy.luau`: game/economy.gd `_economy`'s per-nation growth: the troop cap (max_troops or
+  max_troops_pop), regen, the applied growth, gold per tick and the reinforcement cooldown, through Rules.luau
+  (Step 3). One call per tick with a row per nation still alive after the GDScript's checks; the values come back
+  in the same order and are written in the same key order.
+- Stays GDScript in `_economy`: the nuke queue and supply drops (customs), the city levels, the overflow guards,
+  deaths (sound, stats, notes, the rng draw), and the console's god mode / infinite gold / no cooldown, moved into
+  `_econ_console` (marked `# CUSTOM:`) so both paths share it. Deaths draw the rng and growth does not, so doing the
+  deaths in the loop and the growth after it gives the same order of every write that matters.
+- `troop_kind` / `troop_diff` are looked up once per nation in the loop (same values): they were about 0.15 ms of
+  the 0.7 ms the tick cost (seed 12345, t=1500, 165 nations alive).
+- Cost: the tick is about 0.55 ms with Luau and about 0.55 ms without (it was 0.70 before the lookup change). The
+  growth maths is a small part; most of the tick is reading and writing the nation Dictionaries, which stay.
+- Runs whenever the Luau link is on (no Luau state is read); `NO_LUAU_SIM` or a remote viewer runs the GDScript
+  growth as before. A failed call turns the link off and the same rows grow in GDScript.
+- tests/test_luau_economy.gd (7 checks): the seeded match with Luau and with NO_LUAU_SIM for 3000 ticks: every
+  nation's troops, gold, regen, cooldown, alive and land, the stats, notes and rng identical after each tick (396
+  nations die), and the god mode custom on a new match (same numbers in both, gold 999M or more, cooldown 0).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_economy
+7/7 (3000 ticks identical), perf_sim 13.49 / 13.05 ms/tick.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -475,9 +499,12 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5d1 | a61a285 | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
 | 5d2 | d412c8d | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
 | 5d3 | fee8c12 | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
+| 5e | see git log | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
 
 ## Customs touched per step
 
+- Step 5e: the console's god mode, infinite gold and no cooldown: game/economy.gd `_econ_console` (`# CUSTOM:`),
+  used by both paths; test_luau_economy checks it. Supply drops and the nuke queue stay as they were.
 - Step 5d3: a warship capturing a trade ship plays no sound: SimWarships.luau capture_trade (`-- CUSTOM:`) pushes
   notes only; test_luau_warships checks it. Warship 0.7 and boat 0.35 speeds still come from the game.
 - Step 5d2: none (trade ship spawns; boat 0.35 stays on the game).
