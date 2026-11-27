@@ -244,6 +244,7 @@ func _scan_border(id: int) -> void:
 	if id >= g.border.size(): return
 	var bset: Dictionary = g.border[id]
 	var cap: int = bset.size() if g.kind_of(id) == SimRules.KIND_TRIBE else ceili(400 * R.legacy_lin)
+	if _scan_luau(id, -1 if g.kind_of(id) == SimRules.KIND_TRIBE else cap): return  # Step 5f1
 	var om: PackedInt32Array = g.owner_map
 	var fo: PackedByteArray = g.fallout
 	var W: int = g.W
@@ -281,6 +282,34 @@ func _scan_border(id: int) -> void:
 			if not sc_count.has(o):
 				sc_list.append(o); sc_count[o] = 0; sc_tile[o] = n
 			sc_count[o] += 1
+
+var luau_scans := 0  # tests
+
+# Step 5f1 of docs/LUAU_PORT.md: the same walk in luau/sim/Core/SimAI.luau over Luau's copy of the tile layer and the
+# border sets (equal to these after the flush). False when Luau isn't running the sim: the GDScript walk runs.
+func _scan_luau(id: int, cap: int) -> bool:
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return false
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on: return false
+	var vm: LuauVM = lu.vm
+	if not vm.require_module("Core/SimAI") or not lu.flush(g):
+		if lu.on: lu._fail(g, vm.last_error)
+		return false
+	var rg := LuauLink.rng_args(g)
+	var out = vm.call_fn("Core/SimAI", "scan", [rg[0], rg[1], id, cap])
+	if out == null:
+		lu._fail(g, vm.last_error)
+		return false
+	luau_scans += 1
+	var hi: int = int(out.rhi)
+	if hi >= 0x80000000: hi -= 0x100000000
+	g.rng.state = hi * 0x100000000 + int(out.rlo)
+	var sc: PackedFloat64Array = (out.sc as PackedByteArray).to_float64_array()
+	for k in range(0, sc.size(), 3):
+		var o := int(sc[k])
+		sc_list.append(o); sc_count[o] = int(sc[k + 1]); sc_tile[o] = int(sc[k + 2])
+	sc_neutral = int(out.nt); sc_neutral_tile = int(out.ntile); sc_fallout_tile = int(out.ftile)
+	return true
 
 func _above(id: int, keep: float) -> float:
 	var troops := _troops(id)

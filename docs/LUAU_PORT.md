@@ -480,6 +480,29 @@ What changed:
 Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_economy
 7/7 (3000 ticks identical), perf_sim 13.49 / 13.05 ms/tick.
 
+### Step 5f1: the AI's border scan in Luau (Core/SimAI.luau)
+
+The AI pass costs about 2.7 ms/tick on seed 12345 (3000 ticks); its border scans (sim/ai.gd `_scan_border`,
+about 6.5 a tick) were 1.1 ms of that. The rest is spread over the think functions and the actions they call
+(attacks, boats, builds, alliances), which go through the game's own entry points. So the AI moves in sub-steps,
+perception first.
+
+What changed:
+- `luau/sim/Core/SimAI.luau` `scan`: the same walk over Luau's copy of the owner's border set (Core/SimState keeps
+  it in Godot Dictionary order) and tile layer, flushed first, so it reads what the GDScript would read. Same caps
+  (tribes: the whole set, nations: ceil(400 * legacy_lin) tiles), same order of neighbours, same reservoir draws on
+  the sim rng. sim/ai.gd fills `sc_list`, `sc_count`, `sc_tile` and the neutral / fallout fields from the result
+  in the order the GDScript would have.
+- Runs whenever the Luau link is on; `NO_LUAU_SIM` or a remote viewer walks in GDScript as before.
+- Cost: about 40 us per nation scan in Luau against about 220 us in GDScript (seed 12345, t=1500, 50 nations);
+  the scans went from 1.09 to 0.58 ms/tick, the AI pass from 2.7 to 2.3.
+- tests/test_luau_ai.gd (6 checks): the seeded match with Luau and with NO_LUAU_SIM for 3000 ticks: owner map,
+  troops, gold, attacks, the AI's per-nation state and stats and the rng identical after each tick; every 100
+  ticks every live nation scanned both ways from the same rng state (6155 scans, all equal, rng included).
+
+Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tests as before plus luau_ai 6/6
+(3000 ticks identical), perf_sim 12.43 / 13.04 ms/tick.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -499,7 +522,8 @@ Results (4.5.1): parity 467/0/5, sim_hash 3480782660 (whole and sliced), all tes
 | 5d1 | a61a285 | 467/0/5 | 3480782660 | 12.39 / 11.85 | same + luau_nav 14/14 |
 | 5d2 | d412c8d | 467/0/5 | 3480782660 | 13.34 / 13.81 | same + luau_naval 6/6 |
 | 5d3 | fee8c12 | 467/0/5 | 3480782660 | 13.25 / 13.05 | same + luau_warships 8/8 |
-| 5e | see git log | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
+| 5e | 5c58c85 | 467/0/5 | 3480782660 | 13.49 / 13.05 | same + luau_economy 7/7 |
+| 5f1 | see git log | 467/0/5 | 3480782660 | 12.43 / 13.04 | same + luau_ai 6/6 |
 
 ## Customs touched per step
 
