@@ -52,14 +52,31 @@ func _blast_fixture():
 	game.missiles.clear()
 	game.fallout.resize(game.W * game.H)
 	game.fallout_t.resize(game.W * game.H)
-	game.nations[2].merge({"land": game.W * game.H - 1, "sx": 0, "sy": 0})
+	game.nations.append({"name": "Neighbor", "troops": 3500.0})
+	for id in [2, 3]:
+		game.nations[id].merge({"land": 0, "sx": 0.0, "sy": 0.0})
+	game.border = [{}, {}, {}, {}]
+	for tile in range(1, game.W * game.H):
+		if tile % game.W > 46:
+			game.owner_map[tile] = 3
+		var nation: Dictionary = game.nations[game.owner_map[tile]]
+		nation.land += 1
+		nation.sx += tile % game.W
+		nation.sy += tile / game.W
+	for tile in game.W * game.H:
+		game._upd_border(tile)
+	var building := {"k": 0, "o": 2, "tile": 15 * int(game.W) + 40, "bt": 0.0}
+	game.structs.append(building)
+	game.struct_at[building.tile] = building
+	game._publish_tile_snapshot()
+	game._attack_worker = game.AttackWorker.new()
 	for offset in [0, 9]:
 		game.missiles.append({"nk": SimRules.N_ATOM, "k": 7, "o": 1, "dur": 1.0, "ft": 50,
 			"lt": 0, "from": Vector2(2, 2), "to": Vector2(40 + offset, 15), "r": 13.0,
 			"evade": true})
 	return game
 
-func _check_first_blast(change_rng: bool) -> bool:
+func _check_first_blast(change_rng: bool, change_fallout := false) -> bool:
 	var game = _blast_fixture()
 	var reference = _blast_fixture()
 	var worker := ArsenalWorker.new()
@@ -74,18 +91,31 @@ func _check_first_blast(change_rng: bool) -> bool:
 	if change_rng:
 		game.rng.randi()
 		reference.rng.randi()
+	if change_fallout:
+		game.fallout[0] = 1
+		reference.fallout[0] = 1
+		game._record_tile_snapshot(0)
+		reference._record_tile_snapshot(0)
 	game._tick_missiles()
 	reference._tick_missiles()
 	var matches: bool = game.rng.state == reference.rng.state and game.missiles.is_empty() \
 		and game.fallout_list.size() > 0 and game.fallout_list == reference.fallout_list \
 		and game.owner_map == reference.owner_map and game.nations == reference.nations \
 		and game._presentation_events == reference._presentation_events
-	var used_expected := worker.prepared_blasts_used == (0 if change_rng else 1)
+	var used_expected := worker.prepared_blasts_used == (0 if change_rng else 1) \
+		and worker.prepared_territory_used == (0 if change_rng or change_fallout else 1)
 	game._flush_presentation_batch()
 	reference._flush_presentation_batch()
+	game._publish_tile_snapshot()
+	reference._publish_tile_snapshot()
+	var map_matches: bool = game.border[2].keys() == reference.border[2].keys() \
+		and game.border[3].keys() == reference.border[3].keys() and game._rp_list == reference._rp_list \
+		and game._render_owners() == reference._render_owners() and game._render_fallout() == reference._render_fallout() \
+		and game._attack_map_revision == reference._attack_map_revision \
+		and game.structs == reference.structs and game._sv == reference._sv
 	game.free()
 	reference.free()
-	return applied and isolated and matches and used_expected
+	return applied and isolated and matches and used_expected and map_matches
 
 func _run() -> void:
 	var game = _fixture()
@@ -133,7 +163,7 @@ func _run() -> void:
 	var stopped := pending and not worker.ready()
 	game.free()
 	reference.free()
-	var first_blast := _check_first_blast(false) and _check_first_blast(true)
+	var first_blast := _check_first_blast(false) and _check_first_blast(true) and _check_first_blast(false, true)
 	var passed := held and isolated and applied and parity and correct and map_stale and record_stale and stopped and first_blast
 	if not passed:
 		print("arsenal held=", held, " isolated=", isolated, " applied=", applied, " parity=", parity,

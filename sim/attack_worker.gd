@@ -18,6 +18,9 @@ func record_tile(tile: int) -> void:
 	if not _mirror_owners.is_empty() or pending():
 		_dirty_tiles.append(tile)
 
+func record_tiles(tiles: PackedInt32Array) -> void:
+	if not _mirror_owners.is_empty() or pending():
+		_dirty_tiles.append_array(tiles)
 
 func pending() -> bool:
 	return _task >= 0

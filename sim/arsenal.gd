@@ -424,7 +424,7 @@ static func select_blast_fallout(center: Vector2, radius: float, kind: int, owne
 # fallout; each hit owner loses troops by nukeDeathFactor (its attacks and transports too); every
 # structure and unit inside the outer radius is destroyed. `r`: the outer radius (Rules.nuke_radii, or a
 # console-edited NUKE_R); the inner disc is the source's inner/outer share for that kind.
-func nuke_blast(o: int, c: Vector2, r: float, nk: int, prepared_tiles: Variant = null) -> Dictionary:
+func nuke_blast(o: int, c: Vector2, r: float, nk: int, plan: Variant = null) -> Dictionary:
 	var W: int = g.W; var H: int = g.H
 	var cx := int(c.x); var cy := int(c.y)
 	var ct := clampi(cy, 0, H - 1) * W + clampi(cx, 0, W - 1)
@@ -434,24 +434,31 @@ func nuke_blast(o: int, c: Vector2, r: float, nk: int, prepared_tiles: Variant =
 	var lost := {}
 	var before := {}
 	var fallout_n := 0
-	var blast_tiles: PackedInt32Array = _blast_tiles(ct, r) if prepared_tiles == null else prepared_tiles
-	for tt in blast_tiles:
-		if prepared_tiles == null:
-			var dx := tt % W - cx; var dy := tt / W - cy
-			if float(dx * dx + dy * dy) > inner2 and g.rng.randi() % 2 == 0: continue
-		var ow: int = g.owner_map[tt]
-		if ow > 0:
-			if not before.has(ow):
-				before[ow] = int(g.nations[ow].land); lost[ow] = 0
-			lost[ow] += 1
-			g._set_owner(tt, g.NEUTRAL)
-		g.fallout[tt] = 1; g.fallout_list[tt] = true
-		if g._attack_worker != null: g._record_attack_tile(tt)
-		g._record_tile_snapshot(tt)
-		g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
-		g._map_effect("fallout", [tt])
-		fallout_n += 1
-		g._repaint(tt)
+	var blast_tiles: PackedInt32Array = _blast_tiles(ct, r) if plan == null else plan.tiles
+	if plan != null and plan.has("territory"):
+		lost = plan.territory.lost
+		for owner in lost:
+			before[owner] = int(g.nations[owner].land)
+		g._apply_blast_territory(blast_tiles, plan.territory)
+		fallout_n = blast_tiles.size()
+	else:
+		for tt in blast_tiles:
+			if plan == null:
+				var dx := tt % W - cx; var dy := tt / W - cy
+				if float(dx * dx + dy * dy) > inner2 and g.rng.randi() % 2 == 0: continue
+			var ow: int = g.owner_map[tt]
+			if ow > 0:
+				if not before.has(ow):
+					before[ow] = int(g.nations[ow].land); lost[ow] = 0
+				lost[ow] += 1
+				g._set_owner(tt, g.NEUTRAL)
+			g.fallout[tt] = 1; g.fallout_list[tt] = true
+			if g._attack_worker != null: g._record_attack_tile(tt)
+			g._record_tile_snapshot(tt)
+			g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
+			g._map_effect("fallout", [tt])
+			fallout_n += 1
+			g._repaint(tt)
 	for ow in lost:
 		nuke_troops(ow, nk, int(lost[ow]), int(before[ow]))
 		var n = g.nations[ow]

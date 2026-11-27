@@ -1,6 +1,7 @@
 extends RefCounted
 ## Runs the regular construction, artillery, and SAM tick on detached records.
 
+const BlastTerritory = preload("res://sim/blast_territory.gd")
 const RecordCopies = preload("res://sim/detached_records.gd")
 const WarshipWorker = preload("res://sim/warship_worker.gd")
 
@@ -29,6 +30,8 @@ class Job extends RefCounted:
 	var events: Array = []
 	var visibility_checks := {}
 	var first_blast := {}
+	var blast_fallout := PackedByteArray()
+	var blast_has_borders := false
 	var canvas: Transform2D
 	var viewport: Vector2
 	var has_viewport: bool
@@ -86,6 +89,10 @@ class Job extends RefCounted:
 			var tiles := SimArsenal.select_blast_fallout(point, radius, missile.nk, owner_map, W, H, rng)
 			first_blast = {"missile": missile, "tick": tick, "center": point, "radius": radius,
 				"kind": missile.nk, "rng_before": before, "rng_after": rng.state, "tiles": tiles}
+			if not blast_fallout.is_empty():
+				first_blast.territory = BlastTerritory.prepare(tiles, owner_map, blast_fallout, W, H, blast_has_borders)
+				first_blast.fallout_before = blast_fallout
+				first_blast.has_borders = blast_has_borders
 			rng.state = before
 			return
 
@@ -143,6 +150,7 @@ var _records: RecordCopies
 var _map_changed := false
 var _blast_plan := {}
 var prepared_blasts_used := 0
+var prepared_territory_used := 0
 var _start_structures: Array = []
 var _start_missiles: Array = []
 var applied_ticks := 0
@@ -221,6 +229,10 @@ func submit(game) -> bool:
 	var view := [viewport != null, game.get_canvas_transform() if viewport != null else Transform2D.IDENTITY,
 		viewport.get_visible_rect().size if viewport != null else Vector2.ZERO]
 	_job = Job.new(inputs, owners, view)
+	if pending_blast and game.tile_snapshot != null and game.tile_pop.is_empty() \
+			and game.fallout.size() == owners.size() and game.fallout_t.size() == owners.size():
+		_job.blast_fallout = game.fallout.duplicate()
+		_job.blast_has_borders = game.border.size() == game.nations.size()
 	_task = WorkerThreadPool.add_task(_job.run)
 	if _task < 0:
 		_job.result.g = null
@@ -317,7 +329,13 @@ func take_blast_fallout(game, missile: Dictionary) -> Variant:
 		return null
 	game.rng.state = plan.rng_after
 	prepared_blasts_used += 1
-	return plan.tiles
+	if plan.has("territory") and game._collect_presentation and game.tile_snapshot != null \
+			and not game.net_rec and not game.net_dedicated and game.tile_pop.is_empty() \
+			and game.fallout == plan.fallout_before and game.fallout_t.size() == game.fallout.size() \
+			and (game.border.size() == game.nations.size()) == plan.has_borders:
+		prepared_territory_used += 1
+		return plan
+	return {"tiles": plan.tiles}
 
 func stop() -> void:
 	wait()

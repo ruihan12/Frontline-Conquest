@@ -790,6 +790,41 @@ func _struct_remove(st) -> void:
 	_map_effect("structure_removed", [RWGameState.S_OF.get(int(st.k), -1), int(st.tile)])
 	structs.erase(st); struct_at.erase(st.tile); _sv += 1; _own_sv[st.o] = _own_sv.get(st.o, 0) + 1
 
+# The job made only owned-to-neutral transitions. Preserve the presentation order
+# of structure removal and fallout while publishing the prepared territory.
+func _apply_blast_territory(tiles: PackedInt32Array, territory: Dictionary) -> void:
+	owner_map = territory.owners
+	fallout = territory.fallout
+	for owner in territory.lost:
+		var nation: Dictionary = nations[owner]
+		var sum: Array = territory.sums[owner]
+		nation.land -= territory.lost[owner]
+		nation.sx -= sum[0]
+		nation.sy -= sum[1]
+	var removed: PackedInt32Array = territory.removed
+	for i in range(0, removed.size(), 2):
+		var owner := removed[i + 1]
+		if owner < border.size():
+			border[owner].erase(removed[i])
+	for tile in territory.additions:
+		border[territory.additions[tile]][tile] = true
+	if _attack_worker != null:
+		_attack_map_revision += tiles.size() + (removed.size() >> 1)
+		_attack_worker.record_tiles(tiles)
+	if _tile_snapshot_valid:
+		_tile_snapshot_worker_packets.append(territory.snapshot)
+	_repaint_events.append_array(territory.paints)
+	var removed_at := 0
+	for tile in tiles:
+		if removed_at < removed.size() and removed[removed_at] == tile:
+			removed_at += 2
+			if struct_at.has(tile):
+				_struct_remove(struct_at[tile])
+		fallout_list[tile] = true
+		fallout_t[tile] = 60.0
+		fallout_hot[tile] = true
+		_map_effect("fallout", [tile])
+
 # Collect value-only presentation messages while a simulation slice runs. Input,
 # headless helpers, and frame-time updates still use the immediate path.
 var _presentation_events: Array[Array] = []

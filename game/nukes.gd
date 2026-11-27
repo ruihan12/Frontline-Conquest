@@ -252,8 +252,8 @@ func _detonate_missile(ms) -> void:
 	var tile := int(to.y) * W + int(to.x)
 	if tile < 0 or tile >= W * H: return
 	var victim: int = int(ms.get("tgt_o", owner_map[tile]))
-	var fallout_tiles: Variant = _arsenal_worker.take_blast_fallout(self, ms) if _arsenal_worker != null else null
-	detonate(ms.o, to, float(ms.r), 1.0, nk, fallout_tiles)
+	var blast_plan: Variant = _arsenal_worker.take_blast_fallout(self, ms) if _arsenal_worker != null else null
+	detonate(ms.o, to, float(ms.r), 1.0, nk, blast_plan)
 	_viewer_event({"type": "nuke_hit", "actor": ms.o, "target": victim, "kind": ms.k, "nk": nk, "tile": tile, "radius": ms.r})
 	var mine: bool = ms.o == PLAYER or owner_map[tile] == PLAYER or victim == PLAYER
 	# UIAdvisor.on_nuke_detonated: explosion SFX only when on screen or yours.
@@ -334,8 +334,8 @@ func g_randi() -> int:
 # Inner disc + a random half of the outer ring -> fallout, nukeDeathFactor troop loss, everything inside
 # the outer radius destroyed (sim/arsenal.gd nuke_blast). Then upstream's effect (FxLayer.nuke): shockwave
 # ring, explosion burst, debris, and a small camera shake when the blast is on screen.
-func detonate(o: int, c: Vector2, r: float, _eff_mult := 1.0, nk := SimRules.N_ATOM, fallout_tiles: Variant = null) -> void:
-	sim_ars.nuke_blast(o, c, r, nk, fallout_tiles)
+func detonate(o: int, c: Vector2, r: float, _eff_mult := 1.0, nk := SimRules.N_ATOM, blast_plan: Variant = null) -> void:
+	sim_ars.nuke_blast(o, c, r, nk, blast_plan)
 	var tile := clampi(int(c.y), 0, H - 1) * W + clampi(int(c.x), 0, W - 1)
 	_map_effect("nuke", [nk, tile, r, c, 0.9 if nk in [SimRules.N_HYDROGEN, SimRules.N_MEGA] else 0.5])
 
