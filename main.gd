@@ -38,6 +38,7 @@ func _net_boot() -> void:
 		print("MPHOSTLOCAL ", "ok" if hn != null else "failed")
 	elif opt.has("server"):
 		Engine.max_fps = 30  # a dedicated server needs little more than the tick rate (10/s)
+		print("LUAU ", "ok" if LuauVM.available() else "missing (put libgdluau.linux.<arch>.so next to the godot binary)")
 		var port := int(OS.get_environment("FRONTLINE_PORT")) if OS.has_environment("FRONTLINE_PORT") else int(opt.get("port", 8070))
 		var bots := int(OS.get_environment("FRONTLINE_DEFAULT_BOTS")) if OS.has_environment("FRONTLINE_DEFAULT_BOTS") else int(opt.get("bots", 40))
 		var mp := str(opt.get("map", "0:0")).split(":")

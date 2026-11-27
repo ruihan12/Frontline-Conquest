@@ -1,0 +1,12 @@
+; Luau runtime: fernforestgames/luau-gdextension, built with tools/luau_ext/build.sh (see docs/LUAU_PORT.md Step 1).
+; Linux libraries live in server_build/ (one per server arch); an exported server loads the file of the same name
+; placed next to the Godot binary. The web side module is luau/ext/libgdluau.wasm (web export with extensions_support).
+[configuration]
+entry_symbol = "gdluau_entrypoint"
+compatibility_minimum = "4.5"
+reloadable = false
+
+[libraries]
+linux.x86_64 = "res://server_build/x86_64/libgdluau.linux.x86_64.so"
+linux.arm64 = "res://server_build/aarch64/libgdluau.linux.arm64.so"
+web.wasm32 = "res://luau/ext/libgdluau.wasm"

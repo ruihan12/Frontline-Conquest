@@ -482,7 +482,7 @@ _None this run._
 | `bot_skill.luau` | bot players count as people (kind HUMAN) and build like nations | pass |  |
 | `bot_skill.luau` | which bots are smart is deterministic | pass |  |
 | `bot_skill.luau` | a novice waits twice the Easy grace before attacking a player | pass |  |
-| `bot_skill.luau` | and may attack after it | pass | base=3716 |
+| `bot_skill.luau` | and may attack after it | pass | base=3513 |
 | `bot_skill.luau` | a smart bot waits the Easy grace (no doubling) | pass |  |
 | `sim_bots.luau spawn_shield` | a match with bot players is not solo | pass |  |
 | `sim_bots.luau spawn_shield` | every person gets a spawn shield when play starts | pass |  |

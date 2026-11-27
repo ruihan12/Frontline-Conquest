@@ -2,6 +2,8 @@
 
 Godot port of upstream RoWorld (lukechatton/roworld, AGPL). Engine: Godot 4.5.1.stable on branch luau-sim (Step 0 of
 docs/LUAU_PORT.md); `multiplayer`, `vanilla` and the live VM are still Godot 4.3.stable. A 4.5.1 pack does not load in 4.3.
+Luau runtime (branch luau-sim): luau/ext/gdluau.gdextension, libraries in luau/ext (web) and server_build/<arch>
+(Linux), built by tools/luau_ext/build.sh; bridge sim/luau_vm.gd; sim modules in luau/sim. Progress: docs/LUAU_PORT.md.
 Last updated: 2026-11-25 (phone scaling, tutorial toggle, colour fix).
 
 ## Direction
