@@ -335,8 +335,12 @@ The 3,000-tick World run published 1,853,903 worker-produced tile rows and match
 
 `--sim-worker-warship-pass` runs the normal solo warship tick on detached port, unit and projectile records. The scene polls the job between the requests and train phases. The worker computes movement, healing, target selection, firing, shell damage and capture routes. The scene commits accepted results into the original ship dictionaries, reconnects references, and emits ordered presentation events. Navigation uses its own search scratch space and inherits the remaining budget after the preceding phases.
 
-The worker retries inline when inputs change in flight, when a capture needs legacy water pathfinding, or when a ship loss or sound would trigger scene-side behavior that can advance the gameplay RNG. Match resets join and discard the job. Host and viewer paths keep their existing scheduler behavior.
+The worker retries inline when inputs change in flight, a capture needs legacy water pathfinding, or a sound can advance the gameplay RNG through legacy playback. Match resets join and discard the job. Host and viewer paths keep their existing scheduler behavior.
 
 A seeded 600-tick fixture began with 16 warships and applied all 600 phases from the worker. All four checkpoints matched for fleet state, territory, nation totals and gameplay RNG.
 
 The ordinary 3,000-tick World run matched all five reference checkpoints and used 544 worker phases with 14 inline retries. A cross-origin-isolated Godot 4.3 Chromium smoke completed three worker warship phases and observed movement on the original ship record.
+
+The phase now runs the same AI retaliation code as inline play. It commits recruitment costs, newly deployed ships and patrol orders together with the losses that triggered them. The focused test forces a successful retaliation draw and checks that the worker and inline paths spend the same gold, deploy the same ship, and leave the same RNG state. A cross-origin-isolated Chromium fixture also verified recruitment after a transport loss. The 3,000-tick World rerun matched all five checkpoints and committed 558 worker phases with zero inline retries.
+
+A native 300-frame sample of the initial dedicated phase at 1× on World with 16 ships compared attack threading alone with attack threading plus the dedicated warship phase. Median frame interval moved from 24.16 to 18.53 ms and the 95th percentile from 61.26 to 45.33 ms. Completed ticks per second moved from 7.39 to 7.93. The run covered 55 worker warship phases. This is a single headless sample. The warship phase remains opt-in.

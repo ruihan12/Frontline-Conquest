@@ -3,52 +3,11 @@ extends "res://game/nukes.gd"
 
 # ---------- warships ----------
 func _find_water_near(tile: int, max_r := 12) -> int:
-	if tile < 0 or tile >= W * H: return -1
-	if owner_map[tile] == WATER: return tile
-	var cx := tile % W; var cy := tile / W
-	for r in range(1, max_r + 1):
-		for dy in range(-r, r + 1):
-			for dx in range(-r, r + 1):
-				if absi(dx) != r and absi(dy) != r: continue
-				var x := cx + dx; var y := cy + dy
-				if x >= 0 and y >= 0 and x < W and y < H and owner_map[y * W + x] == WATER:
-					return y * W + x
-	return -1
+	return SimWarships.find_water_near(owner_map, W, H, tile, max_r)
 
-## Deploys a warship from one of `o`'s finished ports: it appears in the water beside the port nearest the
-## clicked water and sails to that spot. No finished port, no warship.
+## Deploy a warship from the nearest reachable finished port.
 func spawn_warship(o: int, target_tile: int = -1) -> bool:
-	var ports := []
-	for st in structs:
-		if st.o == o and st.k == 1 and float(st.get("bt", 0.0)) <= 0.0: ports.append(st)
-	if ports.is_empty(): return false
-	var t_pos := Vector2(-1, -1)
-	if target_tile >= 0 and target_tile < W * H and owner_map[target_tile] == WATER:
-		t_pos = Vector2(target_tile % W + 0.5, target_tile / W + 0.5)
-	if t_pos.x >= 0:
-		ports.sort_custom(func(a, b): return Vector2(a.tile % W, a.tile / W).distance_to(t_pos) < Vector2(b.tile % W, b.tile / W).distance_to(t_pos))
-	else:
-		ports.shuffle()
-	var w_tile := -1
-	var home_tile := -1
-	for pt in ports:
-		var wn := _find_water_near(pt.tile, 12)
-		if wn < 0: continue
-		var wp := Vector2(wn % W + 0.5, wn / W + 0.5)
-		if t_pos.x >= 0 and sim_ws._body_at(wp) != sim_ws._body_at(t_pos): continue
-		w_tile = wn; home_tile = pt.tile
-		break
-	if w_tile < 0:
-		if o == PLAYER and t_pos.x >= 0: notify("None of your ports reach that water", "bad")
-		return false
-	var spawn_pos := Vector2(w_tile % W + 0.5, w_tile / W + 0.5)
-	var tgt_pos := t_pos if t_pos.x >= 0 else spawn_pos
-	var ws := {"o": o, "pos": spawn_pos, "home": home_tile, "hp": 1000.0, "vet": 0, "kills": 0, "tgt": tgt_pos, "cd": 0.0}
-	sim_ws.init_ship(ws)
-	ws["patrol"] = tgt_pos
-	if o == PLAYER: ws["manual"] = sim_atk.tick
-	warships.append(ws)
-	return true
+	return sim_ws.spawn_ship(o, target_tile)
 
 func _is_water(p: Vector2) -> bool:
 	var x := int(p.x); var y := int(p.y)

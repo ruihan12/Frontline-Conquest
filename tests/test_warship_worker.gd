@@ -29,6 +29,7 @@ func _fixture():
 	game.sim_nav = SimNav.new()
 	game.sim_nav.build(game.sim_naval.body, game.W, game.H)
 	game.sim_nav.budget_us = 1000000000
+	game.sim_nav._spent_us = 37
 	var attacker := {"o": 2, "pos": Vector2(5.5, 3.5), "tgt": Vector2(3.5, 1.5)}
 	var victim := {"o": 3, "pos": Vector2(8.5, 3.5), "tgt": Vector2(13.5, 3.5)}
 	game.sim_ws.init_ship(attacker)
@@ -64,7 +65,7 @@ func _check_full_pass() -> bool:
 	var matching: bool = game.rng.state == reference.rng.state and game.warships == reference.warships \
 		and game.boats == reference.boats and game.sim_ws.stats == reference.sim_ws.stats \
 		and game.sim_ws.shells == reference.sim_ws.shells and game.sim_ws.tref == reference.sim_ws.tref \
-		and game._presentation_events == reference._presentation_events
+		and game._presentation_events == reference._presentation_events and game.sim_nav._spent_us >= 37
 	var references_restored: bool = is_same(attacker, game.warships[0]) and is_same(port, attacker.port) \
 		and SimWarships.has_ref(game.warships, game.sim_ws.tref[2].ref)
 	game._flush_presentation_batch()
@@ -86,22 +87,52 @@ func _check_rejections() -> bool:
 	game.warships[0].tgt = Vector2(12.5, 4.5)
 	worker.wait()
 	var stale: bool = started and not worker.take(game) and game.sim_ws.shells.size() == 2 and game.boats.size() == 1
-	game.boats[0].a = 2
-	game.sim_ws.shells[1].o = 3
-	started = worker.submit(game)
-	worker.wait()
-	var retaliation: bool = started and not worker.take(game) and game.boats.size() == 1 and is_equal_approx(game.warships[0].hp, 1000.0)
-	game.boats[0].a = 1
 	game._warship_worker = worker
 	started = worker.submit(game)
 	game._set_owner(0, 0)
 	worker.wait()
 	var terrain: bool = started and not worker.take(game)
+	started = worker.submit(game)
+	game._stop_sim_workers()
+	var stopped: bool = started and not worker.ready() and game.boats.size() == 1 and game.sim_ws.shells.size() == 2
+	game.free()
+	if not (stale and terrain and stopped):
+		print("rejections stale=", stale, " terrain=", terrain, " stopped=", stopped)
+	return stale and terrain and stopped
+
+func _check_retaliation() -> bool:
+	var game = _fixture()
+	var reference = _fixture()
+	var random := RandomNumberGenerator.new()
+	var chosen_seed := 1
+	random.seed = chosen_seed
+	while random.randf() >= SimAI.WARSHIP_RETALIATE_P[1]:
+		chosen_seed += 1
+		random.seed = chosen_seed
+	for world in [game, reference]:
+		world.rng.seed = chosen_seed
+		world.sim_atk.tick = 65
+		world.nations[2].gold = 1000000.0
+		world.boats[0].a = 2
+		world.sim_ws.shells[1].o = 3
+		for ship: Dictionary in world.warships:
+			ship.last_shot = 65
+	var port: Dictionary = game.structs[0]
+	var worker := WarshipWorker.new()
+	var started := worker.submit(game)
+	worker.wait()
+	reference.sim_ws.tick()
+	var applied := started and worker.take(game)
+	var matched: bool = applied and game.warships.size() == 3 and game.boats.is_empty() \
+		and game.nations[2].gold < 1000000.0 and game.nations[2].gold == reference.nations[2].gold \
+		and game.warships == reference.warships and game.rng.state == reference.rng.state \
+		and game.warships[-1].home == port.tile and game.sim_ws.next_uid == reference.sim_ws.next_uid
+	if not matched:
+		print("retaliation applied=", applied, " ships=", game.warships.size(), " gold=", game.nations[2].gold)
 	worker.stop()
 	game.free()
-	if not (stale and retaliation and terrain):
-		print("rejections stale=", stale, " retaliation=", retaliation, " terrain=", terrain)
-	return stale and retaliation and terrain
+	reference.free()
+	return matched
 
 func _check_capture_and_audio() -> bool:
 	var game = _fixture()
@@ -144,6 +175,7 @@ func _run() -> void:
 	var phase := _check_full_pass()
 	var rejection := _check_rejections()
 	var capture := _check_capture_and_audio()
-	var passed := phase and rejection and capture
+	var retaliation := _check_retaliation()
+	var passed := phase and rejection and capture and retaliation
 	print("WARSHIP_WORKER ", "PASS" if passed else "FAIL")
 	quit(0 if passed else 1)

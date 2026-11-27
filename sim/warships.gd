@@ -55,6 +55,83 @@ func init_ship(ws: Dictionary) -> void:
 	ws["np_tick"] = 0
 	tref.erase(int(ws.uid))
 
+static func find_water_near(owners: PackedInt32Array, width: int, height: int, tile: int, max_r: int) -> int:
+	if tile < 0 or tile >= width * height: return -1
+	if owners[tile] == -1: return tile
+	var center_x := tile % width
+	var center_y := tile / width
+	for radius in range(1, max_r + 1):
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if absi(dx) != radius and absi(dy) != radius: continue
+				var x := center_x + dx
+				var y := center_y + dy
+				if x >= 0 and x < width and y >= 0 and y < height and owners[y * width + x] == -1:
+					return y * width + x
+	return -1
+
+func spawn_ship(owner: int, target_tile: int) -> bool:
+	var ports := _ports_of(owner)
+	if ports.is_empty(): return false
+	var width: int = g.W
+	var height: int = g.H
+	var owners: PackedInt32Array = g.owner_map
+	var target := Vector2(-1, -1)
+	if target_tile >= 0 and target_tile < width * height and owners[target_tile] == g.WATER:
+		target = Vector2(target_tile % width + 0.5, target_tile / width + 0.5)
+	if target.x >= 0:
+		ports.sort_custom(func(a, b): return Vector2(a.tile % width, a.tile / width).distance_to(target) < Vector2(b.tile % width, b.tile / width).distance_to(target))
+	else:
+		ports.shuffle()
+	for port: Dictionary in ports:
+		var water := find_water_near(owners, width, height, port.tile, 12)
+		if water < 0: continue
+		var position := Vector2(water % width + 0.5, water / width + 0.5)
+		if target.x >= 0 and _body_at(position) != _body_at(target): continue
+		var destination := target if target.x >= 0 else position
+		var ship := {"o": owner, "pos": position, "home": port.tile, "hp": 1000.0, "vet": 0, "kills": 0, "tgt": destination, "cd": 0.0}
+		init_ship(ship)
+		ship.patrol = destination
+		if owner == g.PLAYER: ship.manual = g.sim_atk.tick
+		g.warships.append(ship)
+		return true
+	if owner == g.PLAYER and target.x >= 0: g.notify("None of your ports reach that water", "bad")
+	return false
+
+func react_to_ship_loss(victim: int, tile: int, difficulty: int) -> void:
+	var count := 0
+	for ship: Dictionary in g.warships:
+		if ship.o == victim: count += 1
+	if count >= SimAI.WARSHIP_FLEET_CAP:
+		move_nearest_patrol(victim, tile)
+		return
+	if g.rng.randf() >= SimAI.WARSHIP_RETALIATE_P[difficulty]: return
+	var cost := SimRules.build_cost("warship", count)
+	if g.owner_map[tile] != g.WATER or g.nations[victim].gold < cost or not spawn_ship(victim, tile):
+		move_nearest_patrol(victim, tile)
+	else:
+		g.nations[victim].gold -= cost
+
+func move_nearest_patrol(owner: int, tile: int) -> void:
+	if g.owner_map[tile] != g.WATER: return
+	var range_limit := R.warship_range()
+	var width: int = g.W
+	var target := Vector2(tile % width + 0.5, tile / width + 0.5)
+	var best = null
+	var closest := 0.0
+	for ship: Dictionary in g.warships:
+		if ship.o != owner or not ship.has("patrol"): continue
+		var position: Vector2 = ship.pos
+		var patrol: Vector2 = ship.patrol
+		if absf(position.x - patrol.x) + absf(position.y - patrol.y) >= range_limit: continue
+		var distance := absf(position.x - target.x) + absf(position.y - target.y)
+		if best == null or distance < closest:
+			best = ship
+			closest = distance
+	if best != null:
+		best.patrol = target
+		best.tgt = target
+
 func _ports_of(o: int) -> Array:
 	var out := []
 	for st in g.structs:

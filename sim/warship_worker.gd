@@ -76,7 +76,7 @@ class Job extends RefCounted:
 	var result: SimWarships
 	var events: Array = []
 	var retry_inline := false
-	var _tracking_owners: Array
+	var tracking_owners := {}
 
 	var sim_atk: Job:
 		get: return self
@@ -96,7 +96,10 @@ class Job extends RefCounted:
 		boats = inputs.boats
 		traders = inputs.traders
 		allies = inputs.allies
-		_tracking_owners = inputs.tracking
+		for row: Array in inputs.tracking:
+			var owner: int = row[0]
+			tracking_owners[owner] = row[1]
+			nations[owner].gold = row[2]
 		var rules := SimRules.new(inputs.linear_scale)
 		owner_map = water_map
 		sim_nav = search
@@ -145,9 +148,9 @@ class Job extends RefCounted:
 		retry_inline = true
 		return PackedVector2Array()
 
-	func ai_ship_loss(victim: int, _tile: int, enemy: int) -> void:
-		if victim != enemy and victim in _tracking_owners:
-			retry_inline = true
+	func ai_ship_loss(victim: int, tile: int, enemy: int) -> void:
+		if victim != enemy and tile >= 0 and tracking_owners.has(victim):
+			result.react_to_ship_loss(victim, tile, tracking_owners[victim])
 
 	func _map_effect(kind: String, values: Array) -> void:
 		events.append(["effect", kind, values])
@@ -190,7 +193,7 @@ static func _inputs(game) -> Dictionary:
 	for trader: Dictionary in game.traders: victims[trader.o] = true
 	var tracking := []
 	for owner: int in victims:
-		if game._tracks_ships(owner): tracking.append(owner)
+		if game._tracks_ships(owner): tracking.append([owner, game.ai_difficulty(owner), game.nations[owner].gold])
 	var navy: SimWarships = game.sim_ws
 	return {
 		"tick": game.sim_atk.tick, "width": game.W, "height": game.H, "boat_speed": game.boat_speed,
@@ -306,6 +309,8 @@ static func _commit(job: Job, records: RecordCopies, game) -> void:
 	navy._post_shelled = job.result._post_shelled
 	navy._capture_msg = job.result._capture_msg
 	navy.next_uid = job.result.next_uid
+	for owner: int in job.tracking_owners:
+		game.nations[owner].gold = job.nations[owner].gold
 	game.rng.state = job.rng.state
 	if job.sim_nav != null:
 		game.sim_nav.commit_search(job.sim_nav)

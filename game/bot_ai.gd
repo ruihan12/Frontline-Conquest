@@ -15,15 +15,7 @@ func _ai_sea_tile_near(t: int, r: float) -> int:
 # SimAIEconomy.on_transport_sunk / on_trade_captured -> _retaliate (630-697)
 func ai_ship_loss(victim: int, tile: int, enemy: int) -> void:
 	if victim <= 0 or victim == PLAYER or victim >= nations.size() or enemy == victim or tile < 0: return
-	if not _tracks_ships(victim): return
-	if _count_ws(victim) >= WARSHIP_FLEET_CAP:
-		_ai_move_nearest_warship(victim, tile); return
-	if rng.randf() < WARSHIP_RETALIATE_P[ai_difficulty(victim)]:
-		var c6 := build_cost(victim, 6)
-		if owner_map[tile] != WATER or nations[victim].gold < c6 or not spawn_warship(victim, tile):
-			_ai_move_nearest_warship(victim, tile)
-		else:
-			nations[victim].gold -= c6
+	if _tracks_ships(victim): sim_ws.react_to_ship_loss(victim, tile, ai_difficulty(victim))
 
 # SimAIEconomy._tracks_ships: AI nations and bot players above Easy that own a port answer ship losses
 func _tracks_ships(id: int) -> bool:
@@ -33,20 +25,7 @@ func _tracks_ships(id: int) -> bool:
 
 # SimAIEconomy._move_nearest_warship: the nearest ship still near its patrol area takes `t` as its patrol tile
 func _ai_move_nearest_warship(id: int, t: int) -> void:
-	if owner_map[t] != WATER: return
-	var near := SimRules.WARSHIP_RANGE_FULL / sim_rules.k_lin
-	var tp := Vector2(t % W + 0.5, t / W + 0.5)
-	var best = null
-	var bd := 0.0
-	for ws in warships:
-		if ws.o != id or not ws.has("patrol"): continue
-		var pos: Vector2 = ws.pos
-		var pp: Vector2 = ws.patrol
-		if absf(pos.x - pp.x) + absf(pos.y - pp.y) >= near: continue
-		var d := absf(pos.x - tp.x) + absf(pos.y - tp.y)
-		if best == null or d < bd: best = ws; bd = d
-	if best != null:
-		best.patrol = tp; best.tgt = tp
+	sim_ws.move_nearest_patrol(id, t)
 
 func _count_ws(o: int) -> int:
 	var c := 0
