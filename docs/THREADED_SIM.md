@@ -330,3 +330,13 @@ Warship impact flashes, strike blasts and camera shake, and railgun beams publis
 With render snapshots enabled, the conquest job packs final ownership and fallout values for each tile in its capture journal. The scene still replays captures in order, then publishes the prepared tile values with the render snapshot. Scene-side changes are sampled after the worker packets, so a later mutation wins. Initial snapshots and ticks with rejected or unavailable worker results use the established scene-side path.
 
 The 3,000-tick World run published 1,853,903 worker-produced tile rows and matched the live territory and fallout arrays at every checkpoint. A threaded Chromium smoke matched its render mirror after three worker passes.
+
+## Dedicated warship phase
+
+`--sim-worker-warship-pass` runs the normal solo warship tick on detached port, unit and projectile records. The scene polls the job between the requests and train phases. The worker computes movement, healing, target selection, firing, shell damage and capture routes. The scene commits accepted results into the original ship dictionaries, reconnects references, and emits ordered presentation events. Navigation uses its own search scratch space and inherits the remaining budget after the preceding phases.
+
+The worker retries inline when inputs change in flight, when a capture needs legacy water pathfinding, or when a ship loss or sound would trigger scene-side behavior that can advance the gameplay RNG. Match resets join and discard the job. Host and viewer paths keep their existing scheduler behavior.
+
+A seeded 600-tick fixture began with 16 warships and applied all 600 phases from the worker. All four checkpoints matched for fleet state, territory, nation totals and gameplay RNG.
+
+The ordinary 3,000-tick World run matched all five reference checkpoints and used 544 worker phases with 14 inline retries. A cross-origin-isolated Godot 4.3 Chromium smoke completed three worker warship phases and observed movement on the original ship record.

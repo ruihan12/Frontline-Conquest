@@ -384,7 +384,7 @@ func fork_search() -> SimNav:
 	search._reset_search_scratch()
 	return search
 
-func prepare_search(source: SimNav) -> void:
+func prepare_search(source: SimNav, preserve_budget := false) -> void:
 	_reg_cache = source._reg_cache.duplicate()
 	_route_cache = source._route_cache.duplicate()
 	budget_us = source.budget_us
@@ -392,6 +392,7 @@ func prepare_search(source: SimNav) -> void:
 	searches = 0; expanded = 0; usec = 0; usec_max = 0; fails = 0; cache_hits = 0; deferred = 0
 	usec_astar = 0; usec_stitch = 0; usec_smooth = 0
 	begin_tick()
+	if preserve_budget: _spent_us = source._spent_us
 
 func commit_search(search: SimNav) -> void:
 	_reg_cache = search._reg_cache

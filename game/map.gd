@@ -54,7 +54,10 @@ func _ready() -> void:
 		_economy_worker = EconomyWorker.new()
 	if "--sim-worker-naval" in OS.get_cmdline_user_args():
 		_naval_worker = NavalWorker.new()
-	if _attack_worker != null or _economy_worker != null or _naval_worker != null or "--sim-queued-intents" in OS.get_cmdline_user_args():
+	if "--sim-worker-warship-pass" in OS.get_cmdline_user_args():
+		_warship_worker = WarshipWorker.new()
+	if _attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null \
+			or "--sim-queued-intents" in OS.get_cmdline_user_args():
 		sim_intents = SimIntentQueue.new()
 	if "--sim-snapshot" in OS.get_cmdline_user_args():
 		tile_snapshot = TileSnapshot.new()
@@ -962,6 +965,8 @@ func _upd_border(t: int) -> void:
 func _set_owner(i: int, o: int, replay_worker := false, record_snapshot := true) -> void:
 	var om := owner_map
 	var old: int = om[i]
+	if _warship_worker != null and (old == WATER) != (o == WATER):
+		_warship_worker.invalidate_water_map()
 	if not _prepared_rail_curves.is_empty() and (old < 0) != (o < 0):
 		_prepared_rail_curves.clear()
 	var x := i % W

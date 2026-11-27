@@ -258,41 +258,57 @@ func _advance_fixed_ticks(tdt: float) -> void:
 			sim_atk.begin_tick()
 			_tick_stage = 1
 		var a0 := Time.get_ticks_usec()
-		if _tick_stage != 4:
-			if _tick_stage != 5 and not _advance_attacks_and_ai(loop_t0 + sim_budget):
-				break
-			if not _advance_naval(Time.get_ticks_usec() - loop_t0 > sim_budget / 2):
-				break
-			ticks_done += 1
-			a0 = Time.get_ticks_usec()
-			var prepared_economy := _prepared_economy
-			_prepared_economy = null
-			if _economy_worker != null and state == "play" and net_host == null and not net_remote:
-				_economy_begin()
-				if prepared_economy != null:
-					_economy_worker_rows += _economy_finish(0.1, prepared_economy)
-				elif _attack_worker == null and _economy_worker.submit(self, 0.1):
-					_tick_stage = 4
+		if _tick_stage != 6:
+			if _tick_stage != 4:
+				if _tick_stage != 5 and not _advance_attacks_and_ai(loop_t0 + sim_budget):
+					break
+				if not _advance_naval(Time.get_ticks_usec() - loop_t0 > sim_budget / 2):
+					break
+				ticks_done += 1
+				a0 = Time.get_ticks_usec()
+				var prepared_economy := _prepared_economy
+				_prepared_economy = null
+				if _economy_worker != null and state == "play" and net_host == null and not net_remote:
+					_economy_begin()
+					if prepared_economy != null:
+						_economy_worker_rows += _economy_finish(0.1, prepared_economy)
+					elif _attack_worker == null and _economy_worker.submit(self, 0.1):
+						_tick_stage = 4
+					else:
+						_economy_finish(0.1)
 				else:
-					_economy_finish(0.1)
-			else:
-				_economy(0.1)
-		if _tick_stage == 4:
-			if not _economy_worker.ready():
-				break
-			_economy_worker_rows += _economy_finish(0.1, _economy_worker.take())
-		_tick_stage = 0
-		sim_ars.tick()
-		_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
-		_requests_tick()
-		sim_ws.tick()
+					_economy(0.1)
+			if _tick_stage == 4:
+				if not _economy_worker.ready():
+					break
+				_economy_worker_rows += _economy_finish(0.1, _economy_worker.take())
+			_tick_stage = 0
+			sim_ars.tick()
+			_tick_missiles(SimArsenal.DT_TICK)  # SimNukes.nukes_tick: flight is counted in sim ticks
+			_requests_tick()
+		if not _advance_warship_phase():
+			break
 		_trains_tick()
 		prof.eco += Time.get_ticks_usec() - a0
 		_fp["t_eco"] = Time.get_ticks_usec() - a0; _pf_add("eco", _fp.t_eco)
 		if net_host != null: net_host.on_tick()
-		if (_attack_worker != null or _economy_worker != null or _naval_worker != null) and state == "play" and net_host == null and not net_remote: break
+		if (_attack_worker != null or _economy_worker != null or _naval_worker != null or _warship_worker != null) \
+				and state == "play" and net_host == null and not net_remote: break
 	_flush_presentation_batch()
 	_fp["sim"] = Time.get_ticks_usec() - loop_t0; _fp["ticks"] = nt; _pf_add("sim", _fp.sim); _pf_add("ticks", nt)
+
+func _advance_warship_phase() -> bool:
+	if _tick_stage == 6:
+		if not _warship_worker.ready():
+			return false
+		_tick_stage = 0
+		if _warship_worker.take(self):
+			return true
+	elif _warship_worker != null and _warship_worker.submit(self):
+		_tick_stage = 6
+		return false
+	sim_ws.tick()
+	return true
 
 func _advance_naval(defer_paths: bool) -> bool:
 	if OS.has_environment("NO_TRADE") and _tick_stage != 5:
