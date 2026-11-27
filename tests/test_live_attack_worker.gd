@@ -304,8 +304,17 @@ func _check_tribe_shore_scan(game) -> bool:
 	var ai: SimAI = game.sim_ai
 	var prepared: Array = ai._prepared_border_scans.get(id, [])
 	if prepared.size() < 8: return false
+	var coasts: Dictionary = ai._prepared_coasts.duplicate()
+	if not coasts.has(id): return false
+	var worker_coast := ai.own_coast_tiles(id, 3)
+	var worker_filtered := ai.own_coast_tiles(id, 9, true)
+	var reads := ai.worker_coast_reads
 	var revision: int = game._attack_map_revision
 	var original_rng: int = game.rng.state
+	ai.accept_border_scans(-1, -1, {})
+	var coast_matches := ai.own_coast_tiles(id, 3) == worker_coast and ai.own_coast_tiles(id, 9, true) == worker_filtered
+	ai.accept_border_scans(game.sim_atk.tick, revision - 1, {}, {id: [-100]})
+	coast_matches = coast_matches and ai.own_coast_tiles(id, 3) == worker_coast and ai.worker_coast_reads == reads
 	ai.accept_border_scans(-1, -1, {})
 	var inline_neutral := ai._tribe_nearby(id)
 	var inline_near := ai._near.duplicate()
@@ -318,7 +327,7 @@ func _check_tribe_shore_scan(game) -> bool:
 	game.rng.state = original_rng
 	ai.accept_border_scans(game.sim_atk.tick, revision - 1, {id: prepared})
 	var fallback_neutral := ai._tribe_nearby(id)
-	return matched and fallback_neutral == inline_neutral and ai._near == inline_near \
+	return coast_matches and matched and fallback_neutral == inline_neutral and ai._near == inline_near \
 		and ai.worker_tribe_shore_count == 1
 
 func _check_battery_preparation(game) -> bool:

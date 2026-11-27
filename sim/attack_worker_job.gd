@@ -20,6 +20,7 @@ var attacks: Array
 var pending_merges: Array = []
 var border: Array = []
 var border_scans := {}
+var coastal_borders := {}
 var _scan_ids := PackedInt32Array()
 var transport_orders: PackedInt32Array
 var standings: Array = []
@@ -239,7 +240,12 @@ func run() -> void:
 	pressure = SimAI.collect_pressure(self, transport_orders)
 	for id in _scan_ids:
 		var coast_scale := _rules.k_lin if kind_of(id) == SimRules.KIND_TRIBE else 0.0
-		border_scans[id] = SimAI.collect_border(self, id, _rules.legacy_lin, null, coast_scale)
+		var scan := SimAI.collect_border(self, id, _rules.legacy_lin, null, coast_scale)
+		border_scans[id] = scan
+		if scan.size() > 8:
+			coastal_borders[id] = scan[8]
+		else:
+			coastal_borders[id] = SimAI.collect_coastal_border(border[id], owner_map, W, WATER)
 	if economy != null:
 		economy.update_after_attacks(nations)
 		economy.run()

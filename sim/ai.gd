@@ -105,7 +105,7 @@ func setup() -> void:
 	accept_border_scans(-1, -1, {})
 	leader = 0; leader_share = 0.0; runaway_human = 0; last_capitulation = -100000
 	_crowded = null; _body_src_size = -1
-	if g.sim_naval != null: _body_size(0)  # the water-body census (~100 ms) is paid at match setup, not inside the first AI think
+	if g.sim_naval != null: _body_size(0)  # warm the fallback for maps without a navigation census
 	for k in stats: stats[k] = 0
 	var rng: RandomNumberGenerator = g.rng
 	for id in range(2, g.nations.size()):
@@ -159,6 +159,8 @@ var _prepared_pressure: Variant = null
 var _border_scan_tick := -1
 var _border_scan_revision := -1
 var _prepared_border_scans := {}
+var _prepared_coasts := {}
+var worker_coast_reads := 0
 
 func scheduled_border_scans(t: int) -> PackedInt32Array:
 	var ids := PackedInt32Array()
@@ -174,10 +176,11 @@ func scheduled_border_scans(t: int) -> PackedInt32Array:
 		ids.append(id)
 	return ids
 
-func accept_border_scans(t: int, revision: int, scans: Dictionary) -> void:
+func accept_border_scans(t: int, revision: int, scans: Dictionary, coasts := {}) -> void:
 	_border_scan_tick = t
 	_border_scan_revision = revision
 	_prepared_border_scans = scans
+	_prepared_coasts = coasts
 
 func accept_tick_preparation(t: int, leader_result: Array, pressure: Variant) -> void:
 	_prepared_tick = t
@@ -260,6 +263,7 @@ func run_slice(deadline_us: int) -> bool:
 		_think_nation(cur)
 	pass_open = false
 	_prepared_border_scans.clear()
+	_prepared_coasts.clear()
 	return true
 
 static func collect_standings(world) -> Array:
@@ -386,6 +390,7 @@ static func collect_border(world, id: int, legacy_lin: float, rng: RandomNumberG
 	var result := [owners, counts, contacts, neutral, neutral_tile, fallout_tile, neutral_tiles]
 	if coast_scale > 0.0:
 		result.append(collect_tribe_nearby(world, id, coast_scale, owners, neutral, coasts))
+		result.append(coasts)
 	return result
 
 func _above(id: int, keep: float) -> float:
@@ -972,6 +977,9 @@ func _pick_site(id: int, kind: int, threat: int) -> int:
 	return site
 
 func _body_size(b: int) -> int:
+	if not g.sim_naval.body_sizes.is_empty():
+		_ocean_body = g.sim_naval.ocean_body
+		return g.sim_naval.body_sizes.get(b, 0)
 	var body: PackedInt32Array = g.sim_naval.body
 	if _body_src_size != body.size():
 		_body_src_size = body.size()
@@ -1114,6 +1122,25 @@ func own_border_tile(id: int) -> int:
 	for t in g.border[id]: return t
 	return -1
 
+static func collect_coastal_border(tiles: Dictionary, owners: PackedInt32Array, width: int, water: int) -> Array:
+	var coastal := []
+	var size := owners.size()
+	for tile: int in tiles:
+		var x := tile % width
+		if (x > 0 and owners[tile - 1] == water) \
+				or (x + 1 < width and owners[tile + 1] == water) \
+				or (tile >= width and owners[tile - width] == water) \
+				or (tile < size - width and owners[tile + width] == water):
+			coastal.append(tile)
+	return coastal
+
+func _prepared_coastal_border(id: int) -> Variant:
+	if _border_scan_tick == g.sim_atk.tick and _border_scan_revision == g._attack_map_revision \
+			and _prepared_coasts.has(id):
+		worker_coast_reads += 1
+		return _prepared_coasts[id]
+	return null
+
 # A coastal tile owned by `id` (-1 if none): cached, else the first coastal tile of its border
 func own_coast(id: int) -> int:
 	var s = st.get(id)
@@ -1121,7 +1148,10 @@ func own_coast(id: int) -> int:
 		var c: int = s.coast
 		if c >= 0 and g.owner_map[c] == id: return c
 	var found := -1
-	if id < g.border.size():
+	var prepared: Variant = _prepared_coastal_border(id)
+	if prepared != null:
+		if not prepared.is_empty(): found = prepared[0]
+	elif id < g.border.size():
 		for t in g.border[id]:
 			if g._coastal(t): found = t; break
 	if s != null: s.coast = found
@@ -1131,8 +1161,10 @@ func own_coast(id: int) -> int:
 func own_coast_tiles(id: int, cap := 1 << 30, water_ok := false) -> Array:
 	var out := []
 	if id >= g.border.size(): return out
-	for t in g.border[id]:
-		if g._coastal(t) and (not water_ok or _water_ok(t)):
+	var prepared: Variant = _prepared_coastal_border(id)
+	var candidates = g.border[id] if prepared == null else prepared
+	for t in candidates:
+		if (prepared != null or g._coastal(t)) and (not water_ok or _water_ok(t)):
 			out.append(t)
 			if out.size() >= cap: break
 	return out

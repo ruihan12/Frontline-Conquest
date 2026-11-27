@@ -396,3 +396,9 @@ The scene hands the fallout layer ranges from the worker's packed tile list inst
 For a 30,769-tile synthetic impact with the fallout layer attached, median scene-thread impact plus presentation fell from 632 ms to 368 ms across five measured trials per mode on the loaded runner. The remaining publication work is still above the live frame budget.
 
 A separate 300-frame native headless World run at 1× compared inline play with the combined worker flags. The median frame interval was 32.07 ms inline and 33.36 ms with workers. The 95th percentile was 43.43 and 69.29 ms, and throughput was 7.42 and 6.24 ticks/s. The worker run committed 68 attack phases and used 86 tribe probes. This sample measured the whole loop, with no deliberate large impacts. The flags remain opt-in.
+
+## AI coast scans and water-body sizes
+
+The attack worker prepares ordered coastal borders alongside the scheduled AI border scans. Tribes reuse the coastal tiles collected for their shoreline probes. The AI can use the prepared coast for a home port or a transport search while the tick and territory revision still match. Water-body filtering, random draws and gameplay decisions stay in the original AI order.
+
+Water-body sizes and the largest body are also calculated during the navigation flood fill. The threaded map loader publishes them with the navigation graph, and cached map loads reuse them. The AI no longer needs a second scan of the map for those counts. The focused tests compare ordered coast lists, including capped and water-filtered reads, reject stale results, and verify the size and routing of two separate water bodies.

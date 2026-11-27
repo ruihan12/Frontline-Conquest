@@ -322,7 +322,8 @@ func _active_map_entry(k: int) -> Array:
 func _store_gen_cache() -> void:
 	_gen_cache = {"key": "%d|%d|%d|%d" % [map_tab, map_i, (rand_seed_off if map_tab == 1 else 0), _qual()],
 		"om": owner_map.duplicate(), "el": elev_map, "mt": mtn.duplicate(), "cd": coast_dist, "bc": base_col,
-		"lt": land_total, "body": sim_naval.body, "cl": sim_naval.coast_list, "nav": sim_nav}
+		"lt": land_total, "body": sim_naval.body, "cl": sim_naval.coast_list, "nav": sim_nav,
+		"body_sizes": sim_naval.body_sizes, "ocean_body": sim_naval.ocean_body}
 func _gt(lbl: String) -> void:
 	var t := Time.get_ticks_usec()
 	if "--maptest" in OS.get_cmdline_user_args() and _gt_t > 0: print("  phase %s %.0f ms" % [lbl, (t - _gt_t) / 1000.0])
@@ -370,6 +371,8 @@ func gen_map() -> void:
 		coast_dist = _gen_cache.cd; base_col = _gen_cache.bc; land_total = _gen_cache.lt
 		if sim_naval == null: sim_naval = SimNaval.new(self, sim_rules)
 		sim_naval.body = _gen_cache.body; sim_naval.coast_list = _gen_cache.cl; sim_naval.trade_cache.clear()
+		sim_naval.body_sizes = _gen_cache.body_sizes
+		sim_naval.ocean_body = _gen_cache.ocean_body
 		sim_nav = _gen_cache.get("nav", null)
 		if sim_nav == null or not sim_nav.ready: sim_nav = SimNavS.new(); sim_nav.build(sim_naval.body, W, H)
 		_gt("cache")
@@ -487,6 +490,8 @@ func _prepare_navigation_async() -> void:
 	sim_naval.body = result[0]
 	sim_naval.coast_list = result[1]
 	sim_nav = result[2]
+	sim_naval.body_sizes = result[3]
+	sim_naval.ocean_body = result[4]
 
 func _exit_tree() -> void:
 	_stop_sim_workers()

@@ -7,7 +7,13 @@ class_name SimNaval
 
 var g
 var R: SimRules
-var body := PackedInt32Array()
+var body_sizes := {}
+var ocean_body := -1
+var body := PackedInt32Array():
+	set(value):
+		body = value
+		body_sizes = {}
+		ocean_body = -1
 var tokens := {}       # owner -> boat orders left this second
 var path_budget := 0
 
@@ -29,12 +35,17 @@ func compute_bodies() -> void:
 	var census := scan_water(g.owner_map, g.W, g.WATER)
 	body = census[0]
 	coast_list = census[1]
+	body_sizes = census[2]
+	ocean_body = census[3]
 
 static func scan_water(om: PackedInt32Array, W: int, WT: int) -> Array:
 	var N: int = om.size()
 	var bd := PackedInt32Array(); bd.resize(N); bd.fill(0)
 	var q := PackedInt32Array(); q.resize(N)
 	var next := 1
+	var sizes := {}
+	var largest := 0
+	var ocean := -1
 	for s in N:
 		if om[s] != WT or bd[s] != 0: continue
 		var qn := 1; q[0] = s
@@ -53,6 +64,10 @@ static func scan_water(om: PackedInt32Array, W: int, WT: int) -> Array:
 			if x < W - 1:
 				j = i + 1
 				if bd[j] == 0 and om[j] == WT: bd[j] = next; q[qn] = j; qn += 1
+		sizes[next] = qn
+		if qn > largest:
+			largest = qn
+			ocean = next
 		next += 1
 	var cl := PackedInt32Array(); cl.resize(N); var cn := 0
 	for i in N:
@@ -60,7 +75,7 @@ static func scan_water(om: PackedInt32Array, W: int, WT: int) -> Array:
 		if (i >= 1 and om[i - 1] == WT) or (i + 1 < N and om[i + 1] == WT) or (i >= W and om[i - W] == WT) or (i + W < N and om[i + W] == WT):
 			cl[cn] = i; cn += 1
 	cl.resize(cn)
-	return [bd, cl]
+	return [bd, cl, sizes, ocean]
 
 # water body a coastal land tile touches (first of west, east, north, south), 0 if none
 func coast_body(t: int) -> int:

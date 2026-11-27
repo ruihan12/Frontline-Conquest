@@ -100,7 +100,7 @@ func take(game) -> bool:
 	if job.pressure != null and job.transport_orders == SimAI.transport_orders(game.boats):
 		pressure = job.pressure
 	game.sim_ai.accept_tick_preparation(job.tick, job.standings, pressure)
-	game.sim_ai.accept_border_scans(job.tick, game._attack_map_revision, job.border_scans)
+	game.sim_ai.accept_border_scans(job.tick, game._attack_map_revision, job.border_scans, job.coastal_borders)
 	game._prepared_economy = job.economy
 	if not job.battery_targets.is_empty():
 		game.sim_ars.accept_battery_targets(job.tick, job.structure_revision, job.alliances, job.battery_radius, job.battery_targets)

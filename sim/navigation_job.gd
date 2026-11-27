@@ -19,4 +19,4 @@ func build() -> Array:
 	var census := SimNaval.scan_water(_owners, _width, _water)
 	var navigation := Nav.new()
 	navigation.build(census[0], _width, _height)
-	return [census[0], census[1], navigation]
+	return [census[0], census[1], navigation, census[2], census[3]]
