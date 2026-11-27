@@ -779,7 +779,9 @@ local function set_rng(hi: number, lo: number)
 	rng.slo = lo
 end
 
-local function result(ret: any): any
+-- the attack mirror records, the order and the profiling counters of everything since the last call, into `out`
+-- (SimArsenal adds them to its own result: it changes attacks' troops through ext_scale / ext_set)
+local function collect(out: { [string]: any })
 	local recs = buffer.create(#S.dlist * REC * 8)
 	local k = 0
 	for _, a in S.dlist do
@@ -803,7 +805,7 @@ local function result(ret: any): any
 	end
 	table.clear(S.dirty)
 	table.clear(S.dlist)
-	local out: { [string]: any } = { atk = recs, rhi = rng.shi, rlo = rng.slo, ret = ret }
+	out.atk = recs
 	if S.order_changed then
 		local ob = buffer.create(#S.list * 4)
 		for i, a in S.list do
@@ -816,7 +818,39 @@ local function result(ret: any): any
 	out.pf_atk = S.pf_atk
 	S.pf_tiles = 0
 	S.pf_atk = 0
+end
+M.collect = collect
+
+local function result(ret: any): any
+	local out: { [string]: any } = { rhi = rng.shi, rlo = rng.slo, ret = ret }
+	collect(out)
 	return SimState.take(out)
+end
+
+-- SimArsenal (same call frame): an owner's attacks lose a share of their troops (troops *= f)
+function M.ext_scale(o: number, f: number)
+	for _, a in S.list do
+		if a.a == o then
+			a.troops *= f
+			mark(a)
+		end
+	end
+end
+
+-- SimArsenal: the attacks of an owner, in game.attacks order
+function M.ext_owner(o: number): { any }
+	local l = {}
+	for _, a in S.list do
+		if a.a == o then
+			l[#l + 1] = a
+		end
+	end
+	return l
+end
+
+function M.ext_set(a: any, v: number)
+	a.troops = v
+	mark(a)
 end
 
 local function by_aid(aid: number): any

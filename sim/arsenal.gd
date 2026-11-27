@@ -106,6 +106,10 @@ func damage_struct(st, dmg: int, by: int) -> void:
 # ---------------------------------------------------------------- per-tick driver
 func tick() -> void:
 	var t := now()
+	if _luau_tick():  # Step 5c: the whole arsenal tick runs in Luau
+		for s in sam_shots.duplicate():
+			if t > int(s.t1) + 2: sam_shots.erase(s)
+		return
 	var cons = g.sim_struct.construction() if g.sim_struct != null else null  # Step 5b: the countdown runs in Luau
 	if cons == null:
 		for st in g.structs:
@@ -188,6 +192,10 @@ static func _man(a: int, b: int, W: int) -> float:
 	return float(absi(a % W - b % W) + absi(a / W - b / W))
 
 func _spawn_munition(nk: int, o: int, from_tile: int, to_tile: int) -> Dictionary:
+	var lu := lu_on()
+	if lu != null:
+		var uid = _lrun(lu, "munition", [nk, o, from_tile, to_tile], false, false)
+		if uid != null: return _by_uid.get(int(uid), {})
 	var W: int = g.W
 	var a := tpos(from_tile, W); var b := tpos(to_tile, W)
 	var m := {"nk": nk, "o": o, "from": a, "to": b, "tile": to_tile, "t0": now(),
@@ -315,6 +323,14 @@ func disk_tiles(c: int, r: float) -> PackedInt32Array:
 # structure and unit inside the outer radius is destroyed. `r`: the outer radius (Rules.nuke_radii, or a
 # console-edited NUKE_R); the inner disc is the source's inner/outer share for that kind.
 func nuke_blast(o: int, c: Vector2, r: float, nk: int) -> Dictionary:
+	var lu := lu_on()
+	if lu != null:
+		var ret = _lrun(lu, "blast", [o, c.x, c.y, r, nk], true, nk == SimRules.N_WARHEAD)
+		if ret != null:
+			var q: PackedInt32Array = (ret as PackedByteArray).to_int32_array()
+			var lost_l := {}
+			for k in range(0, q.size() - 1, 2): lost_l[q[k]] = q[k + 1]
+			return {"lost": lost_l, "fallout": q[q.size() - 1]}
 	var W: int = g.W; var H: int = g.H
 	var cx := int(c.x); var cy := int(c.y)
 	var ct := clampi(cy, 0, H - 1) * W + clampi(cx, 0, W - 1)
@@ -401,6 +417,13 @@ func nuke_troops(o: int, nk: int, n_lost: int, tiles_before: int) -> void:
 # SimNukes._break_nuked_alliances: allies with >= 100 weighted full-size tiles (inner 1, outer 0.5)
 # inside the blast lose their alliance with the launcher.
 func break_nuked_alliances(o: int, c: Vector2, r: float, nk: int) -> Array:
+	var lu := lu_on()
+	if lu != null:
+		var ret = _lrun(lu, "break", [o, c.x, c.y, r, nk], true, false)
+		if ret != null:
+			var broke_l := []
+			for ow in (ret as PackedByteArray).to_int32_array(): broke_l.append(ow)
+			return broke_l
 	var W: int = g.W
 	var cx := int(c.x); var cy := int(c.y)
 	var ct := clampi(cy, 0, g.H - 1) * W + clampi(cx, 0, W - 1)
@@ -594,3 +617,439 @@ func sam_resolve(ms) -> bool:
 		if st.o == g.PLAYER: g.notify("Your SAM shot down %s from %s" % [title, g._nname(ms.o)], "good")
 		elif ms.o == g.PLAYER: g.notify("Your %s was intercepted by %s" % [title, g._nname(st.o)], "bad")
 	return true
+
+# ---------------------------------------------------------------- Step 5c: the arsenal in Luau
+# docs/LUAU_PORT.md, Step 5c: with the Luau extension loaded, bombs (flight, SAMs, MIRV split, detonation),
+# munitions (shells, air strikes, slugs), construction, reloads and batteries run in
+# luau/sim/Core/SimArsenal.luau. Luau owns the missiles and munitions in flight; game.missiles and munitions hold
+# mirror Dictionaries with the same keys in the same order (the renderer, net/rep.gd and the tests read them).
+# The structures stay GDScript's: each call sends a snapshot (index = place in game.structs) and gets back the
+# writes and events in the order the GDScript sim made them. The GDScript code above stays as the fallback
+# (remote viewers, NO_LUAU_SIM, no extension).
+const LMOD := "Core/SimArsenal"
+const LSNAP := 7      # f64 per structure (SimArsenal.luau M.SNAP)
+const MS_REC := 17    # f64 per new missile (M.MS_REC)
+const MU_REC := 8     # f64 per new munition (M.MU_REC)
+const EXT_K := [4, 5, 10, 14, 15]
+const EV_STRUCT_REMOVE := 10
+const EV_STRUCT_DOWN := 11
+const EV_BOATS_SCALE := 12
+const EV_BOATS_WARHEAD := 13
+const EV_GRUDGE_SET := 14
+const EV_LAST_BY := 15
+const EV_STRIKE_FX := 16
+const EV_SAM_FIRED := 17
+const EV_SAM_HIT := 18
+const EV_SAM_CLEAR := 19
+const EV_DETONATE := 20
+const EV_FALLOUT_VIEW := 21
+const EV_UNITS_BLAST := 22
+const EV_BREAK := 23
+const W_BT := 1
+const W_CD := 2
+const W_CM := 4
+const W_NF := 8
+const W_HP := 16
+const W_LV := 32
+const W_SH := 64
+const STAT_KEYS := ["sam_fired", "sam_hits", "shells", "strikes", "struct_dmg", "struct_down", "killed"]
+
+var _ser := {}        # tile -> serial of the structure Dictionary last seen there
+var _seen := {}       # tile -> that Dictionary
+var _mlist: Array = []  # missile mirrors Luau knows, in game.missiles order
+var _mids := PackedInt32Array()
+var _by_mid := {}
+var _ulist: Array = []  # munition mirrors
+var _uids := PackedInt32Array()
+var _by_uid := {}
+var _snap: Array = []  # game.structs at the current call (snapshot index -> Dictionary)
+var _cur_ft := PackedInt32Array()
+var _warned_foreign := false
+
+## the link when Luau runs the arsenal (not on a remote viewer, not with NO_LUAU_SIM)
+func lu_on() -> LuauLink:
+	if g.net_remote or OS.has_environment("NO_LUAU_SIM"): return null
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on: return null
+	return lu
+
+## a new map (LuauLink._begin): forget the mirrors
+func luau_reset() -> void:
+	_ser.clear(); _seen.clear()
+	_mlist.clear(); _mids = PackedInt32Array(); _by_mid.clear()
+	_ulist.clear(); _uids = PackedInt32Array(); _by_uid.clear()
+	_snap = []
+
+# the mirrors still in `list` (in its order), the ids Luau should keep
+func _recon(list: Array, known: Array, ids: PackedInt32Array) -> PackedInt32Array:
+	var keep := PackedInt32Array()
+	var j := 0
+	var n := known.size()
+	for x in list:
+		var k := j
+		while k < n and not is_same(known[k], x): k += 1
+		if k < n:
+			keep.append(ids[k])
+			j = k + 1
+		elif not _warned_foreign and x is Dictionary and x.has("lt"):
+			_warned_foreign = true
+			push_warning("sim/arsenal.gd: a missile not made by the Luau arsenal is in game.missiles; it does not fly")
+	return keep
+
+func _snapshot(f: PackedFloat64Array, e: PackedFloat64Array, t: int) -> bool:
+	var structs: Array = g.structs
+	_snap = structs.duplicate()
+	f.resize(structs.size() * LSNAP)
+	var need := false
+	var j := 0
+	var i := 0
+	for st in structs:
+		var tile: int = st.tile
+		if not is_same(_seen.get(tile), st):
+			_seen[tile] = st
+			_ser[tile] = int(_ser.get(tile, 0)) + 1
+		var k: int = st.get("k", -1)
+		var bt: float = st.get("bt", 0.0)
+		f[j] = k; f[j + 1] = tile; f[j + 2] = st.get("o", 0); f[j + 3] = st.get("level", 1); f[j + 4] = bt
+		f[j + 5] = float(st.hp) if st.has("hp") else NAN
+		f[j + 6] = _ser[tile]
+		j += LSNAP
+		if k in EXT_K:
+			e.append(i)
+			e.append(float(st.next_fire) if st.has("next_fire") else NAN)
+			e.append(float(st.up_tick) if st.has("up_tick") else NAN)
+			e.append(float(st.cd) if st.has("cd") else NAN)
+			e.append(float(st.cmax) if st.has("cmax") else NAN)
+			if st.has("shots"):
+				var sh: Array = st.shots
+				e.append(sh.size())
+				for v in sh: e.append(float(v))
+			else:
+				e.append(-1.0)
+			if k == 10 and bt <= 0.0 and st.has("next_fire") and t >= int(st.next_fire): need = true
+		i += 1
+	return need
+
+func _tkd() -> PackedInt32Array:
+	var q := PackedInt32Array()
+	for id in g.nations.size():
+		q.append(id); q.append(g.troop_kind(id)); q.append(g.troop_diff(id))
+	return q
+
+## One Luau call. Returns its result (ret), or null when the link failed (the caller runs the GDScript path).
+func _lrun(lu: LuauLink, op: String, extra: Array, world: bool, warheads: bool) -> Variant:
+	if not lu.flush(g): return null
+	var t := now()
+	var f := PackedFloat64Array()
+	var e := PackedFloat64Array()
+	var bat := _snapshot(f, e, t)
+	var rms := _recon(g.missiles, _mlist, _mids)
+	var rmu := _recon(munitions, _ulist, _uids)
+	if world or bat or not rms.is_empty() or not rmu.is_empty():
+		var w: Array = g.sim_atk._world()
+		if lu.vm.call_fn(LMOD, "world", w) == null:
+			lu._fail(g, lu.vm.last_error)
+			return null
+	var hdr := PackedFloat64Array([t, g.PLAYER, 1.0 if g.reload_mult() < 1.0 else 0.0, g.nuke_outer(9, SimRules.N_WARHEAD)])
+	var rf := PackedFloat64Array()
+	for k in SimAttacks.RULE_FIELDS: rf.append(float(R.get(k)))
+	var rg := LuauLink.rng_args(g)
+	var args := [op, rg[0], rg[1], hdr.to_byte_array(), rf.to_byte_array(), f.to_byte_array(), e.to_byte_array(),
+		rms.to_byte_array(), rmu.to_byte_array(), (_tkd() if warheads else PackedInt32Array()).to_byte_array()]
+	args.append_array(extra)
+	var out = lu.vm.call_fn(LMOD, "call", args)
+	if out == null:
+		lu._fail(g, lu.vm.last_error)
+		return null
+	_apply_out(lu, out, rms, rmu)
+	return out.ret
+
+func _apply_out(lu: LuauLink, out: Dictionary, rms: PackedInt32Array, rmu: PackedInt32Array) -> void:
+	var W: int = g.W
+	# the lists as Luau has them now: the kept mirrors (others were removed in GDScript), then the new ones
+	var kept_m: Array = []
+	var ids_m := PackedInt32Array()
+	for mid in rms:
+		kept_m.append(_by_mid[mid]); ids_m.append(mid)
+	var nms: PackedFloat64Array = (out.nms as PackedByteArray).to_float64_array()
+	var new_m: Array = []
+	for k in range(0, nms.size(), MS_REC):
+		var mid := int(nms[k])
+		var nk := int(nms[k + 3])
+		var from := Vector2(nms[k + 4], nms[k + 5])
+		var to := Vector2(nms[k + 6], nms[k + 7])
+		var ft := int(nms[k + 9])
+		var arc: Dictionary = g.sim_rules.nuke_arc(g.H, from, to) if nk == SimRules.N_WARHEAD else g.sim_rules.munition_arc(g.H, from, to, nk)
+		var ms := {"o": int(nms[k + 1]), "k": int(nms[k + 2]), "nk": nk, "from": from, "to": to, "lt": int(nms[k + 8]),
+			"ft": ft, "t": 0.0, "dur": float(ft) * DT_TICK, "r": nms[k + 10], "arc": arc, "tgt_o": int(nms[k + 11]),
+			"mirv": nms[k + 12] != 0.0, "mirv_bus": nms[k + 13] != 0.0, "branched": nms[k + 14] != 0.0,
+			"evade": nms[k + 15] != 0.0, "icbm": nms[k + 16] != 0.0}
+		_by_mid[mid] = ms
+		new_m.append(ms); ids_m.append(mid)
+	var kept_u: Array = []
+	var ids_u := PackedInt32Array()
+	for uid in rmu:
+		kept_u.append(_by_uid[uid]); ids_u.append(uid)
+	var nmu: PackedFloat64Array = (out.nmu as PackedByteArray).to_float64_array()
+	var new_u: Array = []
+	for k in range(0, nmu.size(), MU_REC):
+		var uid := int(nmu[k])
+		var from_t := int(nmu[k + 3])
+		var to_t := int(nmu[k + 4])
+		var m := {"nk": int(nmu[k + 1]), "o": int(nmu[k + 2]), "from": tpos(from_t, W), "to": tpos(to_t, W), "tile": to_t,
+			"t0": int(nmu[k + 5]), "t1": int(nmu[k + 6]), "victim": int(nmu[k + 7])}
+		_by_uid[uid] = m
+		new_u.append(m); ids_u.append(uid)
+	# SAM state of the missiles (before the events, so the keys come in the GDScript order)
+	var sq: PackedFloat64Array = (out.sam as PackedByteArray).to_float64_array()
+	var q := 0
+	while q < sq.size():
+		var ms = _by_mid.get(int(sq[q]))
+		var flags := int(sq[q + 1])
+		var cand := int(sq[q + 2])
+		var nc := int(sq[q + 3])
+		q += 4
+		var cands := []
+		for c in nc: cands.append(_snap[int(sq[q + c])])
+		q += nc
+		if ms != null and flags & 1:
+			ms["cand_tick"] = cand; ms["plan_fire"] = {}; ms["plan_k"] = {}; ms["cands"] = cands
+		if ms != null and flags & 2: _traj(ms, 0)
+		var npf := int(sq[q]); q += 1
+		for c in npf:
+			if ms != null: ms.plan_fire[int(sq[q])] = int(sq[q + 1])
+			q += 2
+		var npk := int(sq[q]); q += 1
+		for c in npk:
+			if ms != null: ms.plan_k[int(sq[q])] = int(sq[q + 1])
+			q += 2
+	# the lists: entries GDScript removed or Luau finished leave, foreign ones (props) stay, new ones go last.
+	# Done before the events, as GDScript erases a missile before its blast / SAM hit fx and the client
+	# (game_state.nukes()) can read the list from inside them.
+	var gone_m := {}
+	for mid in (out.gms as PackedByteArray).to_int32_array(): gone_m[mid] = true
+	var gone_u := {}
+	for uid in (out.gmu as PackedByteArray).to_int32_array(): gone_u[uid] = true
+	var all_m: Array = kept_m + new_m
+	var alive_m := PackedByteArray(); alive_m.resize(all_m.size())
+	for c in all_m.size(): alive_m[c] = 0 if gone_m.has(ids_m[c]) else 1
+	var all_u: Array = kept_u + new_u
+	var alive_u := PackedByteArray(); alive_u.resize(all_u.size())
+	for c in all_u.size(): alive_u[c] = 0 if gone_u.has(ids_u[c]) else 1
+	_relist(g.missiles, all_m, alive_m, kept_m.size())
+	_relist(munitions, all_u, alive_u, kept_u.size())
+	_cur_ft = (out.ft as PackedByteArray).to_int32_array()
+	lu.apply(g, out)
+	# structure writes
+	var sw: PackedFloat64Array = (out.sw as PackedByteArray).to_float64_array()
+	q = 0
+	while q < sw.size():
+		var st: Dictionary = _snap[int(sw[q])]
+		var mask := int(sw[q + 1])
+		q += 2
+		if mask & W_BT: st.bt = sw[q]; q += 1
+		if mask & W_CD: st.cd = sw[q]; q += 1
+		if mask & W_CM: st.cmax = sw[q]; q += 1
+		if mask & W_NF: st["next_fire"] = int(sw[q]); q += 1
+		if mask & W_HP: st["hp"] = int(sw[q]); q += 1
+		if mask & W_LV: st.level = int(sw[q]); q += 1
+		if mask & W_SH:
+			var n := int(sw[q]); q += 1
+			var sh: Array = st.get("shots", [])
+			sh.resize(n)
+			for c in n: sh[c] = int(sw[q + c])
+			q += n
+			st["shots"] = sh
+	g.sim_atk._mirror(out)
+	_mlist = []; _mids = PackedInt32Array(); _by_mid = {}
+	for c in all_m.size():
+		if alive_m[c] == 0: continue
+		_mlist.append(all_m[c]); _mids.append(ids_m[c]); _by_mid[ids_m[c]] = all_m[c]
+	_ulist = []; _uids = PackedInt32Array(); _by_uid = {}
+	for c in all_u.size():
+		if alive_u[c] == 0: continue
+		_ulist.append(all_u[c]); _uids.append(ids_u[c]); _by_uid[ids_u[c]] = all_u[c]
+	var stv: PackedFloat64Array = (out.stats as PackedByteArray).to_float64_array()
+	for c in STAT_KEYS.size():
+		if stv[c] != 0.0: stats[STAT_KEYS[c]] += int(stv[c])
+
+# list (in place: other code holds references to game.missiles / munitions): the known entries (all[0 .. nk-1],
+# in list order) stay where they are while alive, foreign ones (props) stay, then the new alive ones (all[nk ..])
+func _relist(list: Array, all: Array, alive: PackedByteArray, nk: int) -> void:
+	var out: Array = []
+	var ki := 0
+	for x in list:
+		if ki < nk and is_same(x, all[ki]):
+			if alive[ki]: out.append(x)
+			ki += 1
+			continue
+		out.append(x)
+	for c in range(nk, all.size()):
+		if alive[c]: out.append(all[c])
+	list.clear()
+	list.append_array(out)
+
+## Luau events (kinds >= 10, LuauLink._event), in stream order
+func on_luau_event(ev: PackedFloat64Array, k: int) -> void:
+	var kind := int(ev[k])
+	var a := int(ev[k + 1])
+	var b := int(ev[k + 2])
+	var W: int = g.W
+	match kind:
+		EV_STRUCT_REMOVE:
+			var st: Dictionary = _snap[a]
+			if not _alive_struct(st): return
+			var title: String = g.build_data[st.k][1]
+			var so: int = st.o
+			g._struct_remove(st)
+			if int(ev[k + 3]) == 1:
+				if so == g.PLAYER: g.notify("%s destroyed your %s" % [g._nname(b), title], "bad")
+			elif so == g.PLAYER and b != g.PLAYER:
+				g.notify("%s destroyed your %s" % [g._nname(b), title], "bad")
+		EV_STRUCT_DOWN:
+			var st: Dictionary = _snap[a]
+			g._sv += 1
+			if st.o == g.PLAYER:
+				g.notify("%s knocked your %s down to level %d" % [g._nname(b), g.build_data[st.k][1], int(ev[k + 3])], "bad")
+		EV_BOATS_SCALE:
+			var f: float = ev[k + 2]
+			for bt in g.boats:
+				if bt.a == a: bt.troops *= f
+		EV_BOATS_WARHEAD:
+			var cap: float = ev[k + 3]
+			var kk := R.k_area
+			for bt in g.boats:
+				if bt.a != a: continue
+				var bt_t: float = bt.troops
+				for _i in b:
+					var d3 := minf(kk * SimRules.warhead_death(bt_t, cap, R.ts), maxf(0.0, bt_t - 0.03 * cap))
+					if d3 <= 0.0: break
+					bt_t -= d3
+				bt.troops = bt_t
+		EV_GRUDGE_SET:
+			var n: Dictionary = g.nations[a]
+			n["grudge_" + str(b)] = int(ev[k + 3])
+			if int(ev[k + 4]) >= 0: n["attacked_tick"] = int(ev[k + 4])
+		EV_LAST_BY:
+			g.nations[a]["last_by"] = b
+		EV_STRIKE_FX:
+			_strike_fx(a, b, int(ev[k + 3]))
+		EV_SAM_FIRED:
+			var ms: Dictionary = _by_mid[a]
+			var st: Dictionary = _snap[b]
+			var kk := int(ev[k + 3])
+			ms["sam_st"] = st
+			ms["sam_hit"] = int(ev[k + 4])
+			ms["sam_k"] = kk
+			sam_shots.append({"from": tpos(st.tile, W), "ms": ms, "k": kk, "t0": now(), "t1": ms.sam_hit, "o": st.o})
+			if st.o == g.PLAYER or ms.o == g.PLAYER: g.sfx("sam_shoot", 0.0, 0.04, g.PLAYER)
+		EV_SAM_HIT:
+			_sam_hit_fx(_by_mid[a], b)
+		EV_SAM_CLEAR:
+			var ms: Dictionary = _by_mid[a]
+			ms["sam_st"] = null
+			if b != 0: ms["cand_tick"] = now()
+		EV_DETONATE:
+			_detonate_fx(_by_mid[a], b, int(ev[k + 3]))
+		EV_FALLOUT_VIEW:
+			for c in range(a, a + b):
+				var tt: int = _cur_ft[c]
+				g.fallout_t[tt] = 60.0; g.fallout_hot[tt] = true
+				if g.fallout_glow != null: g.fallout_glow.on_fallout(tt)
+				g._repaint(tt)
+		EV_UNITS_BLAST:
+			var cc := Vector2(a, b)
+			var r2: float = ev[k + 3]
+			for ws in g.warships.duplicate():
+				if ws.pos.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.warships, ws)
+			for bt in g.boats.duplicate():
+				var bp: Vector2 = g._boat_pos(bt)[0] / g.TS
+				if bp.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.boats, bt)
+			for tr in g.traders.duplicate():
+				var tp: Vector2 = g._path_pos(tr)[0] / g.TS
+				if tp.distance_squared_to(cc) <= r2: SimWarships.erase_ref(g.traders, tr)
+		EV_BREAK:
+			g.break_alliance(a, b)
+
+# strike()'s effects after the damage (blast ring, sounds, notes, shake)
+func _strike_fx(nk: int, to: int, shooter: int) -> void:
+	var W: int = g.W
+	var radius := R.strike_radius(nk)
+	var c := tpos(to, W)
+	var vis_r := maxf(1.5, radius)
+	g.blasts.append({"pos": c * g.TS, "r": vis_r * g.TS, "t": 0.0, "dur": 0.55 if nk == SimRules.N_SHELL else 0.9, "seed": to * 2654435761 % 100000, "kind": "sam"})
+	var victim: int = g.owner_map[to]
+	var mine: bool = victim == g.PLAYER or shooter == g.PLAYER
+	var near: bool = g._world_on_screen(c * g.TS)
+	if nk == SimRules.N_SHELL:
+		if near:
+			g.sfx("atom_hit", -6.0 if mine else -11.0, 0.08, g.PLAYER if mine else shooter, c * g.TS)
+	else:
+		if victim == g.PLAYER and shooter != g.PLAYER:
+			g.notify("%s from %s hit your land" % ["An air strike" if nk == SimRules.N_AIRSTRIKE else "A railgun slug", g._nname(shooter)], "bad")
+		if near or mine:
+			g.sfx("atom_hit", -10.0, 0.06, g.PLAYER if mine else shooter, c * g.TS)
+			if mine:
+				g._add_shake(1.2)
+
+# sam_resolve()'s effects of a hit (the missile is already gone from Luau's list)
+func _sam_hit_fx(ms: Dictionary, sam_o: int) -> void:
+	ms["shot_down"] = true  # (read by the client's alert banner: it turns green)
+	var f := clampf(float(int(ms.get("sam_k", 0))) / float(flight_ticks(ms)), 0.0, 1.0)
+	var ip: Vector2 = g._missile_world_pos(ms, f) / g.TS
+	g._viewer_event({"type": "sam", "actor": sam_o, "target": ms.o, "point": ip}, [sam_o, ms.o])
+	if g.fx_layer != null:
+		g.fx_layer.pop(int(floor(ip.y)) * g.W + int(floor(ip.x)), Color(1, 0.85, 0.5))
+		g.fx_layer.burst("sam", ip.x, ip.y)
+	if sam_o == g.PLAYER or ms.o == g.PLAYER:
+		g.sfx("sam_hit", 0.0, 0.04, g.PLAYER)
+	if int(ms.get("nk", 0)) != SimRules.N_WARHEAD:
+		var title: String = g.build_data[ms.k][1]
+		if sam_o == g.PLAYER: g.notify("Your SAM shot down %s from %s" % [title, g._nname(ms.o)], "good")
+		elif ms.o == g.PLAYER: g.notify("Your %s was intercepted by %s" % [title, g._nname(sam_o)], "bad")
+
+# game/nukes.gd _detonate_missile + detonate after the blast (effect, shake, viewer event, sound, notes)
+func _detonate_fx(ms: Dictionary, victim: int, tile: int) -> void:
+	var nk: int = int(ms.nk)
+	var to: Vector2 = ms.to
+	var r := float(ms.r)
+	if g.fx_layer != null: g.fx_layer.nuke(nk, tile, r)
+	g._fx_shake_at(to, 0.9 if nk in [SimRules.N_HYDROGEN, SimRules.N_MEGA] else 0.5)
+	g._viewer_event({"type": "nuke_hit", "actor": ms.o, "target": victim, "kind": ms.k, "nk": nk, "tile": tile, "radius": ms.r})
+	var P: int = g.PLAYER
+	var mine: bool = ms.o == P or g.owner_map[tile] == P or victim == P
+	g.sfx("hydrogen_hit" if ms.k in [8, 11] and nk != SimRules.N_WARHEAD else "atom_hit", 0.0 if mine else -8.0, 0.04, P if mine else ms.o, to * g.TS)
+	if victim > 0 and nk != SimRules.N_WARHEAD and victim == P and ms.o != P:
+		g.notify("A %s from %s hit your land" % [g.build_data[ms.k][1], g._nname(ms.o)], "bad")
+	if nk == SimRules.N_HYDROGEN and victim != P:
+		g.notify("Hydrogen bomb detonated over %s" % g._nname(victim), "info")
+
+## sim tick through Luau; false when Luau is off (the GDScript tick runs)
+func _luau_tick() -> bool:
+	var lu := lu_on()
+	if lu == null: return false
+	return _lrun(lu, "tick", [], not munitions.is_empty(), false) != null
+
+## game/nukes.gd _tick_missiles through Luau; false when Luau is off. Missiles not due this tick need no call.
+func luau_missiles() -> bool:
+	var lu := lu_on()
+	if lu == null: return false
+	var t := now()
+	var due := false
+	var wh := false
+	for ms in g.missiles:
+		if not ms.has("lt"): continue
+		ms.t = float(t - int(ms.lt)) * DT_TICK
+		if (ms.get("sam_st") != null and t >= int(ms.get("sam_hit", 1 << 60))) or t >= int(ms.lt) + int(ms.ft):
+			due = true
+			if int(ms.nk) == SimRules.N_WARHEAD: wh = true
+	if not due: return true
+	return _lrun(lu, "missiles", [], true, wh) != null
+
+## game/nukes.gd launch_nuke's missile (and a Scattershot's warheads, the ICBM roll) through Luau; {} when off
+func luau_launch(o: int, k: int, nk: int, silo_tile: int, tile: int, r: float, icbm: bool, victim: int) -> Dictionary:
+	var lu := lu_on()
+	if lu == null: return {}
+	var mid = _lrun(lu, "launch", [o, k, nk, silo_tile, tile, r, icbm, victim], true, false)
+	if mid == null: return {}
+	return _by_mid.get(int(mid), {})

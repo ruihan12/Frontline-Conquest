@@ -15,7 +15,7 @@ extends RefCounted
 ## in GDScript as before.
 
 const STATE := "Core/SimState"
-const MODULES := ["Core/SimState", "Core/SimAttacks", "Core/SimStructures"]
+const MODULES := ["Core/SimState", "Core/SimAttacks", "Core/SimStructures", "Core/SimArsenal"]
 const EV_VIEWER_ATTACK := 1
 const EV_HOSTILE := 2
 const EV_CONQUEST := 3
@@ -148,6 +148,8 @@ func _event(g, ev: PackedFloat64Array, k: int) -> void:
 			if g.has_method("_on_conquest"): g._on_conquest(a, b, taken)  # (the view: a victory flag)
 			nv["last_by"] = b
 			nv["killer"] = b
+		_:
+			if kind >= 10: g.sim_ars.on_luau_event(ev, k)  # SimArsenal (sim/arsenal.gd)
 
 
 ## The rng state of the sim (shared by the attack pass and the AI) as two uint32 halves for Luau.
@@ -189,6 +191,11 @@ func _begin(g) -> void:
 		_fail(g, vm.last_error)
 		return
 	if g.get("sim_atk") != null: g.sim_atk.luau_reset()
+	ok = vm.call_fn("Core/SimArsenal", "reset", [])
+	if ok == null:
+		_fail(g, vm.last_error)
+		return
+	if g.get("sim_ars") != null: g.sim_ars.luau_reset()
 	epoch = g.sim_epoch
 	g.luau_rec = true
 	g.luau_frec = true

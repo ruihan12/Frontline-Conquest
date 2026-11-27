@@ -258,6 +258,42 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 snapshot adds 0.1 to 0.3 ms to "rest" late in the match (more structures); the attack and AI columns moved by
 run-to-run noise only (their code did not change).
 
+### Step 5c: Arsenal and Nukes in Luau (Core/SimArsenal.luau)
+
+What changed:
+- `luau/sim/Core/SimArsenal.luau`: sim/arsenal.gd and the sim half of game/nukes.gd. Bombs in flight (launch,
+  Scattershot warheads, SAM candidates, plans and hits, MIRV split, detonation, blast troops / structures /
+  fallout, breaking alliances on a nuked ally), munitions (shells, air strikes, slugs), reloads, construction,
+  battery targeting and fire. Godot's SortArray introsort is copied (`godot_sort`) so SAMs with tied scores fire in
+  the order Godot's sort_custom gave them.
+- Luau owns the missiles and munitions in flight (ids). game.missiles and sim_ars.munitions hold mirror dicts with
+  the same keys in the same order (net/rep.gd sends the missile dicts whole; packets unchanged). Kept mirrors are
+  the same Dictionary objects from launch to impact; the lists are changed in place.
+- The structures stay GDScript's (as in 5b): each call sends a snapshot (k, tile, o, level, bt, hp, serial) and the
+  silo / SAM / battery / airfield / railgun state, and gets back the writes and events in the order the GDScript sim
+  made them (struct removed / downgraded, boats scaled, grudges, strike fx, SAM fired / hit, detonation, fallout,
+  units in the blast, alliance broken).
+- `sim/arsenal.gd` and `game/nukes.gd` are the face (`_lrun`, `luau_launch`, `luau_missiles`). The GDScript code
+  stays as the fallback (remote viewers, NO_LUAU_SIM, no extension) and for the parity source checks.
+- The list is updated before the events of a call are played, as the GDScript sim erases a bomb before its blast /
+  SAM-hit fx. The client's view id (`cuid`, client/game_state.gd nukes()) is stamped lazily when the HUD reads the
+  list inside such a callback; GDScript erases bombs one at a time between callbacks, the facade once per call, so
+  the counter can run 1 or 2 apart from GDScript's. Each bomb still keeps one id for its whole flight. Not sim state.
+- Limitation: a missile dict appended to game.missiles by hand (not through launch_nuke) is not flown; a warning is
+  printed once. Nothing in the game does that (the screenshot props have no "lt" and were never flown).
+- tests/test_luau_arsenal.gd (18 checks): Luau's sort == Godot's on ties (sizes 1..200); the custom constants match
+  game/nukes.gd and game/state.gd; the same seeded match played with Luau and with NO_LUAU_SIM, with scripted silos,
+  SAMs, batteries and an airfield on both sides and launches of every bomb kind and air strikes from tick 1200:
+  game.missiles, munitions, structures, SAM shots and stats byte-identical after each of 2800 ticks (cuid left out),
+  same map at the end; ICBM flight ticks, Scattershot and MIRV warheads sharing the roll and ICBM flag, and the
+  player's ICBM evade rolls (11 of 60) identical in both runs.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged plus test_luau_arsenal 18/18; perf AVG 11.36 / 11.07 ms/tick (5b 11.72 / 11.81).
+tests/test_icbm_evade.gd and tests/test_nuke_flight.gd (not in the VERIFY list) fail the same checks as on 5b:
+their expectations predate the 0.9x nuke speed and the 20% ICBM roll, and their scenes run on frames, so their
+numbers differ from run to run with either sim.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -270,10 +306,17 @@ run-to-run noise only (their code did not change).
 | 3 | 0c719e1 | 467/0/5 | 3480782660 | 12.58 | same + luau_rules 8/8 |
 | 4 | d85a762 | 467/0/5 | 3480782660 | 13.53 | same + luau_state 12/12 |
 | 5a | e33428f | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
-| 5b | see git log | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
+| 5b | 88bb160 | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
+| 5c | see git log | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
 
 ## Customs touched per step
 
+- Step 5c: the 0.9x nuke speed (all bombs, warheads included), ICBM 1.2x speed and the 20% seeded SAM-ignore roll
+  for the player's launches with the toggle on, MIRV and Scattershot warheads sharing the carrier's roll and speed:
+  copied into SimArsenal.luau (`-- CUSTOM:`), the constants checked against game/nukes.gd and game/state.gd by
+  test_luau_arsenal, and the rolls checked against the GDScript sim. Stay in GDScript: the ICBM +10% fee and the
+  -20% silo cooldown (game/nukes.gd, applied to the shot stamp before the Luau launch), Arsenal Star prices and owned
+  items (shop). Upstream values kept: SAM range, reload 90, fallout until recaptured. Supply drops stay off.
 - Step 5b: none of the listed customs are in placement or construction (the autoshot / bench build-time cut stays
   in economy.gd `_struct_add`). Supply drops stay off.
 - Step 5a: none of the listed customs live in the attack code (troops /10 and the 80% win stay where they were). The
@@ -296,3 +339,5 @@ run-to-run noise only (their code did not change).
    part of upstream SimStructures, but here they sit with the rail drawing and train animation. Port them to Luau
    with Structures (a later sub-step) or with Economy, or keep them in GDScript? For now they stay GDScript and read
    game.structs as before.
+   Answer (Ruihan, Nov 27 2026): "Port them with Structures, but split the file first". Plan: split game/rails.gd's
+   sim (rail paths, links, trains) from the drawing / fx as its own commit, then port the sim half as Step 5b2.

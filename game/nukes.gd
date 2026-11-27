@@ -189,15 +189,18 @@ func launch_nuke(o: int, k: int, tile: int) -> bool:
 		if not shots.is_empty():
 			shots[shots.size() - 1] = int(shots[shots.size() - 1]) - int(floor(float(sim_ars.reload_ticks(silo)) * (1.0 - ICBM_CD_X)))
 	var from := _tc(int(silo.tile), W)
-	var arc: Dictionary = sim_rules.munition_arc(H, from, tp, nk)
-	var ms := _spawn_missile(o, k, nk, from, tp, flight_ticks(sim_rules.nuke_arc_ticks(arc, nk), icbm), arc, {"icbm": icbm})
-	ms.tgt_o = victim
-	# ICBM: one roll per launch (sim RNG), player only, never with the toggle off
-	ms["evade"] = icbm and rng.randf() < ICBM_EVADE_P
+	# Step 5c (docs/LUAU_PORT.md): the missile, the ICBM roll and a Scattershot's warheads come from Luau
+	var ms: Dictionary = sim_ars.luau_launch(o, k, nk, int(silo.tile), tile, nuke_outer(k, nk), icbm, victim)
+	if ms.is_empty():
+		var arc: Dictionary = sim_rules.munition_arc(H, from, tp, nk)
+		ms = _spawn_missile(o, k, nk, from, tp, flight_ticks(sim_rules.nuke_arc_ticks(arc, nk), icbm), arc, {"icbm": icbm})
+		ms.tgt_o = victim
+		# ICBM: one roll per launch (sim RNG), player only, never with the toggle off
+		ms["evade"] = icbm and rng.randf() < ICBM_EVADE_P
+		if nk == SimRules.N_SCATTER:
+			_scatter_warheads(o, k, from, tile, int(ms.ft), bool(ms.evade), icbm)
 	if nk == SimRules.N_MIRV:
 		mirvs_launched += 1
-	elif nk == SimRules.N_SCATTER:
-		_scatter_warheads(o, k, from, tile, int(ms.ft), bool(ms.evade), icbm)
 	if victim > 0:
 		nations[victim]["grudge_" + str(o)] = sim_atk.tick + SimRules.NUKE_GRUDGE_TICKS
 		nations[victim]["attacked_tick"] = sim_atk.tick
@@ -229,6 +232,7 @@ func _scatter_warheads(o: int, k: int, from: Vector2, aim: int, flight: int, eva
 # counted in ticks.
 func _tick_missiles(_dt := 0.0) -> void:
 	if missiles.is_empty(): return
+	if sim_ars.luau_missiles(): return  # Step 5c: flight, SAM hits, MIRV split and detonation in Luau
 	var t: int = sim_atk.tick
 	for ms in missiles.duplicate():
 		if not ms.has("lt"): continue  # (a screenshot prop)
