@@ -99,7 +99,7 @@ func _map_icon_proc(p: Vector2, k: int, col: Color, a := 1.0) -> void:
 	_icon(p + Vector2(0, 1 if k == 5 else 0), k, col.darkened(0.5), a, overlay, 5.0, false)
 
 func _rail_pos(st_from, st_to, f: float) -> Array:
-	var rc := _rail_curve(st_from.tile, st_to.tile)
+	var rc := _rail_curve_view(st_from.tile, st_to.tile)
 	if rc.is_empty():
 		var p0 := Vector2(st_from.tile % W + 0.5, st_from.tile / W + 0.5)
 		var p1 := Vector2(st_to.tile % W + 0.5, st_to.tile / W + 0.5)
@@ -158,7 +158,7 @@ func _draw_straight_bridge(pa: Vector2, pb: Vector2, col: Color) -> void:
 
 func _draw_railway(st_a, st_b, col: Color) -> void:
 	_tie_vr = Rect2(Vector2.ZERO, get_viewport_rect().size).grow(8.0)
-	var rc := _rail_curve(st_a.tile, st_b.tile)
+	var rc := _rail_curve_view(st_a.tile, st_b.tile)
 	if rc.is_empty(): return
 	var pts: PackedVector2Array = rc[0]
 	var bridges: Array = rc[2] if rc.size() >= 3 else []

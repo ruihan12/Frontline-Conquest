@@ -200,7 +200,7 @@ func _road(a: int, b: int, now: float) -> Dictionary:
 	# the game's curve is re-checked twice a second, not every frame
 	if r != null and now - float(r.chk) < RECOLOR_S:
 		return r
-	var rc: Array = g._rail_curve(lo, hi)
+	var rc: Array = g._rail_curve_view(lo, hi)
 	if rc.is_empty():
 		_roads.erase(key)
 		return {}

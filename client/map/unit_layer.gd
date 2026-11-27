@@ -154,7 +154,7 @@ func draw(ci: CanvasItem) -> void:
 	# trains: cars back to front, the engine on top
 	var cars_shown := ppt * DEVICE_RATIO >= CARS_MIN_ZOOM
 	for tr in g.trains:
-		if not g._has_rail_link(tr.src, tr.dst):
+		if not g._has_rail_link_view(tr.src, tr.dst):
 			continue
 		var f: float = clampf((tr.t + g.sub_tick()) / maxf(0.01, tr.dur), 0.0, 1.0)
 		var rp: Array = g._rail_pos(tr.src, tr.dst, f)

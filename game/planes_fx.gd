@@ -122,7 +122,7 @@ func _draw_world_fx(z: float) -> void:
 	_pf_add("w_rail", Time.get_ticks_usec() - _c0)
 	# moving gold trains strictly following the drawn canonical railway tracks
 	for tr in ([] if client != null else trains):
-		if not _has_rail_link(tr.src, tr.dst): continue
+		if not _has_rail_link_view(tr.src, tr.dst): continue
 		var f: float = clampf((tr.t + sub_tick()) / maxf(0.01, tr.dur), 0.0, 1.0)
 		var rp := _rail_pos(tr.src, tr.dst, f)
 		var sp := _screen_of(rp[0] * TS)

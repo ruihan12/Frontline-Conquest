@@ -136,19 +136,19 @@ func _land_bfs4(from_t: int, to_t: int, max_visit := 30000) -> PackedInt32Array:
 
 # ---------- rail sim: sim/rails.gd (SimRails) since the split before Step 5b2; the old names forward there ----------
 func _rail_curve(tile_a: int, tile_b: int) -> Array:
-	return sim_rails._rail_curve(tile_a, tile_b)
+	return sim_rails.curve(tile_a, tile_b)
 
 func _rail_neighbors(st) -> Array:
-	return sim_rails._rail_neighbors(st)
+	return sim_rails.neighbors(st)
 
 func _has_rail_link(st_a, st_b) -> bool:
-	return sim_rails._has_rail_link(st_a, st_b)
+	return sim_rails.has_link(st_a, st_b)
 
 func spawn_train_from(f) -> bool:
-	return sim_rails.spawn_train_from(f)
+	return sim_rails.spawn(f)
 
 func _trains_tick() -> void:
-	sim_rails._trains_tick()
+	sim_rails.tick()
 
 # The cached links of a station for drawing: never searches, so the picture can't change what the sim
 # builds or when (the tick fills the cache: _trains_tick warms every station each second).
@@ -156,6 +156,16 @@ func _rail_neighbors_view(st) -> Array:
 	if not (st.k in RAIL_KINDS) or st.get("bt", 0.0) > 0.0: return []
 	var ce = _rail_nb_cache.get(st.tile)
 	return ce[2] if ce != null else []
+
+# The cached rail geometry of a station pair for drawing (never searches; [] until the tick has built it).
+func _rail_curve_view(tile_a: int, tile_b: int) -> Array:
+	return rail_cache.get("r%d:%d" % [mini(tile_a, tile_b), maxi(tile_a, tile_b)], [])
+
+# _has_rail_link for drawing: the cached links only, so drawing a train never searches or spends the tick's budgets.
+func _has_rail_link_view(st_a, st_b) -> bool:
+	if st_a == null or st_b == null or st_a == st_b: return false
+	if not is_same(struct_at.get(st_a.tile), st_a) or not is_same(struct_at.get(st_b.tile), st_b): return false
+	return st_b in _rail_neighbors_view(st_a) or st_a in _rail_neighbors_view(st_b)
 
 func _factories_covering(o: int, p: Vector2) -> Array:
 	var out := []

@@ -347,3 +347,308 @@ func _trains_tick() -> void:
 		tr.src = route[tr.leg]; tr.dst = route[tr.leg + 1]
 		tr.from = Vector2(tr.src.tile % W + 0.5, tr.src.tile / W + 0.5); tr.to = Vector2(tr.dst.tile % W + 0.5, tr.dst.tile / W + 0.5)
 		tr.t = 0.0; tr.dur = _train_leg_ticks(tr.src, tr.dst)
+
+
+# ---------------------------------------------------------------- Step 5b2: the rails in Luau
+# docs/LUAU_PORT.md, Step 5b2: with the Luau extension loaded, the rail caches, station links, train spawns, legs
+# and gold run in luau/sim/Core/SimRails.luau. Luau owns the caches and the trains; game.rail_cache,
+# game._rail_nb_cache and game.trains hold mirrors (same keys, same order) that the renderer and the tests read.
+# The structures stay GDScript's: each call sends a snapshot (list order) and gets back the trucks / last_spawn
+# writes, the new cache entries and trains, the trains as they are now and the gold paid, in order. A structure
+# Dictionary is named by id = tile + serial * 2^24 (the serial moves on when another Dictionary stands on the tile).
+# The public entry points (curve, neighbors, has_link, spawn, tick) pick Luau or the GDScript code above, which
+# stays as the fallback (remote viewers, NO_LUAU_SIM, no extension). The renderer reads the mirrors only
+# (game/rails.gd _rail_curve_view, _has_rail_link_view).
+const LMOD := "Core/SimRails"
+const LSNAP := 8   # f64 per structure (SimRails.luau M.SNAP)
+const TR_IN := 5   # f64 per kept train (M.TR_IN)
+const ID_MUL := 16777216
+
+var _no_luau := OS.has_environment("NO_LUAU_SIM")
+var _ser := {}      # tile -> the last serial handed out there
+var _seen := {}     # tile -> the Dictionary the last snapshot had there
+var _cur_id := {}   # tile -> its id
+var _ids_at := {}   # tile -> PackedFloat64Array of every id handed out there (this map)
+var _by_id := {}    # id -> Dictionary (live and dropped)
+var _live := {}     # ids in the last snapshot
+var _tlist: Array = []  # train mirrors Luau knows, in game.trains order
+var _tids := PackedInt32Array()
+var _by_tid := {}
+var _rc_n := 0
+var _nb_n := 0
+var luau_calls := 0  # tests
+
+## the link when Luau runs the rails (not on a remote viewer, not with NO_LUAU_SIM)
+func lu_on() -> LuauLink:
+	if g.net_remote or _no_luau: return null
+	var lu = g.get("luau_link")
+	if lu == null or not lu.on: return null
+	return lu
+
+## a new map (LuauLink._begin): forget the mirrors' bookkeeping
+func luau_reset() -> void:
+	_ser.clear(); _seen.clear(); _cur_id.clear(); _ids_at.clear(); _by_id.clear(); _live.clear()
+	_tlist = []; _tids = PackedInt32Array(); _by_tid.clear()
+	_rc_n = 0; _nb_n = 0
+
+func curve(tile_a: int, tile_b: int) -> Array:
+	var lu := lu_on()
+	if lu != null:
+		var r = _lrun(lu, "curve", [tile_a, tile_b], [])
+		if r != null:
+			return g.rail_cache.get("r%d:%d" % [mini(tile_a, tile_b), maxi(tile_a, tile_b)], []) if r else []
+	return _rail_curve(tile_a, tile_b)
+
+func neighbors(st) -> Array:
+	var lu := lu_on()
+	if lu != null and st != null:
+		var ex: Array = []
+		var id := _arg_id(st, ex)
+		var r = _lrun(lu, "neighbors", [id, 0], ex)
+		if r != null:
+			var out: Array = []
+			for x in (r as PackedByteArray).to_float64_array(): out.append(_by_id[x])
+			return out
+	return _rail_neighbors(st)
+
+func has_link(st_a, st_b) -> bool:
+	var lu := lu_on()
+	if lu != null:
+		if st_a == null or st_b == null: return false
+		var ex: Array = []
+		var ia := _arg_id(st_a, ex)
+		var ib := _arg_id(st_b, ex)
+		var r = _lrun(lu, "link", [ia, ib], ex)
+		if r != null: return bool(r)
+	return _has_rail_link(st_a, st_b)
+
+func spawn(f) -> bool:
+	var lu := lu_on()
+	if lu != null and f != null:
+		var ex: Array = []
+		var id := _arg_id(f, ex)
+		var r = _lrun(lu, "spawn", [id, 0], ex)
+		if r != null: return bool(r)
+	return spawn_train_from(f)
+
+func tick() -> void:
+	var lu := lu_on()
+	if lu != null and _lrun(lu, "tick", [0, 0], []) != null: return
+	_trains_tick()
+
+# the id of the Dictionary st (a new one: its fields go to Luau in `ex`)
+func _arg_id(st, ex: Array) -> float:
+	var tile: int = st.tile
+	if is_same(_seen.get(tile), st): return _cur_id[tile]
+	var ids = _ids_at.get(tile)
+	if ids != null:
+		for x in ids:
+			if is_same(_by_id[x], st): return x
+	var id := _new_id(tile, st)
+	ex.append(st)
+	return id
+
+func _new_id(tile: int, st) -> float:
+	var s: int = int(_ser.get(tile, 0)) + 1
+	_ser[tile] = s
+	var id := float(tile + s * ID_MUL)
+	_by_id[id] = st
+	if not _ids_at.has(tile): _ids_at[tile] = PackedFloat64Array()
+	var a: PackedFloat64Array = _ids_at[tile]
+	a.append(id)
+	_ids_at[tile] = a
+	return id
+
+func _put(f: PackedFloat64Array, j: int, id: float, st) -> void:
+	f[j] = id; f[j + 1] = st.k; f[j + 2] = st.tile; f[j + 3] = st.o
+	f[j + 4] = float(st.level) if st.has("level") else NAN
+	f[j + 5] = float(st.bt) if st.has("bt") else NAN
+	f[j + 6] = float(st.trucks) if st.has("trucks") else NAN
+	f[j + 7] = float(st.last_spawn) if st.has("last_spawn") else NAN
+
+# game.structs -> f (list order); the Dictionaries dropped since the last call (and `ex`) -> gone
+func _snapshot(f: PackedFloat64Array, gone: PackedFloat64Array, ex: Array) -> void:
+	var structs: Array = g.structs
+	f.resize(structs.size() * LSNAP)
+	var live := {}
+	var j := 0
+	for st in structs:
+		var tile: int = st.tile
+		var id: float
+		if is_same(_seen.get(tile), st):
+			id = _cur_id[tile]
+		else:
+			id = -1.0
+			var ids = _ids_at.get(tile)
+			if ids != null:
+				for x in ids:
+					if is_same(_by_id[x], st): id = x; break
+			if id < 0.0: id = _new_id(tile, st)
+			_seen[tile] = st
+			_cur_id[tile] = id
+		live[id] = true
+		_put(f, j, id, st)
+		j += LSNAP
+	var drop: Array = []
+	for id in _live:
+		if not live.has(id): drop.append(id)
+	for st in ex: drop.append(_arg_id(st, []))
+	gone.resize(drop.size() * LSNAP)
+	j = 0
+	for id in drop:
+		_put(gone, j, id, _by_id[id])
+		j += LSNAP
+	_live = live
+
+# the train mirrors still in game.trains (in its order) -> their ids and the fields GDScript may have written
+func _recon_trains() -> PackedFloat64Array:
+	var out := PackedFloat64Array()
+	var keep: Array = []
+	var ids := PackedInt32Array()
+	var j := 0
+	var n := _tlist.size()
+	for tr in g.trains:
+		var k := j
+		while k < n and not is_same(_tlist[k], tr): k += 1
+		if k < n:
+			out.append(_tids[k]); out.append(tr.leg); out.append(tr.t); out.append(tr.dur); out.append(tr.stops)
+			keep.append(tr); ids.append(_tids[k])
+			j = k + 1
+	_tlist = keep; _tids = ids
+	return out
+
+func _hostile_pairs() -> PackedInt32Array:
+	var nv = g.sim_naval
+	var q := PackedInt32Array()
+	if nv._hp_tick == g.sim_atk.tick:
+		for k in nv._hp: q.append(int(k))
+		return q
+	var W: int = 1 << 16
+	for at in g.attacks:
+		if at.get("dead", false): continue
+		q.append(int(at.a) * W + int(at.t)); q.append(int(at.t) * W + int(at.a))
+	return q
+
+## One Luau call. Returns its result (ret), or null when the link failed (the caller runs the GDScript path).
+func _lrun(lu: LuauLink, op: String, a: Array, ex: Array) -> Variant:
+	if not lu.flush(g): return null
+	var w: Array = g.sim_atk._world()
+	if lu.vm.call_fn(LMOD, "world", w) == null:
+		lu._fail(g, lu.vm.last_error)
+		return null
+	var f := PackedFloat64Array()
+	var gone := PackedFloat64Array()
+	_snapshot(f, gone, ex)
+	var trn := _recon_trains()
+	var hdr := PackedFloat64Array([g.sim_atk.tick, g.elapsed, g.allies.size(), g.embargoes.size(), g._rail_bfs_left,
+		g._rail_calc_left, g._rail_frame, 1.0 if g._rail_pending else 0.0, g.PLAYER,
+		1.0 if g.rail_cache.size() < _rc_n else 0.0, 1.0 if g._rail_nb_cache.size() < _nb_n else 0.0])
+	var rf := PackedFloat64Array()
+	for k in SimAttacks.RULE_FIELDS: rf.append(float(g.sim_rules.get(k)))
+	var osv := PackedInt32Array()
+	for o in g._own_sv:
+		osv.append(int(o)); osv.append(int(g._own_sv[o]))
+	var rg := LuauLink.rng_args(g)
+	var out = lu.vm.call_fn(LMOD, "call", [op, rg[0], rg[1], hdr.to_byte_array(), rf.to_byte_array(),
+		f.to_byte_array(), gone.to_byte_array(), trn.to_byte_array(), osv.to_byte_array(),
+		_hostile_pairs().to_byte_array(), a[0], a[1]])
+	if out == null:
+		lu._fail(g, lu.vm.last_error)
+		return null
+	luau_calls += 1
+	_apply_out(out)
+	return out.ret
+
+func _apply_out(out: Dictionary) -> void:
+	var W: int = g.W
+	var hi: int = int(out.rhi)
+	if hi >= 0x80000000: hi -= 0x100000000
+	g.rng.state = hi * 0x100000000 + int(out.rlo)
+	g._rail_bfs_left = int(out.bfs_left)
+	g._rail_calc_left = int(out.calc_left)
+	g._rail_pending = bool(out.pending)
+	if bool(out.hq): g.sim_naval.hostile(0, 0)  # the GDScript sim asked: its per-tick cache is built now
+	# rail geometry, as _rail_curve stores it
+	var rc: PackedFloat64Array = (out.rc as PackedByteArray).to_float64_array()
+	var q := 0
+	while q < rc.size():
+		var key := "r%d:%d" % [int(rc[q]), int(rc[q + 1])]
+		var n := int(rc[q + 2])
+		q += 3
+		if n == 0:
+			g.rail_cache[key] = []
+			continue
+		var pts := PackedVector2Array()
+		for m in n:
+			var t := int(rc[q + m])
+			pts.append(Vector2(t % W + 0.5, t / W + 0.5))
+		q += n
+		var cum := PackedFloat32Array([0.0])
+		for m in range(1, pts.size()): cum.append(cum[m - 1] + pts[m].distance_to(pts[m - 1]))
+		g.rail_cache[key] = [pts, cum, []]
+	_rc_n = g.rail_cache.size()
+	# station links, as _rail_neighbors stores them
+	var nb: PackedFloat64Array = (out.nb as PackedByteArray).to_float64_array()
+	q = 0
+	while q < nb.size():
+		var tile := int(nb[q])
+		var o := int(nb[q + 1])
+		var n := int(nb[q + 2])
+		q += 3
+		var l: Array = []
+		for m in n: l.append(_by_id[nb[q + m]])
+		q += n
+		g._rail_nb_cache[tile] = ["%d|%d|%d|%d" % [o, g._own_sv.get(o, 0), g.allies.size(), g.embargoes.size()], g.elapsed, l]
+	_nb_n = g._rail_nb_cache.size()
+	# trucks / last_spawn
+	var sw: PackedFloat64Array = (out.sw as PackedByteArray).to_float64_array()
+	for k in range(0, sw.size(), 3):
+		var st: Dictionary = _by_id[sw[k]]
+		if not is_nan(sw[k + 1]): st["trucks"] = int(sw[k + 1])
+		if not is_nan(sw[k + 2]): st["last_spawn"] = int(sw[k + 2])
+	# new trains
+	var ntr: PackedFloat64Array = (out.ntr as PackedByteArray).to_float64_array()
+	q = 0
+	while q < ntr.size():
+		var tid := int(ntr[q])
+		var n := int(ntr[q + 4])
+		var route: Array = []
+		for m in n: route.append(_by_id[ntr[q + 5 + m]])
+		var a := Vector2(route[0].tile % W + 0.5, route[0].tile / W + 0.5)
+		var b := Vector2(route[1].tile % W + 0.5, route[1].tile / W + 0.5)
+		_by_tid[tid] = {"o": int(ntr[q + 1]), "fac": _by_id[ntr[q + 2]], "route": route, "leg": 0, "src": route[0],
+			"dst": route[1], "from": a, "to": b, "t": 0.0, "dur": 0.0, "stops": 0, "lvl": int(ntr[q + 3])}
+		q += 5 + n
+	# the trains now, in order
+	var trs: PackedFloat64Array = (out.trs as PackedByteArray).to_float64_array()
+	var trains: Array = g.trains
+	trains.clear()
+	_tlist = []
+	_tids = PackedInt32Array()
+	var alive := {}
+	for k in range(0, trs.size(), TR_IN):
+		var tid := int(trs[k])
+		var tr: Dictionary = _by_tid[tid]
+		var leg := int(trs[k + 1])
+		if leg != int(tr.leg):
+			var route: Array = tr.route
+			tr.leg = leg
+			tr.src = route[leg]; tr.dst = route[leg + 1]
+			tr.from = Vector2(tr.src.tile % W + 0.5, tr.src.tile / W + 0.5); tr.to = Vector2(tr.dst.tile % W + 0.5, tr.dst.tile / W + 0.5)
+		tr.t = trs[k + 2]; tr.dur = trs[k + 3]; tr.stops = int(trs[k + 4])
+		trains.append(tr)
+		_tlist.append(tr); _tids.append(tid)
+		alive[tid] = true
+	for tid in _by_tid.keys():
+		if not alive.has(tid): _by_tid.erase(tid)
+	# gold, in the order the trains paid it
+	var pay: PackedFloat64Array = (out.pay as PackedByteArray).to_float64_array()
+	for k in range(0, pay.size(), 5):
+		var o := int(pay[k])
+		var so := int(pay[k + 1])
+		var p: float = pay[k + 3]
+		g.nations[o].gold += p
+		if so >= 0: g.nations[so].gold += p
+		if pay[k + 4] != 0.0:
+			var t := int(pay[k + 2])
+			g.add_float(Vector2(t % W + 0.5, t / W + 0.5) * g.TS, "+%s" % g._fmt(p), g.GOLD_C)

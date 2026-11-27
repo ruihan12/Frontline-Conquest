@@ -15,7 +15,7 @@ extends RefCounted
 ## in GDScript as before.
 
 const STATE := "Core/SimState"
-const MODULES := ["Core/SimState", "Core/SimAttacks", "Core/SimStructures", "Core/SimArsenal"]
+const MODULES := ["Core/SimState", "Core/SimAttacks", "Core/SimStructures", "Core/SimArsenal", "Core/SimRails"]
 const EV_VIEWER_ATTACK := 1
 const EV_HOSTILE := 2
 const EV_CONQUEST := 3
@@ -196,6 +196,11 @@ func _begin(g) -> void:
 		_fail(g, vm.last_error)
 		return
 	if g.get("sim_ars") != null: g.sim_ars.luau_reset()
+	ok = vm.call_fn("Core/SimRails", "reset", [])
+	if ok == null:
+		_fail(g, vm.last_error)
+		return
+	if g.get("sim_rails") != null: g.sim_rails.luau_reset()
 	epoch = g.sim_epoch
 	g.luau_rec = true
 	g.luau_frec = true

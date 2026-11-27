@@ -311,6 +311,49 @@ Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3
 --sliced; test list unchanged; perf AVG 11.76 / 11.74 ms/tick (5c 11.36 / 11.07; the code path is the same plus one
 forward per call, so most of the gap is run-to-run noise).
 
+### Step 5b2: Rails, factories and trains in Luau (Core/SimRails.luau)
+
+What changed:
+- `luau/sim/Core/SimRails.luau`: sim/rails.gd line for line. Rail paths (A* on the minimap with its heap and tie
+  rules), the geometry (points merged on rows / columns, lengths in float like Vector2), station links (nearest
+  first, sorted with SimArsenal's copy of Godot's introsort so tied distances keep Godot's order, 4-hop check),
+  the per-owner link web with its frame-tagged unfinished versions, the per-station link cache with the per-tick
+  budgets (40 route searches, 40 link builds) and the pending flag, routes, destinations, spawns (rng rolls per
+  factory level), legs, train gold and the float for the player.
+- Luau owns the rail caches and the trains (ids). game.rail_cache, game._rail_nb_cache and game.trains hold mirrors
+  with the same keys in the same order, built from what each call returns; train mirrors are the same Dictionary
+  from spawn to arrival. game._rail_mst is no longer filled in Luau mode (nothing outside sim/rails.gd reads it).
+  The budgets and the pending flag go in and come back each call. sim/naval.gd's per-tick hostile cache: Luau gets
+  its pairs (or the same pairs from game.attacks when it is not built yet this tick) and the facade builds the cache
+  after a call that asked, as the GDScript sim's first ask would.
+- The structures stay GDScript's: each call sends a snapshot (id, k, tile, o, level, bt, trucks, last_spawn; id =
+  tile + serial * 2^24 names a Dictionary across calls) plus the last fields of the Dictionaries dropped since the
+  last call, which the caches and trains can still hold, and gets back the trucks / last_spawn writes (keys added in
+  the GDScript order). Gold comes back as (payer, other side, tile, amount) records, applied in order.
+- `sim/rails.gd` is the face (curve, neighbors, has_link, spawn, tick); game/rails.gd forwards the old names there.
+  The GDScript code stays as the fallback (remote viewers, NO_LUAU_SIM, no extension).
+- The renderer reads the mirrors only: game/rails.gd `_rail_curve_view` / `_has_rail_link_view` (draw_helpers,
+  client/map/road_layer.gd, client/map/unit_layer.gd, planes_fx). Before, drawing a train or a rail could start a
+  route search or a link build and spend the tick's budgets between ticks, so what the sim built depended on what
+  was on screen. Headless runs (parity, hash) never drew, so their results don't change; in a window the sim no
+  longer depends on the camera. A rail the sim has not searched yet is drawn once the tick has built it (each
+  station is warmed every 10 ticks). See Question 3.
+- Known differences, in cases the seeded matches never reach: GDScript compares structure Dictionaries by content
+  in `st_b in links` and `trains.erase(tr)`; Luau compares identity (the same Dictionary). They differ only when a
+  station is destroyed and rebuilt on the same tile with exactly the same fields while a stale link list still holds
+  the old one, or when two trains have identical fields. A new map clears the link webs too (GDScript kept
+  game._rail_mst across matches, so a web from the previous match could come back when owner id, _own_sv and the
+  6 s bucket matched).
+- tests/test_luau_rails.gd (8 checks): the same seeded match played with Luau and with NO_LUAU_SIM for 3000 ticks:
+  trains (keys, route, leg, positions, t, dur, stops), rail_cache, the link cache (ver, time, stations), factories'
+  keys / trucks / last_spawn, the budgets, the pending flag, the rng and every nation's gold identical after each
+  tick; direct calls with a big budget (links and paths of the biggest nation's stations, spawns from its
+  factories) equal; the drawing-side readers change nothing.
+
+Results (4.5.1): parity 472 total, 467 pass, 0 fail, 5 intentional; hash owner=3480782660 (unchanged) whole and
+--sliced; test list unchanged plus test_luau_rails 8/8; perf AVG 11.46 / 11.84 ms/tick (rails split 11.76 / 11.74;
+the trains cost well under 0.4 ms/tick, so the change is within run-to-run noise).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -325,10 +368,13 @@ forward per call, so most of the gap is run-to-run noise).
 | 5a | e33428f | 467/0/5 | 3480782660 | 11.11 / 10.93 | same + luau_attacks 12/12 |
 | 5b | 88bb160 | 467/0/5 | 3480782660 | 11.72 / 11.81 | same + luau_structures 9/9 |
 | 5c | b89e9f7 | 467/0/5 | 3480782660 | 11.36 / 11.07 | same + luau_arsenal 18/18 |
-| rails split | see git log | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
+| rails split | 662352f | 467/0/5 | 3480782660 | 11.76 / 11.74 | same |
+| 5b2 | see git log | 467/0/5 | 3480782660 | 11.46 / 11.84 | same + luau_rails 8/8 |
 
 ## Customs touched per step
 
+- Step 5b2: none of the listed customs are in the rail / train sim (supply drops stay off; train gold and spawn
+  rates are upstream's). Nothing to add a custom test for.
 - Rails split: none (code moved, values unchanged).
 - Step 5c: the 0.9x nuke speed (all bombs, warheads included), ICBM 1.2x speed and the 20% seeded SAM-ignore roll
   for the player's launches with the toggle on, MIRV and Scattershot warheads sharing the carrier's roll and speed:
@@ -354,9 +400,17 @@ forward per call, so most of the gap is run-to-run noise).
 1. Player and network intents are still applied when they arrive (between frames, so possibly between two slices of a tick).
    Upstream queues intents and runs them at the start of the next tick (Sim._process_intents). Queue them the same way
    (needed for lockstep, not for the host-authoritative multiplayer)? Not done in Step A.
+   Answer (Ruihan, Nov 27 2026): no, skip it for now; keep applying player and network intents when they arrive
+   (online play is host-authoritative, queueing would add up to 0.1 s to every command). Deferred until lockstep or
+   tick-exact replay is wanted.
 2. Rails, stations, factories and trains (game/rails.gd: rail paths, the MST links, train routes, train gold) are
    part of upstream SimStructures, but here they sit with the rail drawing and train animation. Port them to Luau
    with Structures (a later sub-step) or with Economy, or keep them in GDScript? For now they stay GDScript and read
    game.structs as before.
    Answer (Ruihan, Nov 27 2026): "Port them with Structures, but split the file first". Plan: split game/rails.gd's
    sim (rail paths, links, trains) from the drawing / fx as its own commit, then port the sim half as Step 5b2.
+3. Step 5b2 points the renderer at cache-only readers (`_rail_curve_view`, `_has_rail_link_view`) in both modes, so
+   drawing no longer starts route searches or spends the tick's rail budgets. That changes nothing headless, but in
+   a window the sim no longer depends on what is drawn, and a rail shows up once the tick has searched it instead of
+   when it first comes on screen. Keep it (it is a determinism fix, needed so Luau and GDScript agree), or should the
+   GDScript fallback keep the old drawing-side searches?
