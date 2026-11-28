@@ -201,7 +201,34 @@ func _spawn_munition(nk: int, o: int, from_tile: int, to_tile: int) -> Dictionar
 	var m := {"nk": nk, "o": o, "from": a, "to": b, "tile": to_tile, "t0": now(),
 		"t1": now() + R.munition_flight_ticks(a.distance_to(b), nk), "victim": g.owner_map[to_tile]}
 	munitions.append(m)
+	_fired_sfx(m)
 	return m
+
+
+# Upstream UIAdvisor.on_nuke_launched / on_nuke_detonated for NUKE_FLAT kinds (the Arsenal): a shot and a hit,
+# never the nuke launch sting or the nuclear blast. A shell: shell_fire / shell_hit, only when on screen. An air
+# strike / slug: sam_launch (pitch 0.85) / shell_fire (0.6) and the SAM hit (intercept, 0.8 / 1.25), when on
+# screen or yours.
+func _fired_sfx(m: Dictionary) -> void:
+	var nk: int = m.nk
+	var o: int = m.o
+	var at: Vector2 = (m["from"] as Vector2) * g.TS
+	var mine: bool = o == g.PLAYER
+	var near: bool = g._world_on_screen(at)
+	if nk == SimRules.N_SHELL:
+		if near:
+			g.sfx("shell_fire", -8.0 if mine else -12.0, 0.08, g.PLAYER if mine else o, at)
+	elif mine or near:
+		var slug := nk == SimRules.N_SLUG
+		g.sfx("shell_fire" if slug else "sam_launch", -2.0 if mine else -8.0, 0.0, g.PLAYER if mine else o, at, 0.6 if slug else 0.85)
+
+
+func _impact_sfx(nk: int, near: bool, mine: bool, shooter: int, at: Vector2) -> void:
+	if nk == SimRules.N_SHELL:
+		if near:
+			g.sfx("shell_hit", -6.0 if mine else -11.0, 0.08, g.PLAYER if mine else shooter, at)
+	elif near or mine:
+		g.sfx("intercept", -1.0 if mine else -6.0, 0.0, g.PLAYER if mine else shooter, at, 1.25 if nk == SimRules.N_SLUG else 0.8)
 
 # ---------------------------------------------------------------- strikes: air strike / slug launch
 # SimNukes.launch_nuke for NUKE_FLAT kinds: nearest (manhattan) loaded airfield within reach / railgun
@@ -237,7 +264,6 @@ func launch_strike(o: int, nk: int, tile: int) -> bool:
 	stats.strikes += 1
 	if o == g.PLAYER:
 		g.notify("%s on its way to %s" % ["Air Strike" if lk == 14 else "Railgun slug", g._nname(tg)], "info")
-		g.sfx("atom_launch", -6.0, 0.04, o)
 	elif tg == g.PLAYER:
 		g.notify("%s from %s is inbound!" % ["An air strike" if lk == 14 else "A railgun slug", g._nname(o)], "bad")
 	if lk == 15: g.beams.append({"a": tpos(best.tile, W), "b": tpos(tile, W), "t": 0.0})
@@ -291,16 +317,12 @@ func strike(m: Dictionary) -> void:
 	# UIAdvisor.on_nuke_detonated: shells play only when on screen; airstrike/slug when on screen or yours.
 	var mine: bool = victim == g.PLAYER or shooter == g.PLAYER
 	var near: bool = g._world_on_screen(c * g.TS)
-	if nk == SimRules.N_SHELL:
-		if near:
-			g.sfx("atom_hit", -6.0 if mine else -11.0, 0.08, g.PLAYER if mine else shooter, c * g.TS)
-	elif nk != SimRules.N_SHELL:
+	_impact_sfx(nk, near, mine, shooter, c * g.TS)
+	if nk != SimRules.N_SHELL:
 		if victim == g.PLAYER and shooter != g.PLAYER:
 			g.notify("%s from %s hit your land" % ["An air strike" if nk == SimRules.N_AIRSTRIKE else "A railgun slug", g._nname(shooter)], "bad")
-		if near or mine:
-			g.sfx("atom_hit", -10.0, 0.06, g.PLAYER if mine else shooter, c * g.TS)
-			if mine:
-				g._add_shake(1.2)
+		if mine:
+			g._add_shake(1.2)
 
 # land tiles of a disc around tile `c` (tile-centre distances, like SimState.disk_tiles(.., land_only))
 func disk_tiles(c: int, r: float) -> PackedInt32Array:
@@ -870,6 +892,7 @@ func _apply_out(lu: LuauLink, out: Dictionary, rms: PackedInt32Array, rmu: Packe
 	for c in all_u.size():
 		if alive_u[c] == 0: continue
 		_ulist.append(all_u[c]); _uids.append(ids_u[c]); _by_uid[ids_u[c]] = all_u[c]
+	for mu in new_u: _fired_sfx(mu)  # (as _spawn_munition on the GDScript path)
 	var stv: PackedFloat64Array = (out.stats as PackedByteArray).to_float64_array()
 	for c in STAT_KEYS.size():
 		if stv[c] != 0.0: stats[STAT_KEYS[c]] += int(stv[c])
@@ -982,16 +1005,12 @@ func _strike_fx(nk: int, to: int, shooter: int) -> void:
 	var victim: int = g.owner_map[to]
 	var mine: bool = victim == g.PLAYER or shooter == g.PLAYER
 	var near: bool = g._world_on_screen(c * g.TS)
-	if nk == SimRules.N_SHELL:
-		if near:
-			g.sfx("atom_hit", -6.0 if mine else -11.0, 0.08, g.PLAYER if mine else shooter, c * g.TS)
-	else:
+	_impact_sfx(nk, near, mine, shooter, c * g.TS)
+	if nk != SimRules.N_SHELL:
 		if victim == g.PLAYER and shooter != g.PLAYER:
 			g.notify("%s from %s hit your land" % ["An air strike" if nk == SimRules.N_AIRSTRIKE else "A railgun slug", g._nname(shooter)], "bad")
-		if near or mine:
-			g.sfx("atom_hit", -10.0, 0.06, g.PLAYER if mine else shooter, c * g.TS)
-			if mine:
-				g._add_shake(1.2)
+		if mine:
+			g._add_shake(1.2)
 
 # sam_resolve()'s effects of a hit (the missile is already gone from Luau's list)
 func _sam_hit_fx(ms: Dictionary, sam_o: int) -> void:

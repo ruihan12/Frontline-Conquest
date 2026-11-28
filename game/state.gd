@@ -1009,7 +1009,7 @@ func _init_audio() -> void:
 func _apply_volumes() -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
-func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
+func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN), pitch := -1.0) -> void:
 	pass  # forward declaration; implemented in game/audio.gd
 
 func _play_music() -> void:

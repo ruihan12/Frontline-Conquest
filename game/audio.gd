@@ -192,7 +192,7 @@ func _world_on_screen(world: Vector2) -> bool:
 	var vr := get_viewport().get_visible_rect()
 	return sp.x >= 0.0 and sp.y >= 0.0 and sp.x <= vr.size.x and sp.y <= vr.size.y
 
-func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN)) -> void:
+func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_world := Vector2(NAN, NAN), pitch := -1.0) -> void:
 	if attract_on and state == "menu": return  # the title's demo world is silent
 	# Upstream UIAdvisor: a bomb's launch sting is the local player's own launch only; blasts play for
 	# anyone's bomb when on screen or yours. Every other caller here already asks only for the
@@ -208,7 +208,7 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	if audio_dir != null and not _audio_dir_known.has(key):
 		_audio_dir_known[key] = audio_dir.has_sfx(key)  # keys the legacy table lacks (eliminate, ...)
 	if audio_dir != null and (_audio_dir_known.get(key, false) or key == "build"):
-		audio_dir.play_sfx(key, vol_db, pitch_jitter, -1.0, who, who == PLAYER, true)
+		audio_dir.play_sfx(key, vol_db, pitch_jitter, pitch, who, who == PLAYER, true)
 		return
 	if not sfx_streams.has(key) or sfx_pool.is_empty(): return
 	var now := Time.get_ticks_msec()
@@ -223,7 +223,7 @@ func sfx(key: String, vol_db := 0.0, pitch_jitter := 0.04, who := PLAYER, at_wor
 	var arr: Array = sfx_streams[key]
 	p.stream = arr[fx_rng.randi() % arr.size()]
 	p.volume_db = vol_db
-	p.pitch_scale = 1.0 + fx_rng.randf_range(-pitch_jitter, pitch_jitter)
+	p.pitch_scale = (pitch if pitch > 0.0 else 1.0) * (1.0 + fx_rng.randf_range(-pitch_jitter, pitch_jitter))
 	p.play()
 
 func _play_music() -> void:

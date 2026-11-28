@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live.
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live, test_strike_sounds.
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -762,6 +762,21 @@ Fix: RWMapInfo.W and H read g.W and g.H. tests/test_map_size_live.gd (new, in VE
 in a row and checks the client's size and the artillery build ring's tile on each (4 fails without the fix).
 No sim change. Customs: none (the range system is unchanged).
 
+### Shell, air strike and slug sounds as upstream
+
+Owner report (Nov 28 2026): artillery used the nuke explosion sound. Owner's call: match upstream.
+Cause: sim/arsenal.gd played `atom_hit` (the director's nuke_explosion, atom-hit.wav) when a shell, an air strike
+or a slug landed, on both paths (strike() and the Luau path's _strike_fx), and `atom_launch` (the nuke launch
+sting) when the player sent a strike; nothing played when a shell was fired. Upstream UIAdvisor.on_nuke_launched /
+on_nuke_detonated, for NUKE_FLAT kinds: a shell plays shell_fire when fired and shell_hit when it lands, both only
+when on screen; an air strike sam_launch at pitch 0.85 and intercept (sam_intercept) at 0.8, a slug shell_fire at
+0.6 and intercept at 1.25, when on screen or yours. Volumes as upstream.
+Fix: SimArsenal._fired_sfx (from _spawn_munition on the GDScript path, and for each munition a Luau call made)
+and _impact_sfx (from strike() and _strike_fx). sfx() takes an optional fixed pitch (upstream ctx:sfx's 4th
+argument), passed to the audio director. tests/test_strike_sounds.gd (new, in VERIFY), Luau and GDScript: the
+player fires each kind with the camera on it; the director's log holds exactly those sounds and pitches and no
+nuke sound (without the fix: no fire sound and nuke_explosion on impact). No sim change.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -796,6 +811,7 @@ No sim change. Customs: none (the range system is unchanged).
 | perf rerun, c04498a vs 33f84ff, alternating x4 | - | - | - | 10.85 11.03 11.51 12.17 (mean 11.39) vs 11.45 11.42 11.21 11.68 (mean 11.44) | - |
 | remove Didier maps | see git log | 467/0/5 | 3683567526 | 12.52 / 12.23 (ran beside a headless Chrome run) | same |
 | client map size live | see git log | 467/0/5 | 3683567526 | 11.44 / 11.52 | same + map_size_live 10/10 |
+| shell/strike sounds as upstream | see git log | 467/0/5 | 3683567526 | 11.01 / 10.66 (beside a headless Chrome run) | same + strike_sounds 30/30 |
 
 ## Customs touched per step
 
