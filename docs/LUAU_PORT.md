@@ -11,14 +11,14 @@ would need a force-push, so it was merged instead: 84d5260 = `multiplayer` 0fbdd
 
 ```
 godot --headless --path . --script tests/run_upstream_tests.gd            # parity, 0 fail, 5 intentional
-godot --headless --path . -s tests/sim_hash.gd                            # SIM_3480782660, World 400 tribes, seed 5516, 6000 ticks
+godot --headless --path . -s tests/sim_hash.gd                            # owner=3683567526 since the multiplayer merge (3480782660 before), World 400 tribes, seed 5516, 6000 ticks
 godot --headless --path . -s tests/sim_hash.gd -- --sliced                # same hash with both passes cut in tiny slices
 godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG ms/tick over 3000 ticks
 ```
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4).
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge).
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -693,6 +693,26 @@ missing the page hung on load.
   each. Real GPU and phone fps are still unmeasured.
 - The VM server runs the editor binary, so it keeps using the debug library name it has.
 
+### Merge of multiplayer: defense posts don't shell ships (new hash 3683567526)
+
+Ruihan asked (Nov 28 2026) to merge multiplayer into luau-sim. `git merge multiplayer` (not a rebase) went in clean
+(f49e456). It brings multiplayer's 130a1be: `SimRules.DEFENSE_POST_SHOOTS := false` (upstream's default) and
+sim/warships.gd `var defense_posts_shoot := SimRules.DEFENSE_POST_SHOOTS`, so a defense post no longer shells
+transports or warships (owner request 2026-11-26); plus the memory readout (client/ui/mem_overlay.gd).
+- The Luau side reads the same flag: sim/warships.gd sends `defense_posts_shoot` in the call header (index 8) and
+  SimWarships.luau `posts_tick` runs only when `C.posts_shoot` is set. Nothing else in either sim makes a post fire;
+  economy.gd `defended()` only changes land attacks (5x troops, 3x time), as before.
+- tests/test_defense_posts.gd (new, in VERIFY): the seeded match (5516) on the Luau path and the GDScript fallback.
+  When the first transport is at sea, a finished post of a non-allied nation goes on the nearest land tile and a
+  warship of the transport's owner next to it; 400 ticks, no post shell may fly. A control with the flag forced on
+  fires at the same transport (so the scene really puts both ships in reach). 10/10 on both paths.
+- Hash: owner=3683567526 (whole and sliced) instead of 3480782660. The merge explains it: the same run with
+  `defense_posts_shoot` forced on gives 3480782660 exactly, so the only change is the posts not shooting. This is
+  the new baseline from here on.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tests as before plus defense_posts 10/10
+(lobby_ui 3, account_ui 55 known), perf_sim 12.57 / 12.34 (13.54 / 12.63 while the browser check ran).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -722,9 +742,11 @@ missing the page hung on load.
 | 6 (docs) | 7c87e52 | 467/0/5 | 3480782660 | 12.37 / 10.84 | same |
 | web log line | fb3ecd8 | 467/0/5 | 3480782660 | 12.22 / 13.28 | same |
 | web release fix | see git log | 467/0/5 | 3480782660 | 13.32 / 12.07 | same |
+| merge multiplayer (posts off) | f49e456 + see git log | 467/0/5 | 3683567526 (3480782660 with posts forced on) | 12.57 / 12.34 | same + defense_posts 10/10 |
 
 ## Customs touched per step
 
+- Multiplayer merge: none new here (defense posts off and the memory readout come from multiplayer as they are).
 - Step 6: none (docs and the PARITY.md header only).
 - Step 5d4: none (ship speed is unchanged: boat_speed and upstream's 1 tile per tick, the same product).
 - Step 5g2: none (what Luau calls are sent, not values; the hash is unchanged).
