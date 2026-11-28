@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live, test_strike_sounds.
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live, test_strike_sounds, test_crate_names.
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -777,6 +777,19 @@ argument), passed to the audio director. tests/test_strike_sounds.gd (new, in VE
 player fires each kind with the camera on it; the director's log holds exactly those sounds and pitches and no
 nuke sound (without the fix: no fire sound and nuke_explosion on impact). No sim change.
 
+### Crate reveal card names fit their cards
+
+Owner report (Nov 28 2026): on the Open x10 reveal, long flag names ("Central African Republic", "Federated States
+of Micronesia") ran into the next card. Cause: client/ui/crates.gd set the name Label's size before turning clipping
+on, and a Label never sizes below its minimum (the whole name, unclipped), so the text overflowed the card.
+Fix (as upstream: its single reveal scales the name down to fit, its Locker cuts with an ellipsis): the reveal name
+takes the largest font size that fits the card's inner width on one line, else two lines split at a word, else is
+cut with an ellipsis at the smallest size; the picture gives up the room a second line needs, and the card size and
+the rarity line stay where they were. The Locker grid's name sets its clip and ellipsis before its size. The Arsenal
+already set them first (checked, unchanged). tests/test_crate_names.gd (new, in VERIFY): every flag name, at both
+card sizes, measured with the label's own font, fits inside its card above the rarity line; the two reported names
+show in full; Locker names are cut inside their cards. No sim change.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -812,6 +825,7 @@ nuke sound (without the fix: no fire sound and nuke_explosion on impact). No sim
 | remove Didier maps | see git log | 467/0/5 | 3683567526 | 12.52 / 12.23 (ran beside a headless Chrome run) | same |
 | client map size live | see git log | 467/0/5 | 3683567526 | 11.44 / 11.52 | same + map_size_live 10/10 |
 | shell/strike sounds as upstream | see git log | 467/0/5 | 3683567526 | 11.01 / 10.66 (beside a headless Chrome run) | same + strike_sounds 30/30 |
+| crate reveal names fit | see git log | 467/0/5 | 3683567526 | 11.73 / 12.18, rerun 11.20 / 12.09 (beside a headless Chrome run; UI-only change, sim code untouched) | same + crate_names 8/8 |
 
 ## Customs touched per step
 

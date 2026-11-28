@@ -186,10 +186,12 @@ func _card(it, slot: String, owned_map: Dictionary, wearing: String) -> Control:
 		tr.modulate.a = 1.0 if owned else 0.3
 	b.add_child(tr)
 	var nm := UITheme.label("None" if it == null else str(it.name), 12, 700, UITheme.TEXT if owned else Color(1, 1, 1, 0.55))
-	nm.position = Vector2(8, cell.y - 34.0)
-	nm.size = Vector2(cell.x - 16.0, 16)
+	# (clip and ellipsis before the size: a Label never sizes below its minimum, which is the whole name unclipped,
+	# so a long flag name ran into the next card)
 	nm.clip_text = true
 	nm.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	nm.position = Vector2(8, cell.y - 34.0)
+	nm.size = Vector2(cell.x - 16.0, 16)
 	nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(nm)
 	var sub_col := Color8(150, 158, 180)
@@ -525,17 +527,34 @@ func _reveal_cards() -> void:
 		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		tr.position = Vector2(12, 12)
-		tr.size = Vector2(cw - 24.0, chh - (70.0 if n == 1 else 52.0))
 		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(tr)
-		var nm := UITheme.label(str(it.name), 18 if n == 1 else 12, 800, UITheme.TEXT)
-		nm.position = Vector2(6, chh - (54.0 if n == 1 else 38.0))
-		nm.size = Vector2(cw - 12.0, 22 if n == 1 else 16)
-		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		# the name fits the card's inner width: smaller, then on two lines, then cut with an ellipsis (a long
+		# country name ran into the next card); the card size and the rarity line stay where they were
+		var nm := UITheme.label("", 18 if n == 1 else 12, 800, UITheme.TEXT)
+		var inner := cw - 12.0
+		var fit: Array = fit_name(nm.get_theme_font("font"), str(it.name), inner, 18 if n == 1 else 12, 12 if n == 1 else 9)
+		var lines: PackedStringArray = fit[0]
+		var fs: int = fit[1]
+		nm.add_theme_font_size_override("font_size", fs)
+		nm.add_theme_constant_override("line_spacing", 0)
+		nm.text = "\n".join(lines)
+		# (clip before the size: a Label's size never goes below its minimum, which is the whole text unclipped)
 		nm.clip_text = true
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nm.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		var name_bottom := chh - (32.0 if n == 1 else 22.0)
+		var name_h := maxf(22.0 if n == 1 else 16.0, ceilf(nm.get_minimum_size().y))
+		nm.position = Vector2(6, name_bottom - name_h)
+		nm.size = Vector2(inner, name_h)
 		nm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		nm.set_meta("lines", lines)
+		nm.name = "ItemName"
 		card.add_child(nm)
+		# the picture keeps its gap above the name (a two-line name takes the room from the picture)
+		tr.size = Vector2(cw - 24.0, minf(chh - (70.0 if n == 1 else 52.0), nm.position.y - 2.0 - tr.position.y))
 		var rl := UITheme.label(str(CosmeticsRules.rarity(str(it.rarity)).name).to_upper(), 12 if n == 1 else 10, 700, rc)
+		rl.name = "Rarity"
 		rl.position = Vector2(6, chh - (28.0 if n == 1 else 20.0))
 		rl.size = Vector2(cw - 12.0, 16)
 		rl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -593,3 +612,51 @@ func _process(dt: float) -> void:
 			h.modulate.a = clampf((t - 1.95 - n * 0.09 - 0.5) / 0.4, 0.0, 1.0)
 		if t > 1.95 + n * 0.09 + 0.35:
 			_rdone = true
+
+
+## A reveal card's item name in `w` pixels: at the largest size from `fs` down to `min_fs` that fits on one
+## line, else on two lines split at a word, else (still too wide at `min_fs`) two lines with the end cut to an
+## ellipsis. Returns [lines (PackedStringArray), font size]. (Upstream's single reveal scales its name text
+## down to fit; its Locker cuts with an ellipsis.)
+static func fit_name(font: Font, text: String, w: float, fs: int, min_fs: int) -> Array:
+	var lo := maxi(min_fs, int(UITheme.min_font_size))
+	var words := text.split(" ", false)
+	for size in range(maxi(fs, lo), lo - 1, -1):
+		if _w(font, text, size) <= w:
+			return [PackedStringArray([text]), size]
+	for size in range(maxi(fs, lo), lo - 1, -1):
+		var best: Array = _split2(font, words, size)
+		if float(best[2]) <= w:
+			return [PackedStringArray([best[0], best[1]]), size]
+	var cut: Array = _split2(font, words, lo)
+	var a: String = _trim(font, str(cut[0]), w, lo, false)
+	var b: String = _trim(font, str(cut[1]), w, lo, false) if a == str(cut[0]) else ""
+	return [PackedStringArray([a, b]) if b != "" else PackedStringArray([a]), lo]
+
+
+static func _w(font: Font, s: String, size: int) -> float:
+	return font.get_string_size(s, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+
+
+# the split into two lines at a word with the narrower wider line: [first, second, its width]
+static func _split2(font: Font, words: PackedStringArray, size: int) -> Array:
+	var best := ["", "", INF]
+	for k in range(1, words.size()):
+		var a := " ".join(words.slice(0, k))
+		var b := " ".join(words.slice(k))
+		var m := maxf(_w(font, a, size), _w(font, b, size))
+		if m < float(best[2]):
+			best = [a, b, m]
+	if words.size() < 2:
+		best = [" ".join(words), "", _w(font, " ".join(words), size)]
+	return best
+
+
+# s cut at the end with an ellipsis until it is <= w (s itself when it fits and `always` is off)
+static func _trim(font: Font, s: String, w: float, size: int, always: bool) -> String:
+	if not always and _w(font, s, size) <= w:
+		return s
+	var t := s
+	while t.length() > 1 and _w(font, t.strip_edges() + "…", size) > w:
+		t = t.substr(0, t.length() - 1)
+	return t.strip_edges() + "…"
