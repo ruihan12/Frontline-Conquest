@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset.
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live.
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -751,6 +751,17 @@ Removed maps/upstream/of_didier.* and of_didierfrance.* (codes, json, thumb, til
 index.json "others" (131 to 129). tools/import_openfront.py skips both, so a re-import doesn't bring them back.
 build_web.sh copies of_*.codes.bin and tiles.bin, so they leave the web pack too. No sim change.
 
+### Client map size follows the match's map (range rings drawn in the wrong place)
+
+Owner report (Nov 28 2026, web): while placing artillery, its range ring was drawn far from the cursor.
+Cause: RWGameState.map (client/game_state.gd RWMapInfo) copied W and H from the game once, when the client
+state was made at boot. A match on a map of another size kept the boot size, so every client layer that turns a
+tile number into a position with `t % W`, `t / W` (RangeLayer rings and the build ring, FxLayer, the target card,
+UIRules and UIInteract tile math) was off. Structure icons use the game's own W, so they were right.
+Fix: RWMapInfo.W and H read g.W and g.H. tests/test_map_size_live.gd (new, in VERIFY) starts maps of three sizes
+in a row and checks the client's size and the artillery build ring's tile on each (4 fails without the fix).
+No sim change. Customs: none (the range system is unchanged).
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -784,6 +795,7 @@ build_web.sh copies of_*.codes.bin and tiles.bin, so they leave the web pack too
 | title screen clear | see git log | 467/0/5 | 3683567526 | 11.93 / 13.38 | same + title_reset 13/13 |
 | perf rerun, c04498a vs 33f84ff, alternating x4 | - | - | - | 10.85 11.03 11.51 12.17 (mean 11.39) vs 11.45 11.42 11.21 11.68 (mean 11.44) | - |
 | remove Didier maps | see git log | 467/0/5 | 3683567526 | 12.52 / 12.23 (ran beside a headless Chrome run) | same |
+| client map size live | see git log | 467/0/5 | 3683567526 | 11.44 / 11.52 | same + map_size_live 10/10 |
 
 ## Customs touched per step
 

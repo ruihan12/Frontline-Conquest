@@ -48,16 +48,20 @@ func reset_caches() -> void:
 class RWMapInfo:
 	extends RefCounted
 	var g
-	var W: int
-	var H: int
+	# The live map size: read from the game each time (a copy taken at boot went stale when a match
+	# started on a map of another size, and every tile position the client layers drew from it was off).
+	var W: int:
+		get:
+			return g.W
+	var H: int:
+		get:
+			return g.H
 	var contestable_count: int:
 		get:
 			return g.land_total
 
 	func _init(main) -> void:
 		g = main
-		W = main.W
-		H = main.H
 
 	var k_lin: float:
 		get:
