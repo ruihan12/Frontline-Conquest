@@ -1490,7 +1490,6 @@ func _unhandled_input(e: InputEvent) -> void:
 				for k in range(attacks.size() - 1, -1, -1):
 					if attacks[k].a == PLAYER:
 						retreat(attacks[k]); break
-			KEY_TAB: toggle_console()
 			KEY_M: hud_toggle_music()
 			KEY_HOME:
 				if client != null and state != "menu" and nations.size() > PLAYER: client.ctx.world.focus_owner(PLAYER)

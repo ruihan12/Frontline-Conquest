@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live, test_strike_sounds, test_crate_names.
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset, test_map_size_live, test_strike_sounds, test_crate_names, test_console_keys.
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -805,6 +805,18 @@ checks). The Shop and build-menu texts show the new numbers. The hash is unchang
 Arsenal structures, so the seed-5516 bot match fires no shell, strike or slug. test_luau_rules and
 test_luau_arsenal (GDScript vs Luau) pass.
 
+### Owner console on F2
+
+Owner request (Nov 28 2026): "Make the console open via the F keys if possible / If not, ESC, then TAB / It checks
+if the account is henry9149 first". F2: Microsoft's Edge shortcut list binds F1, F3, F4, F5, F6, F7, F9, F10, F11
+and F12, and leaves F2 and F8 to the page; in the web build F2 reaches the game (headless Chrome, a probe build
+logging keys: F2, F8, Esc and Tab all arrive during a match). game/shop.gd _input opens / closes the console on
+F2 or on Esc then Tab, in a match only; toggle_console still checks the owner's signed account token (or the local
+--console arg) first. A lone Tab also opened it for the owner (main.gd _unhandled_input still had KEY_TAB from
+before the Esc then Tab change); that line is gone. tests/test_console_keys.gd (new, in VERIFY): without a token
+or the arg, neither key opens it; it reruns itself with --console, where F2 opens and closes it, Esc then Tab
+opens it, a lone Tab doesn't, Esc closes it, and F2 does nothing on the title screen. No sim change.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -842,6 +854,7 @@ test_luau_arsenal (GDScript vs Luau) pass.
 | shell/strike sounds as upstream | see git log | 467/0/5 | 3683567526 | 11.01 / 10.66 (beside a headless Chrome run) | same + strike_sounds 30/30 |
 | crate reveal names fit | see git log | 467/0/5 | 3683567526 | 11.73 / 12.18, rerun 11.20 / 12.09 (beside a headless Chrome run; UI-only change, sim code untouched) | same + crate_names 8/8 |
 | strike buff x2.5 (owner custom) | see git log | 467/0/6 (473) | 3683567526 (bots build no Arsenal structures) | 11.42 / 11.22 | same |
+| owner console on F2 | see git log | 467/0/6 (473) | 3683567526 | 11.81 / 13.15; alternating HEAD vs this: 13.66 / 11.68 vs 12.88 / 12.78 (noise; input-only change) | same + console_keys 14/14 |
 
 ## Customs touched per step
 

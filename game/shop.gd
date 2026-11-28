@@ -64,8 +64,9 @@ func _input(e: InputEvent) -> void:
 	if e is InputEventKey and e.pressed and not e.echo:
 		if e.keycode == KEY_ESCAPE:
 			_esc_msec = Time.get_ticks_msec()
-		if e.keycode == KEY_TAB and (state == "play" or state == "pick") and (Input.is_key_pressed(KEY_ESCAPE) or Time.get_ticks_msec() - _esc_msec < 1500):
-			# the console opens with Esc then Tab (owner request 2026-11-25)
+		if (e.keycode == KEY_F2 or (e.keycode == KEY_TAB and (Input.is_key_pressed(KEY_ESCAPE) or Time.get_ticks_msec() - _esc_msec < 1500))) and (state == "play" or state == "pick"):
+			# the console opens with F2 (owner request 2026-11-28: an F key; F2 is one Edge and Chrome leave to the page)
+			# or with Esc then Tab (owner request 2026-11-25); toggle_console checks the owner's signed token first
 			toggle_console()
 			get_viewport().set_input_as_handled()
 		elif console_panel != null and console_panel.visible:
