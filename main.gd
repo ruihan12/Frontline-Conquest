@@ -1576,6 +1576,7 @@ func _attract_begin() -> void:
 	_attract_wait = 0.0
 	attract_on = true
 	_attract_t = 0.0
+	_clear_world_view()  # (nothing of the last world, match or attract, may be drawn over the new one)
 	attract_building = true
 	_start_game()  # (sets state "pick" and the pick UI: put the menu state back)
 	attract_building = false

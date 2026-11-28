@@ -77,6 +77,7 @@ func unbind() -> void:
 	_want.clear()
 	_unit = {}
 	_seen_tick = -1
+	_seen_structs = []
 
 
 ## Re-reads the ringed structures (upstream: reload plus the on_structure_* handlers).

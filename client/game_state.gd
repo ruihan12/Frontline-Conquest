@@ -33,6 +33,18 @@ var _atk_tick := -1
 var _attacks: Array = []
 
 
+
+## Drops every tick-keyed cache (the title screen and every attract sim start through main's
+## _clear_world_view): a new sim restarts its tick count, so a key from the last match could match again.
+func reset_caches() -> void:
+	_own_tick = -1; _owners.clear(); _by_id.clear()
+	_st_ver = -1; _st_tick = -1; _structs.clear()
+	_un_tick = -1; _units.clear()
+	_atk_tick = -1; _attacks.clear()
+	_bord_tick = -100; _bord.clear()
+	_coast_tick = -100; _coast.clear()
+	_nuke_tick = -1; _nukes.clear()
+
 class RWMapInfo:
 	extends RefCounted
 	var g

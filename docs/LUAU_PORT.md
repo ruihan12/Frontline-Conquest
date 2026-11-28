@@ -18,7 +18,7 @@ godot --headless --path . -s tests/perf_sim.gd -- --seed=12345            # AVG 
 
 Test list: test_ui_upstream, test_port_left, test_input_world, test_client_clicks, test_tutorial, test_map_camera,
 test_console_spawn, test_nav, test_net_match, test_net_rep, test_net_lobby, test_net_teams, test_progress_sync,
-test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge).
+test_luau_bridge (from Step 1), test_luau_rng (from Step 2), test_luau_rules (from Step 3), test_luau_state (from Step 4), test_defense_posts (from the multiplayer merge), test_title_reset.
 Known baseline failures that must not grow: test_lobby_ui 3, test_account_ui 55.
 
 Perf rule: never more than 25% above the pre-Step-A baseline at any step; the end result must be faster than it.
@@ -713,6 +713,37 @@ transports or warships (owner request 2026-11-26); plus the memory readout (clie
 Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tests as before plus defense_posts 10/10
 (lobby_ui 3, account_ui 55 known), perf_sim 12.57 / 12.34 (13.54 / 12.63 while the browser check ran).
 
+### Title screen: nothing of the last match is drawn over the attract sim
+
+Ruihan's report (Nov 28 2026, web, older than the Luau port): after a win and Return to title, the last match's
+structure icons, ships and nuke arcs stayed on screen over the title's attract sim.
+- Reproduced in the web build (headless Chrome for Testing 159, SwiftShader, Luau on): a World match with
+  structures, a warship per nation and nukes in flight, won, then the end screen's Return to title. Every sim list
+  was already empty, but the icons and ships stayed on screen for as long as the title ran (screenshots in
+  /mnt/project-files/rofront/title_leftovers/).
+- Cause: main.gd `_process` redraws the map overlay (where structures, ships, trains, munitions and nuke arcs are
+  drawn) only when the state is not "menu", and the title and its attract sim run in "menu". A CanvasItem keeps
+  its last drawing until it redraws, so the match's last frame stayed. Also stale: the client's tick-keyed caches
+  (client/game_state.gd structures(), units(), attacks()): the old sim_atk keeps its tick on the title, so units()
+  kept returning the match's ships, and a new attract sim reaching the same tick number could get them back; the
+  rail piece cache (road_layer), the rail edge cache, the range layer's struct list and the front labels; and, on
+  the Luau path, the missiles, munitions, trains and attacks Luau holds, with their GDScript mirrors, which were
+  only dropped at the next map's first flush.
+- Fix, in one place: game/ui_anim.gd `_clear_world_view()`, called by `_to_menu()` (the title starts) and by
+  main.gd `_attract_begin()` before the attract builds anything. It clears the round state and the supply drops,
+  resets sim_atk, the Luau lists (sim/luau_link.gd `reset_world`: SimAttacks, SimArsenal, SimRails, SimStructures
+  reset, mirrors cleared, the next flush sends the whole world again), the rail edge cache, the client caches
+  (`RWGameState.reset_caches`), the road layer (`RoadLayer.unbind`), the front labels and the range layer's struct
+  list, and asks the overlay, names, ranges, fronts, fx and fallout glow to redraw. No sim rule changed.
+- tests/test_title_reset.gd (new, in VERIFY), Luau and GDScript: a seeded match gets structures for every nation,
+  warships and nukes in flight, is won and goes to the title: all 39 (Luau) / 30 (GDScript) lists, caches, layer
+  counts and Luau lists are zero and the overlay redrew; then an attract sim gets the same, a new attract starts,
+  and before its first tick everything is zero again and the overlay redrew. Without the fix it fails 8 checks.
+- Web check after the fix: the same run shows the title and the attract sim clean.
+
+Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tests as before plus title_reset
+13/13 (lobby_ui 3, account_ui 55 known), perf_sim 11.93 / 13.38.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -743,9 +774,11 @@ Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tes
 | web log line | fb3ecd8 | 467/0/5 | 3480782660 | 12.22 / 13.28 | same |
 | web release fix | see git log | 467/0/5 | 3480782660 | 13.32 / 12.07 | same |
 | merge multiplayer (posts off) | f49e456 + see git log | 467/0/5 | 3683567526 (3480782660 with posts forced on) | 12.57 / 12.34 | same + defense_posts 10/10 |
+| title screen clear | see git log | 467/0/5 | 3683567526 | 11.93 / 13.38 | same + title_reset 13/13 |
 
 ## Customs touched per step
 
+- Title screen clear: none (a redraw and cache clears; no rule or number).
 - Multiplayer merge: none new here (defense posts off and the memory readout come from multiplayer as they are).
 - Step 6: none (docs and the PARITY.md header only).
 - Step 5d4: none (ship speed is unchanged: boat_speed and upstream's 1 tile per tick, the same product).

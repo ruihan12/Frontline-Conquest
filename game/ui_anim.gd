@@ -116,6 +116,26 @@ func _reset_menu_world() -> void:
 	gen_map()
 	_clear_round_state()
 
+## Every list and layer of the last world, cleared in one place: called when the title screen starts (_to_menu)
+## and when an attract sim starts (main.gd _attract_begin), before anything new is built. The sim lists, the lists
+## Luau keeps (and their GDScript mirrors), the client's tick-keyed caches and every map layer are emptied, and
+## each layer is asked to redraw. The overlay only redraws outside the menu (main.gd _process), so without the
+## explicit redraw the finished match's last frame (structure icons, ships, nuke arcs) stayed on screen over the
+## title's attract sim.
+func _clear_world_view() -> void:
+	_clear_round_state()
+	drops.clear()
+	if sim_atk != null: sim_atk.reset()
+	if sim_rails != null: sim_rails.luau_reset()
+	if luau_link != null: luau_link.reset_world(self)
+	_rail_edges_cache = []; _rail_edges_t = -1.0; _rail_edges_sv = -1
+	if client != null and client.ctx != null and client.ctx.state != null: client.ctx.state.reset_caches()
+	if road_layer != null: road_layer.unbind()
+	if fronts != null: fronts.entries.clear()
+	for ci in [overlay, names, ranges, fronts, fx_layer, fallout_glow]:
+		if ci != null and is_instance_valid(ci): (ci as CanvasItem).queue_redraw()
+	if note_box: note_box.queue_redraw()
+
 func _to_menu() -> void:
 	if net_remote or net_client != null or net_host != null:  # leaving an online match: drop the connection and the viewer/host state
 		var mpn := get_node_or_null("MPNode")
@@ -124,6 +144,7 @@ func _to_menu() -> void:
 	if audio_dir != null: audio_dir.end_match()
 	# every finished match leaves through here: the world, its structures and every cache are rebuilt (owner request 2026-11-25)
 	if nations.size() > 1 or not structs.is_empty() or state != "menu": _reset_menu_world()
+	_clear_world_view()
 	attract_on = false
 	state = "menu"
 	_stop_music()

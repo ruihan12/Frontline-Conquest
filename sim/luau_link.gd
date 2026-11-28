@@ -214,6 +214,24 @@ func _begin(g) -> void:
 	g.luau_frec = true
 
 
+## Empties every list Luau keeps for a match (attacks, missiles and munitions, rails and trains, structures) and
+## the GDScript mirrors of them, and makes the next flush send the whole world again. main's _clear_world_view
+## calls it when the title screen starts and when an attract sim starts, so nothing of the last match survives
+## in Luau until the next map's first flush.
+func reset_world(g) -> void:
+	if not on: return
+	for m in ["Core/SimAttacks", "Core/SimArsenal", "Core/SimRails", "Core/SimStructures"]:
+		if vm.call_fn(m, "reset", []) == null:
+			_fail(g, vm.last_error)
+			return
+	if g.get("sim_atk") != null: g.sim_atk.luau_reset()
+	if g.get("sim_ars") != null: g.sim_ars.luau_reset()
+	if g.get("sim_rails") != null: g.sim_rails.luau_reset()
+	g.luau_dirty.clear()
+	g.luau_fdirty.clear()
+	epoch = -1
+
+
 func _fail(g, msg: String) -> void:
 	error = msg
 	on = false

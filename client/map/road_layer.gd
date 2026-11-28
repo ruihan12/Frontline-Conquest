@@ -42,6 +42,12 @@ var _roads := {}
 var _recolor_at := -1.0
 
 
+## Drops the cached rail pieces (main's _clear_world_view: the title screen and every attract sim start).
+func unbind() -> void:
+	_roads.clear()
+	_recolor_at = -1.0
+
+
 func _init(main) -> void:
 	g = main
 	for n in KIND_ART:
