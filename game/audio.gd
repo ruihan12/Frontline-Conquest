@@ -1135,9 +1135,9 @@ func _porttest() -> void:
 	# ---- Rules formulas against hand values from Rules.luau
 	_pt(absf(R.sam_range(1) - 70.0 * SimRules.SAM_RADIUS_MULT / R.k_lin) < 1e-6, "sam_range(1) = 70 full-size tiles x SAM_RADIUS_MULT")
 	_pt(absf(R.sam_range_at(2, 0) - R.sam_range(1)) < 1e-6 and absf(R.sam_range_at(2, 45) - R.sam_range(2)) < 1e-6, "SAM range ramps over 45 ticks after an upgrade")
-	_pt(SimRules.strike_kill(SimRules.N_SHELL, 10000.0, 1.0) == 1440.0 and SimRules.strike_kill(SimRules.N_SHELL, 1000000.0, 1.0) == 19200.0 and SimRules.strike_kill(SimRules.N_SHELL, 100000.0, 1.0) == 2880.0, "shell kill 2.88% clamped 1440..19200")
-	_pt(SimRules.strike_kill(SimRules.N_AIRSTRIKE, 100000.0, 50.0) == 3000.0 and SimRules.strike_kill(SimRules.N_AIRSTRIKE, 100000.0, 200.0) == 6000.0, "air strike 60/tile up to 6%")
-	_pt(SimRules.strike_kill(SimRules.N_SLUG, 100000.0, 10.0) == 1500.0 and SimRules.strike_kill(SimRules.N_SLUG, 100000.0, 100.0) == 4000.0, "slug 150/tile up to 4%")
+	_pt(SimRules.strike_kill(SimRules.N_SHELL, 10000.0, 1.0) == 3600.0 and SimRules.strike_kill(SimRules.N_SHELL, 1000000.0, 1.0) == 48000.0 and SimRules.strike_kill(SimRules.N_SHELL, 100000.0, 1.0) == 7200.0, "shell kill 7.2% clamped 3600..48000 (upstream x2.5, owner custom)")
+	_pt(SimRules.strike_kill(SimRules.N_AIRSTRIKE, 100000.0, 50.0) == 7500.0 and SimRules.strike_kill(SimRules.N_AIRSTRIKE, 100000.0, 200.0) == 15000.0, "air strike 150/tile up to 15% (upstream x2.5, owner custom)")
+	_pt(SimRules.strike_kill(SimRules.N_SLUG, 100000.0, 10.0) == 3750.0 and SimRules.strike_kill(SimRules.N_SLUG, 100000.0, 100.0) == 10000.0, "slug 375/tile up to 10% (upstream x2.5, owner custom)")
 	_pt(SimRules.warship_max_hp(0) == 1000 and SimRules.warship_max_hp(3) == 1600 and SimRules.shell_damage(1, 0) == 200 and SimRules.shell_damage(5, 0) == 300 and SimRules.shell_damage(5, 3) == 480, "warship hp / shell damage table")
 	_pt(absf(SimRules.warhead_death(3000.0, 100000.0)) < 1e-9 and absf(SimRules.warhead_death(100000.0, 100000.0) - 500.0 * (1.0 - exp(-2.0 * 0.97))) < 1e-6, "warhead nukeDeathFactor")
 	_pt(SimRules.train_spawn_rate(1, 0) == int(floor(165.0 / SimRules.train_saturation(0))) and SimRules.reinforce_troops(90.0, 100.0) == 10.0, "train spawn rate / reinforce clamp")

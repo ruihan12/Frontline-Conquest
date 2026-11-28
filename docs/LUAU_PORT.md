@@ -790,6 +790,21 @@ already set them first (checked, unchanged). tests/test_crate_names.gd (new, in 
 card sizes, measured with the label's own font, fits inside its card above the rarity line; the two reported names
 show in full; Locker names are cut inside their cards. No sim change.
 
+### Artillery, air strike and railgun x2.5 (owner custom)
+
+Owner request (Nov 28 2026): "Buff all 3 by 2.5x", everything excluding reloads. Rule change, on both paths
+(sim/rules.gd and luau/sim/Core/Rules.luau, same literals): SHELL_KILL_FRAC 0.0288 to 0.072, SHELL_KILL_MIN /
+MAX 1,440 / 19,200 to 3,600 / 48,000, AIRSTRIKE_KILL_PER_TILE / FRAC 60 / 0.06 to 150 / 0.15, SLUG_KILL_PER_TILE /
+FRAC 150 / 0.04 to 375 / 0.1, STRIKE_DAMAGE 150 / 600 / 1000 to 375 / 1500 / 2500, ARTILLERY_RANGE_FULL 45 to 112.5,
+AIRFIELD_RANGE_FULL 156 to 390 (launch_range now reads those two instead of literals), NUKE_OUTER_FULL for shell /
+air strike / slug 1.5 / 15 / 5 to 3.75 / 37.5 / 12.5. SimRules.STRIKE_BUFF = 2.5 documents the factor. Unchanged:
+reloads (RELOAD_TICKS), battery gaps, rapid reload, cost, HP, build time, projectile speed. Note: a bigger radius
+also covers 6.25x the tiles, so air strike and slug kills grow up to their (also x2.5) % caps.
+Parity: the upstream checks for these values now expect upstream x2.5, plus one intentional line (467/0/6, 473
+checks). The Shop and build-menu texts show the new numbers. The hash is unchanged (3683567526): bots never build
+Arsenal structures, so the seed-5516 bot match fires no shell, strike or slug. test_luau_rules and
+test_luau_arsenal (GDScript vs Luau) pass.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -826,6 +841,7 @@ show in full; Locker names are cut inside their cards. No sim change.
 | client map size live | see git log | 467/0/5 | 3683567526 | 11.44 / 11.52 | same + map_size_live 10/10 |
 | shell/strike sounds as upstream | see git log | 467/0/5 | 3683567526 | 11.01 / 10.66 (beside a headless Chrome run) | same + strike_sounds 30/30 |
 | crate reveal names fit | see git log | 467/0/5 | 3683567526 | 11.73 / 12.18, rerun 11.20 / 12.09 (beside a headless Chrome run; UI-only change, sim code untouched) | same + crate_names 8/8 |
+| strike buff x2.5 (owner custom) | see git log | 467/0/6 (473) | 3683567526 (bots build no Arsenal structures) | 11.42 / 11.22 | same |
 
 ## Customs touched per step
 

@@ -513,12 +513,12 @@ func _build_bottom() -> void:
 		["8", "Atom Bomb", 750e3, "Tactical nuclear strike (7-tile blast radius) that leaves radioactive fallout."],
 		["9", "Hydrogen Bomb", 5e6, "Strategic nuclear blast (25-tile radius) that wipes structures and troops."],
 		["0", "MIRV", 25e6, "Splits over the aim into up to 350 warheads on the target's land. SAMs can't stop the carrier."],
-		["", "Artillery", 150e3, "Shells enemy land and buildings within 45 tiles every 4-7 s: kills 2.88% of the army hit (1,440-19,200), 150 damage to buildings."],
+		["", "Artillery", 150e3, "Shells enemy land and buildings within 113 tiles every 4-7 s: kills 7.2% of the army hit (3,600-48,000), 375 damage to buildings."],
 		["", "Mega Nuke", 2.5e6, "Twice an Atom Bomb's blast radius: four times the ground."],
 		["", "Scattershot", 3.75e6, "An atom-sized crater at the aim plus 4-6 warheads 28-46 full-size tiles around it (never on your or an ally's land)."],
 		["", "Reinforcements", 100e3, "Adds a fifth of your troop cap (never past it). 30 s cooldown."],
-		["", "Airfield", 500e3, "Build on your land. Aim at enemy land within 156 tiles for a free Air Strike (15-tile circle, up to 6% of the army, 600 to buildings). Rearms in 30 s."],
-		["", "Railgun", 2.5e6, "Build on your land. Aim anywhere for a free slug (5-tile circle, up to 4% of the army, 1,000 to buildings). Reloads in 25 s."],
+		["", "Airfield", 500e3, "Build on your land. Aim at enemy land within 390 tiles for a free Air Strike (38-tile circle, up to 15% of the army, 1,500 to buildings). Rearms in 30 s."],
+		["", "Railgun", 2.5e6, "Build on your land. Aim anywhere for a free slug (13-tile circle, up to 10% of the army, 2,500 to buildings). Reloads in 25 s."],
 		["I", "ICBM", 0.0, "Upgrade toggle, not a warhead: while ON every bomb you launch costs +10% and has a 20% SAM evasion, +20% speed, 20% shorter silo cooldown."]]
 	build_data = builds
 	var sx := 16.0

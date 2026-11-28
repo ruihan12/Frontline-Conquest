@@ -97,8 +97,8 @@ func run(H) -> void:
 	H.expect_near(r2.sam_range(1), 70.0 * SimRules.SAM_RADIUS_MULT / 2.0, 1e-6, "sam_range scales with 1/k_lin")
 	H.expect_near(r2.spawn_radius, 2.0, 1e-9, "spawn_radius scales with 1/k_lin")
 
-	H.expect_near(r.launch_range(SimRules.N_AIRSTRIKE), 156.0, 1e-9, "launch_range airstrike 156")
-	H.expect_near(r.launch_range(SimRules.N_SHELL), 45.0, 1e-9, "launch_range shell 45")
+	H.expect_near(r.launch_range(SimRules.N_AIRSTRIKE), 156.0 * SimRules.STRIKE_BUFF, 1e-9, "launch_range airstrike 156, x2.5 (owner custom)")
+	H.expect_near(r.launch_range(SimRules.N_SHELL), 45.0 * SimRules.STRIKE_BUFF, 1e-9, "launch_range shell 45, x2.5 (owner custom)")
 	H.expect_eq(r.launch_range(SimRules.N_ATOM), 0.0, "launch_range bombs 0 (range limits are the port's map-width fractions)")
 	H.expect_eq(SimRules.nuke_cost_named("atom"), 750000.0, "nuke_cost_named atom 750K")
 	H.expect_eq(SimRules.nuke_cost_named("mirv", 0), 25000000.0, "nuke_cost_named MIRV 25M")

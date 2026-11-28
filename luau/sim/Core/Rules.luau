@@ -136,7 +136,8 @@ Rules.NUKE_KIND_OF = { [7] = 0, [8] = 1, [9] = 2, [11] = 4, [12] = 5 }
 Rules.NUKE_COST = { [0] = 750000.0, 5000000.0, 25000000.0, 0.0, 2500000.0, 3750000.0, 0.0, 0.0, 0.0 }
 Rules.MIRV_COST_STEP = 15000000.0
 Rules.NUKE_INNER_FULL = { [0] = 12.0, 80.0, 0.0, 12.0, 24.0, 12.0, 0.0, 0.0, 0.0 }
-Rules.NUKE_OUTER_FULL = { [0] = 30.0, 100.0, 0.0, 18.0, 60.0, 30.0, 1.5, 15.0, 5.0 }
+-- shell / air strike / slug radii x2.5 (owner custom 2026-11-28, STRIKE_BUFF); upstream 1.5, 15, 5
+Rules.NUKE_OUTER_FULL = { [0] = 30.0, 100.0, 0.0, 18.0, 60.0, 30.0, 3.75, 37.5, 12.5 }
 Rules.NUKE_INTERCEPT_P = { [0] = 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0 }
 Rules.NUKE_SPEED_FULL = { [0] = 10.0, 10.0, 15.0, 22.0, 10.0, 10.0, 6.0, 8.0, 80.0 }
 Rules.NUKE_FLAT = { [0] = false, false, false, false, false, false, true, true, true }
@@ -158,20 +159,24 @@ Rules.RELOAD_TICKS = { [0] = 0, 0, 0, 0, 90, 90, 0, 300, 250 }
 -- our build ids -> Defs.S_*
 Rules.S_OF = { [0] = 0, [1] = 1, [2] = 2, [3] = 3, [4] = 4, [5] = 5, [10] = 6, [14] = 7, [15] = 8 }
 Rules.RAPID_RELOAD_MULT = 0.5
-Rules.ARTILLERY_RANGE_FULL = 45.0
+-- Owner custom (2026-11-28, "Buff all 3 by 2.5x", excluding reloads): artillery, air strike and railgun troop
+-- kills (per tile and % caps, the shell's min / max), structure damage, ranges and radii are upstream's x2.5.
+-- Reloads, battery gaps, cost, HP, build time and projectile speed stay upstream's. Same as sim/rules.gd.
+Rules.STRIKE_BUFF = 2.5
+Rules.ARTILLERY_RANGE_FULL = 112.5 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 45
 Rules.ARTILLERY_GAP_MIN = 40
 Rules.ARTILLERY_GAP_MAX = 70
 Rules.ARTILLERY_IDLE_TICKS = 20
 Rules.ARTILLERY_SAMPLES = 24
-Rules.SHELL_KILL_FRAC = 0.0288
-Rules.SHELL_KILL_MIN = 1440.0
-Rules.SHELL_KILL_MAX = 19200.0
-Rules.AIRFIELD_RANGE_FULL = 156.0
-Rules.AIRSTRIKE_KILL_PER_TILE = 60.0
-Rules.AIRSTRIKE_KILL_FRAC = 0.06
-Rules.SLUG_KILL_PER_TILE = 150.0
-Rules.SLUG_KILL_FRAC = 0.04
-Rules.STRIKE_DAMAGE = { [0] = 0, 0, 0, 0, 0, 0, 150, 600, 1000 }
+Rules.SHELL_KILL_FRAC = 0.072 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.0288
+Rules.SHELL_KILL_MIN = 3600.0 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 1440
+Rules.SHELL_KILL_MAX = 48000.0 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 19200
+Rules.AIRFIELD_RANGE_FULL = 390.0 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 156
+Rules.AIRSTRIKE_KILL_PER_TILE = 150.0 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 60
+Rules.AIRSTRIKE_KILL_FRAC = 0.15 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.06
+Rules.SLUG_KILL_PER_TILE = 375.0 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 150
+Rules.SLUG_KILL_FRAC = 0.1 -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.04
+Rules.STRIKE_DAMAGE = { [0] = 0, 0, 0, 0, 0, 0, 375, 1500, 2500 } -- owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 150, 600, 1000
 Rules.SCATTER_MIN = 4
 Rules.SCATTER_MAX = 6
 Rules.SCATTER_NEAR_FULL = 28.0
@@ -601,10 +606,10 @@ end
 
 function Rules.launch_range(self: any, kind: number): number
 	if kind == Rules.N_AIRSTRIKE then
-		return 156.0 / self.k_lin
+		return Rules.AIRFIELD_RANGE_FULL / self.k_lin
 	end
 	if kind == Rules.N_SHELL then
-		return 45.0 / self.k_lin
+		return Rules.ARTILLERY_RANGE_FULL / self.k_lin
 	end
 	return 0.0
 end

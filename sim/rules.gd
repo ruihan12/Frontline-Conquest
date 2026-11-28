@@ -303,7 +303,8 @@ const NUKE_KIND_OF := {7: N_ATOM, 8: N_HYDROGEN, 9: N_MIRV, 11: N_MEGA, 12: N_SC
 const NUKE_COST := [750000.0, 5000000.0, 25000000.0, 0.0, 2500000.0, 3750000.0, 0.0, 0.0, 0.0]
 const MIRV_COST_STEP := 15000000.0  # applied: main.nuke_cost adds it per MIRV launched this match
 const NUKE_INNER_FULL := [12.0, 80.0, 0.0, 12.0, 24.0, 12.0, 0.0, 0.0, 0.0]
-const NUKE_OUTER_FULL := [30.0, 100.0, 0.0, 18.0, 60.0, 30.0, 1.5, 15.0, 5.0]
+# shell / air strike / slug radii x2.5 (owner custom 2026-11-28, STRIKE_BUFF); upstream 1.5, 15, 5
+const NUKE_OUTER_FULL := [30.0, 100.0, 0.0, 18.0, 60.0, 30.0, 3.75, 37.5, 12.5]
 const NUKE_INTERCEPT_P := [1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0]
 const NUKE_SPEED_FULL := [10.0, 10.0, 15.0, 22.0, 10.0, 10.0, 6.0, 8.0, 80.0]
 const NUKE_FLAT := [false, false, false, false, false, false, true, true, true]
@@ -324,20 +325,24 @@ const RELOAD_TICKS := [0, 0, 0, 0, 90, 90, 0, 300, 250]
 # our build ids -> Defs.S_*
 const S_OF := {0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 10: 6, 14: 7, 15: 8}
 const RAPID_RELOAD_MULT := 0.5
-const ARTILLERY_RANGE_FULL := 45.0
+# Owner custom (2026-11-28, "Buff all 3 by 2.5x", excluding reloads): artillery, air strike and railgun troop
+# kills (per tile and % caps, the shell's min / max), structure damage, ranges and radii are upstream's x2.5.
+# Reloads, battery gaps, cost, HP, build time and projectile speed stay upstream's.
+const STRIKE_BUFF := 2.5
+const ARTILLERY_RANGE_FULL := 112.5  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 45
 const ARTILLERY_GAP_MIN := 40
 const ARTILLERY_GAP_MAX := 70
 const ARTILLERY_IDLE_TICKS := 20
 const ARTILLERY_SAMPLES := 24
-const SHELL_KILL_FRAC := 0.0288
-const SHELL_KILL_MIN := 1440.0
-const SHELL_KILL_MAX := 19200.0
-const AIRFIELD_RANGE_FULL := 156.0
-const AIRSTRIKE_KILL_PER_TILE := 60.0
-const AIRSTRIKE_KILL_FRAC := 0.06
-const SLUG_KILL_PER_TILE := 150.0
-const SLUG_KILL_FRAC := 0.04
-const STRIKE_DAMAGE := [0, 0, 0, 0, 0, 0, 150, 600, 1000]
+const SHELL_KILL_FRAC := 0.072  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.0288
+const SHELL_KILL_MIN := 3600.0  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 1440
+const SHELL_KILL_MAX := 48000.0  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 19200
+const AIRFIELD_RANGE_FULL := 390.0  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 156
+const AIRSTRIKE_KILL_PER_TILE := 150.0  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 60
+const AIRSTRIKE_KILL_FRAC := 0.15  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.06
+const SLUG_KILL_PER_TILE := 375.0  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 150
+const SLUG_KILL_FRAC := 0.1  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 0.04
+const STRIKE_DAMAGE := [0, 0, 0, 0, 0, 0, 375, 1500, 2500]  # owner custom 2026-11-28: x2.5 (STRIKE_BUFF), upstream 150, 600, 1000
 const SCATTER_MIN := 4
 const SCATTER_MAX := 6
 const SCATTER_NEAR_FULL := 28.0
@@ -468,8 +473,8 @@ static func nuke_cost_named(kind_name: String, mirvs_launched := 0) -> float:
 	return NUKE_COST[k]
 
 func launch_range(kind: int) -> float:
-	if kind == N_AIRSTRIKE: return 156.0 / k_lin
-	if kind == N_SHELL: return 45.0 / k_lin
+	if kind == N_AIRSTRIKE: return AIRFIELD_RANGE_FULL / k_lin
+	if kind == N_SHELL: return ARTILLERY_RANGE_FULL / k_lin
 	return 0.0
 
 
