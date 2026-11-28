@@ -744,6 +744,13 @@ structure icons, ships and nuke arcs stayed on screen over the title's attract s
 Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tests as before plus title_reset
 13/13 (lobby_ui 3, account_ui 55 known), perf_sim 11.93 / 13.38.
 
+### Others tab: Didier and Didier France removed
+
+Owner request (Nov 28 2026, screenshot of the two maps): remove Didier (1500x1348) and Didier France (1050x1124).
+Removed maps/upstream/of_didier.* and of_didierfrance.* (codes, json, thumb, tiles) and their two entries in
+index.json "others" (131 to 129). tools/import_openfront.py skips both, so a re-import doesn't bring them back.
+build_web.sh copies of_*.codes.bin and tiles.bin, so they leave the web pack too. No sim change.
+
 ## Results
 
 | step | commit | parity | hash (seed 5516, 6000 ticks) | perf AVG ms/tick (seed 12345) | tests |
@@ -775,9 +782,12 @@ Results (4.5.1): parity 467/0/5, sim_hash 3683567526 (whole and sliced), all tes
 | web release fix | see git log | 467/0/5 | 3480782660 | 13.32 / 12.07 | same |
 | merge multiplayer (posts off) | f49e456 + see git log | 467/0/5 | 3683567526 (3480782660 with posts forced on) | 12.57 / 12.34 | same + defense_posts 10/10 |
 | title screen clear | see git log | 467/0/5 | 3683567526 | 11.93 / 13.38 | same + title_reset 13/13 |
+| perf rerun, c04498a vs 33f84ff, alternating x4 | - | - | - | 10.85 11.03 11.51 12.17 (mean 11.39) vs 11.45 11.42 11.21 11.68 (mean 11.44) | - |
+| remove Didier maps | see git log | 467/0/5 | 3683567526 | 12.52 / 12.23 (ran beside a headless Chrome run) | same |
 
 ## Customs touched per step
 
+- Didier maps removed: Others tab (131 to 129 maps).
 - Title screen clear: none (a redraw and cache clears; no rule or number).
 - Multiplayer merge: none new here (defense posts off and the memory readout come from multiplayer as they are).
 - Step 6: none (docs and the PARITY.md header only).

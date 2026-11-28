@@ -5,7 +5,8 @@ import json, sys, zlib, os
 SRC = sys.argv[1]; DST = os.path.join(os.path.dirname(__file__), "..", "maps", "upstream")
 MAXT = 2_400_000
 SKIP = {"world","europe","northamerica","southamerica","asia","africa","oceania","unitedstates","middleeast",
-        "tutorial","onion","pangaea","world10000","tourney1","tourney2","tourney3","tourney4"}
+        "tutorial","onion","pangaea","world10000","tourney1","tourney2","tourney3","tourney4",
+        "didier","didierfrance"}  # removed on owner request 2026-11-28
 ids = []
 for d in sorted(os.listdir(SRC)):
     p = os.path.join(SRC, d, "manifest.json")
